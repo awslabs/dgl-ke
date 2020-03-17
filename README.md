@@ -34,7 +34,7 @@ Refer to the guide [here](https://docs.dgl.ai/install/index.html#install-from-so
 
 ## Performance and Scalability
 
-DGL-KE is designed for learning at scale, and it introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over 86M nodes and 338M edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a2×∼5×speedup overthe best competing approaches.
+DGL-KE is designed for learning at scale, and it introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in *100 minutes* on a EC2 instance with 8 GPUs and *30 minutes* on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
 
 ## License
 
