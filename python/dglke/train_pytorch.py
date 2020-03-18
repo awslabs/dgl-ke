@@ -17,8 +17,6 @@
 # limitations under the License.
 #
 
-from models import KEModel
-
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 import torch.optim as optim
@@ -28,7 +26,8 @@ from distutils.version import LooseVersion
 TH_VERSION = LooseVersion(th.__version__)
 if TH_VERSION.version[0] == 1 and TH_VERSION.version[1] < 2:
     raise Exception("DGL-ke has to work with Pytorch version >= 1.2")
-from models.pytorch.tensor_models import thread_wrapped_func
+from .models.pytorch.tensor_models import thread_wrapped_func
+from .models import KEModel
 
 import os
 import logging
@@ -39,8 +38,8 @@ import dgl
 from dgl.contrib import KVClient
 import dgl.backend as F
 
-from dataloader import EvalDataset
-from dataloader import get_dataset
+from .dataloader import EvalDataset
+from .dataloader import get_dataset
 
 class KGEClient(KVClient):
     """User-defined kvclient for DGL-KGE
