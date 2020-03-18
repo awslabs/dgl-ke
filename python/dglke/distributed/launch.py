@@ -104,9 +104,9 @@ def ssh_cmd(cmd_str, ip, user_name, ssh_key=None):
     """construct an ssh command
     """
     if ssh_key is None:
-        ssh_cmd_str = 'ssh %s@%s; cmd_str' %(user_name, ip)
+        ssh_cmd_str = 'ssh %s@%s \'%s\'' %(user_name, ip, cmd_str)
     else:
-        ssh_cmd_str = 'ssh -i %s %s@%s; cmd_str' %(ssh_key, user_name, ip)
+        ssh_cmd_str = 'ssh -i %s %s@%s \'%s\'' %(ssh_key, user_name, ip, cmd_str)
 
     return ssh_cmd_str
 
@@ -124,7 +124,7 @@ def launch(args):
             ip, port, count = line.strip().split(' ')
             server_id_low = machine_id * int(count)
             server_id_high = (machine_id+1) * int(count)
-            cmd_str = 'cd %s; rm *-shape; %s %d %d' % (args.path, args.script, server_id_low, server_id_high)
+            cmd_str = 'cd %s; %s %d %d' % (args.path, args.script, server_id_low, server_id_high)
             if is_local(ip) == False: # remote command
                 cmd_str = ssh_cmd(cmd_str, ip, args.user_name, args.ssh_key)
             job_list.append(run_cmd(cmd_str))
