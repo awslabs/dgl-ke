@@ -186,12 +186,22 @@ def get_local_machine_id(server_namebook):
     return res
 
 
+def get_machine_count(ip_config):
+    """Get total machine count
+    """
+    with open(ip_config) as f:
+        machine_count = len(f.readlines())
+
+    return machine_count
+
+
 def start_worker(args, logger):
     """Start kvclient for training
     """
     init_time_start = time.time()
     time.sleep(WAIT_TIME) # wait for launch script
 
+    args.total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
     args.machine_id = get_local_machine_id(server_namebook)
