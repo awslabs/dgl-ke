@@ -32,7 +32,8 @@ class ArgParser(argparse.ArgumentParser):
 
         self.add_argument('--path', type=str, help='path of distributed script.')
         self.add_argument('--script', type=str, help='distributed script file.')
-        self.add_argument('--ip_config', type=str, help='path of ip_config file.')
+        self.add_argument('--ip_config', type=str, default='ip_config.txt', 
+                          help='path of ip_config file.')
         self.add_argument('--user_name', type=str, help='user name for ssh.')
         self.add_argument('--ssh_key', type=str, help='ssh private key.')
 
