@@ -14,7 +14,7 @@ Get started with our [tutorials](https://docs.dgl.ai)!
 
 ## Installation
 
-DGL-KE is built in Python (version 3.6 or later) and relies on *[DGL](https://github.com/dmlc/dgl)* (at least version 0.4.2). The package can run with both *[Pytorch](https://pytorch.org/)* and *[MXNet](https://mxnet.apache.org/)*. For Pytorch, it works with Pytorch v1.2 or newer. For MXNet, it works with MXNet 1.5 or newer.
+DGL-KE is built in Python (version 3.6 or later) and relies on [DGL](https://github.com/dmlc/dgl) (at least version 0.4.2). The package can run with both [Pytorch](https://pytorch.org/) and [MXNet](https://mxnet.apache.org/). For Pytorch, it works with Pytorch v1.2 or newer. For MXNet, it works with MXNet 1.5 or newer.
 
 #### Using anaconda
 
