@@ -135,6 +135,9 @@ def launch(args):
         wait_job(job_list[i], cmd_list[i])
 
 
-if __name__ == '__main__':
+def main():
     args = ArgParser().parse_args()
     launch(args)
+
+if __name__ == '__main__':
+    main()
