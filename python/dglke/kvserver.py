@@ -120,7 +120,7 @@ def get_server_data(args, machine_id):
    return g2l, model.entity_emb.emb, model.entity_emb.state_sum, model.relation_emb.emb, model.relation_emb.state_sum
 
 
-def main(args):
+def start_server(args):
     """Start kvstore service
     """
     th.set_num_threads(NUM_THREAD)
@@ -152,6 +152,10 @@ def main(args):
     my_server.start()
     
 
-if __name__ == '__main__':
+def main():
     args = ArgParser().parse_args()
-    main(args)
+    start_server(args)
+
+
+if __name__ == '__main__':
+    main()

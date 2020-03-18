@@ -195,7 +195,7 @@ def get_machine_count(ip_config):
     return machine_count
 
 
-def main(args, logger):
+def start_client(args, logger):
     """Start kvclient for training
     """
     init_time_start = time.time()
@@ -288,7 +288,11 @@ def main(args, logger):
         proc.join()
 
 
-if __name__ == '__main__':
+def main():
     args = ArgParser().parse_args()
     logger = get_logger(args)
-    main(args, logger)
+    start_client(args, logger)   
+
+
+if __name__ == '__main__':
+    main()
