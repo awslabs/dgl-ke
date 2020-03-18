@@ -27,12 +27,12 @@ if os.name != 'nt':
     import fcntl
     import struct
 
-import torch.multiprocessing as mp
-from train_pytorch import load_model, dist_train_test
-from utils import get_compatible_batch_size
-
 import dgl
 import dgl.backend as F
+
+import torch.multiprocessing as mp
+from .train_pytorch import load_model, dist_train_test
+from .utils import get_compatible_batch_size
 
 from .train import get_logger
 from .dataloader import TrainDataset, NewBidirectionalOneShotIterator
@@ -186,12 +186,22 @@ def get_local_machine_id(server_namebook):
     return res
 
 
-def start_worker(args, logger):
+def get_machine_count(ip_config):
+    """Get total machine count
+    """
+    with open(ip_config) as f:
+        machine_count = len(f.readlines())
+
+    return machine_count
+
+
+def start_client(args, logger):
     """Start kvclient for training
     """
     init_time_start = time.time()
     time.sleep(WAIT_TIME) # wait for launch script
 
+    args.total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
     args.machine_id = get_local_machine_id(server_namebook)
@@ -278,7 +288,11 @@ def start_worker(args, logger):
         proc.join()
 
 
-if __name__ == '__main__':
+def main():
     args = ArgParser().parse_args()
     logger = get_logger(args)
-    start_worker(args, logger)
+    start_client(args, logger)   
+
+
+if __name__ == '__main__':
+    main()

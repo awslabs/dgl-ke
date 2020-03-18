@@ -150,13 +150,10 @@ class PartitionKGDataset():
 
     The triples are stored as 'head_id\relation_id\tail_id'.
     '''
-    def __init__(self, relation_path, train_path, local2global_path, 
-                 read_triple=True, skip_first_line=False):
+    def __init__(self, relation_path, train_path, local2global_path, read_triple=True):
         self.n_entities = _file_line(local2global_path)
-        if skip_first_line == False:
-            self.n_relations = _file_line(relation_path)
-        else:
-            self.n_relations = _file_line(relation_path) - 1
+        with open(relation_path) as f:
+            self.n_relations = int(f.readline().strip())
         if read_triple == True:
             self.train = self.read_triple(train_path, "train")
 
@@ -528,22 +525,12 @@ def get_partition_dataset(data_path, data_name, part_id):
     train_path = os.path.join(path, 'train.txt')
     local2global_path = os.path.join(path, 'local_to_global.txt')
     partition_book_path = os.path.join(path, 'partition_book.txt')
-
-    if data_name == 'Freebase':
-        relation_path = os.path.join(path, 'relation2id.txt')
-        skip_first_line = True
-    elif data_name in ['FB15k', 'FB15k-237', 'wn18', 'wn18rr']:
-        relation_path = os.path.join(path, 'relations.dict')
-        skip_first_line = False
-    else:
-        relation_path = os.path.join(path, 'relation.tsv')
-        skip_first_line = False
+    relation_path = os.path.join(path, 'relation_count.txt')
 
     dataset = PartitionKGDataset(relation_path, 
                                  train_path, 
                                  local2global_path, 
-                                 read_triple=True, 
-                                 skip_first_line=skip_first_line)
+                                 read_triple=True)
 
     partition_book = []
     with open(partition_book_path) as f:
@@ -568,22 +555,12 @@ def get_server_partition_dataset(data_path, data_name, part_id):
 
     train_path = os.path.join(path, 'train.txt')
     local2global_path = os.path.join(path, 'local_to_global.txt')    
-
-    if data_name == 'Freebase':
-        relation_path = os.path.join(path, 'relation2id.txt')
-        skip_first_line = True
-    elif data_name in ['FB15k', 'FB15k-237', 'wn18', 'wn18rr']:
-        relation_path = os.path.join(path, 'relations.dict')
-        skip_first_line = False
-    else:
-        relation_path = os.path.join(path, 'relation.tsv')
-        skip_first_line = False
+    relation_path = os.path.join(path, 'relation_count.txt')
 
     dataset = PartitionKGDataset(relation_path,
                                  train_path,
                                  local2global_path,
-                                 read_triple=False,
-                                 skip_first_line=skip_first_line)
+                                 read_triple=False)
 
     n_entities = _file_line(os.path.join(path, 'partition_book.txt'))
 

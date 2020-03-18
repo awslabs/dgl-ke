@@ -152,6 +152,10 @@ def start_server(args):
     my_server.start()
     
 
-if __name__ == '__main__':
+def main():
     args = ArgParser().parse_args()
     start_server(args)
+
+
+if __name__ == '__main__':
+    main()

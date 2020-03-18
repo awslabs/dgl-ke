@@ -26,7 +26,7 @@ from dgl.data.utils import load_graphs, save_graphs
 
 from .dataloader import get_dataset
 
-def write_txt_graph(path, file_name, part_dict, total_nodes):
+def write_txt_graph(path, file_name, part_dict, total_nodes, total_relations):
     partition_book = [0] * total_nodes
     for part_id in part_dict:
         print('write graph %d...' % part_id)
@@ -64,6 +64,13 @@ def write_txt_graph(path, file_name, part_dict, total_nodes):
         f = open(pb_file, 'w')
         for i in range(len(partition_book)):
             f.write(str(partition_book[i])+'\n')
+        f.close()
+    # Write relation_count.txt
+    for part_id in part_dict:
+        partition_path = path + str(part_id)
+        rel_count_file = os.path.join(partition_path, 'relation_count.txt')
+        f = open(rel_count_file, 'w')
+        f.write(str(total_relations)+'\n')
         f.close()
 
 def main():
@@ -116,7 +123,7 @@ def main():
 
     txt_file_graph = os.path.join(args.data_path, args.dataset)
     txt_file_graph = os.path.join(txt_file_graph, 'partition_')
-    write_txt_graph(txt_file_graph, 'train.txt', part_dict, g.number_of_nodes())
+    write_txt_graph(txt_file_graph, 'train.txt', part_dict, g.number_of_nodes(), dataset.n_relations)
 
     print('there are {} edges in the graph and {} edge cuts for {} partitions.'.format(
         g.number_of_edges(), g.number_of_edges() - tot_num_inner_edges, len(part_dict)))
