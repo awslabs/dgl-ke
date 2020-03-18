@@ -17,8 +17,6 @@
 # limitations under the License.
 #
 
-from models import KEModel
-
 import mxnet as mx
 from mxnet import gluon
 from mxnet import ndarray as nd
@@ -27,6 +25,8 @@ import os
 import logging
 import time
 import json
+
+from .models import KEModel
 
 def load_model(logger, args, n_entities, n_relations, ckpt=None):
     model = KEModel(args, args.model_name, n_entities, n_relations,

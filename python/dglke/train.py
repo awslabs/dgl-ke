@@ -17,28 +17,28 @@
 # limitations under the License.
 #
 
-from dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
-from dataloader import get_dataset
-
 import argparse
 import os
 import logging
 import time
 import json
 
-from utils import get_compatible_batch_size
+from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
+from .dataloader import get_dataset
+
+from .utils import get_compatible_batch_size
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
     import multiprocessing as mp
-    from train_mxnet import load_model
-    from train_mxnet import train
-    from train_mxnet import test
+    from .train_mxnet import load_model
+    from t.rain_mxnet import train
+    from tr.ain_mxnet import test
 else:
     import torch.multiprocessing as mp
-    from train_pytorch import load_model
-    from train_pytorch import train, train_mp
-    from train_pytorch import test, test_mp
+    from .train_pytorch import load_model
+    from .train_pytorch import train, train_mp
+    from .train_pytorch import test, test_mp
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -153,7 +153,10 @@ def get_logger(args):
     return logger
 
 
-def run(args, logger):
+def main():
+    args = ArgParser().parse_args()
+    logger = get_logger(args)
+
     init_time_start = time.time()
     # load dataset and samplers
     dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
@@ -396,6 +399,4 @@ def run(args, logger):
         print('testing takes {:.3f} seconds'.format(time.time() - start))
 
 if __name__ == '__main__':
-    args = ArgParser().parse_args()
-    logger = get_logger(args)
-    run(args, logger)
+    main()

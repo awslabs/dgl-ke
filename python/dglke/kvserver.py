@@ -26,8 +26,8 @@ from dgl.contrib import KVServer
 
 import torch as th
 
-from train_pytorch import load_model
-from dataloader import get_server_partition_dataset
+from .train_pytorch import load_model
+from .dataloader import get_server_partition_dataset
 
 
 NUM_THREAD = 1 # Fix the number of threads to 1 on kvstore

@@ -16,8 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from dataloader import get_dataset
 import scipy as sp
 import numpy as np
 import argparse
@@ -25,6 +23,8 @@ import os
 import dgl
 from dgl import backend as F
 from dgl.data.utils import load_graphs, save_graphs
+
+from .dataloader import get_dataset
 
 def write_txt_graph(path, file_name, part_dict, total_nodes):
     partition_book = [0] * total_nodes
