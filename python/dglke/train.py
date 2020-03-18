@@ -32,8 +32,8 @@ backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
     import multiprocessing as mp
     from .train_mxnet import load_model
-    from t.rain_mxnet import train
-    from tr.ain_mxnet import test
+    from .train_mxnet import train
+    from .train_mxnet import test
 else:
     import torch.multiprocessing as mp
     from .train_pytorch import load_model
