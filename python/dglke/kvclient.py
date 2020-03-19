@@ -107,18 +107,12 @@ class ArgParser(argparse.ArgumentParser):
                           help='set value > 0.0 if regularization is used')
         self.add_argument('-rn', '--regularization_norm', type=int, default=3,
                           help='norm used in regularization')
-        self.add_argument('--non_uni_weight', action='store_true',
-                          help='if use uniform weight when computing loss')
-        self.add_argument('--pickle_graph', action='store_true',
-                          help='pickle built graph, building a huge graph is slow.')
         self.add_argument('--num_proc', type=int, default=1,
                           help='number of process used')
         self.add_argument('--num_thread', type=int, default=1,
                           help='number of thread used')
         self.add_argument('--rel_part', action='store_true',
                           help='enable relation partitioning')
-        self.add_argument('--soft_rel_part', action='store_true',
-                          help='enable soft relation partition')
         self.add_argument('--async_update', action='store_true',
                           help='allow async_update on node embedding')
         self.add_argument('--force_sync_interval', type=int, default=-1,
@@ -229,7 +223,7 @@ def start_client(args, logger):
     train_data = TrainDataset(dataset, args, ranks=args.num_client)
     # if there is no cross partition relaiton, we fall back to strict_rel_part
     args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
-    args.soft_rel_part = args.mix_cpu_gpu and args.soft_rel_part and train_data.cross_part
+    args.soft_rel_part = args.mix_cpu_gpu and args.rel_part and train_data.cross_part
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = dataset.n_entities

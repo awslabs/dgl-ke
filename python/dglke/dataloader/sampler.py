@@ -286,19 +286,10 @@ def ConstructGraph(edges, n_entities, args):
     args :
         Global configs.
     """
-    pickle_name = 'graph_train.pickle'
-    if args.pickle_graph and os.path.exists(os.path.join(args.data_path, args.dataset, pickle_name)):
-        with open(os.path.join(args.data_path, args.dataset, pickle_name), 'rb') as graph_file:
-            g = pickle.load(graph_file)
-            print('Load pickled graph.')
-    else:
-        src, etype_id, dst = edges
-        coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
-        g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
-        g.edata['tid'] = F.tensor(etype_id, F.int64)
-        if args.pickle_graph:
-            with open(os.path.join(args.data_path, args.dataset, pickle_name), 'wb') as graph_file:
-                pickle.dump(g, graph_file)
+    src, etype_id, dst = edges
+    coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
+    g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
+    g.edata['tid'] = F.tensor(etype_id, F.int64)
     return g
 
 class TrainDataset(object):
@@ -570,22 +561,13 @@ class EvalDataset(object):
         Global configs.
     """
     def __init__(self, dataset, args):
-        pickle_name = 'graph_all.pickle'
-        if args.pickle_graph and os.path.exists(os.path.join(args.data_path, args.dataset, pickle_name)):
-            with open(os.path.join(args.data_path, args.dataset, pickle_name), 'rb') as graph_file:
-                g = pickle.load(graph_file)
-                print('Load pickled graph.')
-        else:
-            src = np.concatenate((dataset.train[0], dataset.valid[0], dataset.test[0]))
-            etype_id = np.concatenate((dataset.train[1], dataset.valid[1], dataset.test[1]))
-            dst = np.concatenate((dataset.train[2], dataset.valid[2], dataset.test[2]))
-            coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
-                                       shape=[dataset.n_entities, dataset.n_entities])
-            g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
-            g.edata['tid'] = F.tensor(etype_id, F.int64)
-            if args.pickle_graph:
-                with open(os.path.join(args.data_path, args.dataset, pickle_name), 'wb') as graph_file:
-                    pickle.dump(g, graph_file)
+        src = np.concatenate((dataset.train[0], dataset.valid[0], dataset.test[0]))
+        etype_id = np.concatenate((dataset.train[1], dataset.valid[1], dataset.test[1]))
+        dst = np.concatenate((dataset.train[2], dataset.valid[2], dataset.test[2]))
+        coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
+                                    shape=[dataset.n_entities, dataset.n_entities])
+        g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
+        g.edata['tid'] = F.tensor(etype_id, F.int64)
         self.g = g
         self.num_train = len(dataset.train[0])
         self.num_valid = len(dataset.valid[0])
