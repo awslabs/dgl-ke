@@ -309,12 +309,9 @@ class TrainDataset(object):
         num_train = len(triples[0])
         print('|Train|:', num_train)
 
-        if ranks > 1 and args.soft_rel_part:
+        if ranks > 1 and args.rel_part:
             self.edge_parts, self.rel_parts, self.cross_part, self.cross_rels = \
             SoftRelationPartition(triples, ranks)
-        elif ranks > 1 and args.rel_part:
-            self.edge_parts, self.rel_parts, self.cross_part = \
-                BalancedRelationPartition(triples, ranks)
         elif ranks > 1:
             self.edge_parts = RandomPartition(triples, ranks)
             self.cross_part = True
