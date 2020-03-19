@@ -107,10 +107,6 @@ class ArgParser(argparse.ArgumentParser):
                           help='set value > 0.0 if regularization is used')
         self.add_argument('-rn', '--regularization_norm', type=int, default=3,
                           help='norm used in regularization')
-        self.add_argument('--non_uni_weight', action='store_true',
-                          help='if use uniform weight when computing loss')
-        self.add_argument('--pickle_graph', action='store_true',
-                          help='pickle built graph, building a huge graph is slow.')
         self.add_argument('--num_proc', type=int, default=1,
                           help='number of process used')
         self.add_argument('--num_thread', type=int, default=1,

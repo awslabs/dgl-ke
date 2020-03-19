@@ -67,7 +67,7 @@ class ArgParser(argparse.ArgumentParser):
                           help='batch size')
         self.add_argument('--batch_size_eval', type=int, default=8,
                           help='batch size used for eval and test')
-        self.add_argument('--neg_sample_size', type=int, default=128,
+        self.add_argument('--neg_sample_size', type=int, default=256,
                           help='negative sampling size')
         self.add_argument('--neg_deg_sample', action='store_true',
                           help='negative sample proportional to vertex degree in the training')
@@ -77,9 +77,9 @@ class ArgParser(argparse.ArgumentParser):
                           help='negative sampling size for evaluation')
         self.add_argument('--eval_percent', type=float, default=1,
                           help='sample some percentage for evaluation.')
-        self.add_argument('--hidden_dim', type=int, default=256,
+        self.add_argument('--hidden_dim', type=int, default=400,
                           help='hidden dim used by relation and entity')
-        self.add_argument('--lr', type=float, default=0.0001,
+        self.add_argument('--lr', type=float, default=0.01,
                           help='learning rate')
         self.add_argument('-g', '--gamma', type=float, default=12.0,
                           help='margin value')
@@ -109,10 +109,6 @@ class ArgParser(argparse.ArgumentParser):
                           help='set value > 0.0 if regularization is used')
         self.add_argument('-rn', '--regularization_norm', type=int, default=3,
                           help='norm used in regularization')
-        self.add_argument('--non_uni_weight', action='store_true',
-                          help='if use uniform weight when computing loss')
-        self.add_argument('--pickle_graph', action='store_true',
-                          help='pickle built graph, building a huge graph is slow.')
         self.add_argument('--num_proc', type=int, default=1,
                           help='number of process used')
         self.add_argument('--num_thread', type=int, default=1,

@@ -114,7 +114,6 @@ def main(args):
 
     # load dataset and samplers
     dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
-    args.pickle_graph = False
     args.train = False
     args.valid = False
     args.test = True

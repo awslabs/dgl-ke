@@ -387,13 +387,13 @@ class KEModel(object):
 
         # subsampling weight
         # TODO: add subsampling to new sampler
-        if self.args.non_uni_weight:
-            subsampling_weight = pos_g.edata['weight']
-            pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()
-            neg_score = (neg_score * subsampling_weight).sum() / subsampling_weight.sum()
-        else:
-            pos_score = pos_score.mean()
-            neg_score = neg_score.mean()
+        #if self.args.non_uni_weight:
+        #    subsampling_weight = pos_g.edata['weight']
+        #    pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()
+        #    neg_score = (neg_score * subsampling_weight).sum() / subsampling_weight.sum()
+        #else:
+        pos_score = pos_score.mean()
+        neg_score = neg_score.mean()
 
         # compute loss
         loss = -(pos_score + neg_score) / 2
