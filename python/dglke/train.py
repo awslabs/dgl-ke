@@ -115,8 +115,6 @@ class ArgParser(argparse.ArgumentParser):
                           help='number of thread used')
         self.add_argument('--rel_part', action='store_true',
                           help='enable relation partitioning')
-        self.add_argument('--soft_rel_part', action='store_true',
-                          help='enable soft relation partition')
         self.add_argument('--async_update', action='store_true',
                           help='allow async_update on node embedding')
         self.add_argument('--force_sync_interval', type=int, default=-1,
@@ -169,7 +167,7 @@ def main():
     train_data = TrainDataset(dataset, args, ranks=args.num_proc)
     # if there is no cross partition relaiton, we fall back to strict_rel_part
     args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
-    args.soft_rel_part = args.mix_cpu_gpu and args.soft_rel_part and train_data.cross_part
+    args.soft_rel_part = args.mix_cpu_gpu and args.rel_part and train_data.cross_part
     args.num_workers = 8 # fix num_worker to 8
 
     if args.num_proc > 1:
