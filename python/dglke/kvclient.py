@@ -121,9 +121,12 @@ def start_client(args, logger):
     init_time_start = time.time()
     time.sleep(WAIT_TIME) # wait for launch script
 
-    args.gpu = [-1] # We cannot support gpu distributed training yet
+    # We cannot support gpu distributed training yet
+    args.gpu = [-1] 
     args.mix_cpu_gpu = False
-    args.rel_part = False # We don't use relation partition in distributed training yet
+    # We don't use relation partition in distributed training yet
+    args.rel_part = False 
+    args.strict_rel_part = False
     args.total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
