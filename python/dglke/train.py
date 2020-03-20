@@ -112,10 +112,10 @@ def main():
     if args.neg_deg_sample_eval:
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
+    args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
     train_data = TrainDataset(dataset, args, ranks=args.num_proc)
     # if there is no cross partition relaiton, we fall back to strict_rel_part
     args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
-    args.soft_rel_part = args.mix_cpu_gpu and args.rel_part and train_data.cross_part
     args.num_workers = 8 # fix num_worker to 8
 
     if args.num_proc > 1:
