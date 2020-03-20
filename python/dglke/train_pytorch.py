@@ -246,8 +246,8 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
     client.barrier()
     train_time_start = time.time()
     train(args, model, train_sampler, None, rank, rel_parts, cross_rels, barrier, client)
+    total_train_time = time.time() - train_time_start
     client.barrier()
-    print('Total train time {:.3f} seconds'.format(time.time() - train_time_start))
 
     model = None
 
@@ -295,7 +295,8 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             start = end
             end += count
             percent += 1
-
+        
+        print('Total train time {:.3f} seconds'.format(total_train_time))
         if not args.no_save_emb:
             print("save model to %s ..." % args.save_path)
             save_model(args, model_test)
@@ -357,5 +358,4 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             for proc in procs:
                 proc.join()
 
-        if client.get_id() == 0:
-            client.shut_down()
+        client.shut_down() # shut down kvserver
