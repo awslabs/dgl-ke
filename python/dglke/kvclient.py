@@ -124,6 +124,7 @@ def start_client(args, logger):
     # We cannot support gpu distributed training yet
     args.gpu = [-1] 
     args.mix_cpu_gpu = False
+    args.async_update = False
     # We don't use relation partition in distributed training yet
     args.rel_part = False 
     args.strict_rel_part = False
