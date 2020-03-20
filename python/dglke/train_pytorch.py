@@ -281,7 +281,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         count = int(model_test.n_entities / 100)
         end = start + count
         while True:
-            print("Pull %d / 100 ..." % percent)
+            print("Pull model from kvstore: %d / 100 ..." % percent)
             if end >= model_test.n_entities:
                 end = -1
             tmp_id = entity_id[start:end]
@@ -293,9 +293,9 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             end += count
             percent += 1
 
-            if not args.no_save_emb:
-                print("save model to %s ..." % args.save_path)
-                save_model(args, model_test)
+        if not args.no_save_emb:
+            print("save model to %s ..." % args.save_path)
+            save_model(args, model_test)
 
         if args.test:
             args.num_thread = 1
