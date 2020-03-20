@@ -129,6 +129,8 @@ def start_client(args, logger):
     args.rel_part = False 
     args.strict_rel_part = False
     args.soft_rel_part = False
+    # We don't support validation in distributed training
+    args.valid = False
     args.total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
