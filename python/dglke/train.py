@@ -17,7 +17,6 @@
 # limitations under the License.
 #
 
-import argparse
 import os
 import logging
 import time
@@ -26,7 +25,7 @@ import json
 from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset
 
-from .utils import get_compatible_batch_size
+from .utils import get_compatible_batch_size, save_model, CommonArgParser
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
@@ -40,85 +39,23 @@ else:
     from .train_pytorch import train, train_mp
     from .train_pytorch import test, test_mp
 
-class ArgParser(argparse.ArgumentParser):
+class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
 
-        self.add_argument('--model_name', default='TransE',
-                          choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
-                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE'],
-                          help='model to use')
-        self.add_argument('--data_path', type=str, default='data',
-                          help='root path of all dataset')
-        self.add_argument('--dataset', type=str, default='FB15k',
-                          help='dataset name, under data_path')
-        self.add_argument('--format', type=str, default='built_in',
-                          help='the format of the dataset, it can be built_in,'\
-                                'raw_udd_{htr} and udd_{htr}')
-        self.add_argument('--data_files', type=str, default=None, nargs='+',
-                          help='a list of data files, e.g. entity relation train valid test')
-        self.add_argument('--save_path', type=str, default='ckpts',
-                          help='place to save models and logs')
-        self.add_argument('--save_emb', type=str, default=None,
-                          help='save the embeddings in the specific location.')
-        self.add_argument('--max_step', type=int, default=80000,
-                          help='train xx steps')
-        self.add_argument('--batch_size', type=int, default=1024,
-                          help='batch size')
-        self.add_argument('--batch_size_eval', type=int, default=8,
-                          help='batch size used for eval and test')
-        self.add_argument('--neg_sample_size', type=int, default=256,
-                          help='negative sampling size')
-        self.add_argument('--neg_deg_sample', action='store_true',
-                          help='negative sample proportional to vertex degree in the training')
-        self.add_argument('--neg_deg_sample_eval', action='store_true',
-                          help='negative sampling proportional to vertex degree in the evaluation')
-        self.add_argument('--neg_sample_size_eval', type=int, default=-1,
-                          help='negative sampling size for evaluation')
-        self.add_argument('--eval_percent', type=float, default=1,
-                          help='sample some percentage for evaluation.')
-        self.add_argument('--hidden_dim', type=int, default=400,
-                          help='hidden dim used by relation and entity')
-        self.add_argument('--lr', type=float, default=0.01,
-                          help='learning rate')
-        self.add_argument('-g', '--gamma', type=float, default=12.0,
-                          help='margin value')
-        self.add_argument('--no_eval_filter', action='store_true',
-                          help='do not filter positive edges among negative edges for evaluation')
         self.add_argument('--gpu', type=int, default=[-1], nargs='+', 
-                          help='a list of active gpu ids, e.g. 0 1 2 4')
+                          help='A list of gpu ids, e.g. 0 1 2 4')
         self.add_argument('--mix_cpu_gpu', action='store_true',
-                          help='mix CPU and GPU training')
-        self.add_argument('-de', '--double_ent', action='store_true',
-                          help='double entitiy dim for complex number')
-        self.add_argument('-dr', '--double_rel', action='store_true',
-                          help='double relation dim for complex number')
-        self.add_argument('-log', '--log_interval', type=int, default=1000,
-                          help='do evaluation after every x steps')
-        self.add_argument('--eval_interval', type=int, default=10000,
-                          help='do evaluation after every x steps')
-        self.add_argument('-adv', '--neg_adversarial_sampling', action='store_true',
-                          help='if use negative adversarial sampling')
-        self.add_argument('-a', '--adversarial_temperature', default=1.0, type=float,
-                          help='adversarial_temperature')
+                          help='Training a knowledge graph embedding model with both CPUs and GPUs.'\
+                                  'The embeddings are stored in CPU memory and the training is performed in GPUs.'\
+                                  'This is usually used for training a large knowledge graph embeddings.')
         self.add_argument('--valid', action='store_true',
-                          help='if valid a model')
-        self.add_argument('--test', action='store_true',
-                          help='if test a model')
-        self.add_argument('-rc', '--regularization_coef', type=float, default=0.000002,
-                          help='set value > 0.0 if regularization is used')
-        self.add_argument('-rn', '--regularization_norm', type=int, default=3,
-                          help='norm used in regularization')
-        self.add_argument('--num_proc', type=int, default=1,
-                          help='number of process used')
-        self.add_argument('--num_thread', type=int, default=1,
-                          help='number of thread used')
+                          help='Evaluate the model on the validation set in the training.')
         self.add_argument('--rel_part', action='store_true',
-                          help='enable relation partitioning')
+                          help='Enable relation partitioning for multi-GPU training.')
         self.add_argument('--async_update', action='store_true',
-                          help='allow async_update on node embedding')
-        self.add_argument('--force_sync_interval', type=int, default=-1,
-                          help='We force a synchronization between processes every x steps')
+                          help='Allow asynchronous update on node embedding for multi-GPU training.'\
+                                  'This overlaps CPU and GPU computation to speed up.')
 
 
 def get_logger(args):
@@ -159,6 +96,18 @@ def main():
         args.neg_sample_size_eval = dataset.n_entities
     args.batch_size = get_compatible_batch_size(args.batch_size, args.neg_sample_size)
     args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+    # We should turn on mix CPU-GPU training for multi-GPU training.
+    if len(args.gpu) > 1:
+        args.mix_cpu_gpu = True
+        if args.num_proc < len(args.gpu):
+            args.num_proc = len(args.gpu)
+    # We need to ensure that the number of processes should match the number of GPUs.
+    if len(args.gpu) > 1 and args.num_proc > 1:
+        assert args.num_proc % len(args.gpu) == 0, \
+                'The number of processes needs to be divisible by the number of GPUs'
+    # For multiprocessing training, we need to ensure that training processes are synchronized periodically.
+    if args.num_proc > 1:
+        args.force_sync_interval = 1000
 
     args.eval_filter = not args.no_eval_filter
     if args.neg_deg_sample_eval:
@@ -334,29 +283,8 @@ def main():
 
     print('training takes {} seconds'.format(time.time() - start))
 
-    if args.save_emb is not None:
-        if not os.path.exists(args.save_emb):
-            os.mkdir(args.save_emb)
-        model.save_emb(args.save_emb, args.dataset)
-
-        # We need to save the model configurations as well.
-        conf_file = os.path.join(args.save_emb, 'config.json')
-        with open(conf_file, 'w') as outfile:
-            json.dump({'dataset': args.dataset,
-                       'model': args.model_name,
-                       'emb_size': args.hidden_dim,
-                       'max_train_step': args.max_step,
-                       'batch_size': args.batch_size,
-                       'neg_sample_size': args.neg_sample_size,
-                       'lr': args.lr,
-                       'gamma': args.gamma,
-                       'double_ent': args.double_ent,
-                       'double_rel': args.double_rel,
-                       'neg_adversarial_sampling': args.neg_adversarial_sampling,
-                       'adversarial_temperature': args.adversarial_temperature,
-                       'regularization_coef': args.regularization_coef,
-                       'regularization_norm': args.regularization_norm},
-                       outfile, indent=4)
+    if not args.no_save_emb:
+        save_model(args, model)
 
     # test
     if args.test:

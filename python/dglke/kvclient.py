@@ -32,7 +32,7 @@ import dgl.backend as F
 
 import torch.multiprocessing as mp
 from .train_pytorch import load_model, dist_train_test
-from .utils import get_compatible_batch_size
+from .utils import get_compatible_batch_size, CommonArgParser
 
 from .train import get_logger
 from .dataloader import TrainDataset, NewBidirectionalOneShotIterator
@@ -40,83 +40,9 @@ from .dataloader import get_dataset, get_partition_dataset
 
 WAIT_TIME = 10
 
-class ArgParser(argparse.ArgumentParser):
+class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
-
-        self.add_argument('--model_name', default='TransE',
-                          choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
-                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE'],
-                          help='model to use')
-        self.add_argument('--data_path', type=str, default='../data',
-                          help='root path of all dataset')
-        self.add_argument('--dataset', type=str, default='FB15k',
-                          help='dataset name, under data_path')
-        self.add_argument('--format', type=str, default='built_in',
-                          help='the format of the dataset, it can be built_in,'\
-                                'raw_udd_{htr} and udd_{htr}')
-        self.add_argument('--save_path', type=str, default='../ckpts',
-                          help='place to save models and logs')
-        self.add_argument('--save_emb', type=str, default=None,
-                          help='save the embeddings in the specific location.')
-        self.add_argument('--max_step', type=int, default=80000,
-                          help='train xx steps')
-        self.add_argument('--batch_size', type=int, default=1024,
-                          help='batch size')
-        self.add_argument('--batch_size_eval', type=int, default=8,
-                          help='batch size used for eval and test')
-        self.add_argument('--neg_sample_size', type=int, default=128,
-                          help='negative sampling size')
-        self.add_argument('--neg_deg_sample', action='store_true',
-                          help='negative sample proportional to vertex degree in the training')
-        self.add_argument('--neg_deg_sample_eval', action='store_true',
-                          help='negative sampling proportional to vertex degree in the evaluation')
-        self.add_argument('--neg_sample_size_eval', type=int, default=-1,
-                          help='negative sampling size for evaluation')
-        self.add_argument('--hidden_dim', type=int, default=256,
-                          help='hidden dim used by relation and entity')
-        self.add_argument('--lr', type=float, default=0.0001,
-                          help='learning rate')
-        self.add_argument('-g', '--gamma', type=float, default=12.0,
-                          help='margin value')
-        self.add_argument('--no_eval_filter', action='store_true',
-                          help='do not filter positive edges among negative edges for evaluation')
-        self.add_argument('--gpu', type=int, default=[-1], nargs='+', 
-                          help='a list of active gpu ids, e.g. 0 1 2 4')
-        self.add_argument('--mix_cpu_gpu', action='store_true',
-                          help='mix CPU and GPU training')
-        self.add_argument('-de', '--double_ent', action='store_true',
-                          help='double entitiy dim for complex number')
-        self.add_argument('-dr', '--double_rel', action='store_true',
-                          help='double relation dim for complex number')
-        self.add_argument('-log', '--log_interval', type=int, default=1000,
-                          help='do evaluation after every x steps')
-        self.add_argument('--eval_interval', type=int, default=10000,
-                          help='do evaluation after every x steps')
-        self.add_argument('--eval_percent', type=float, default=1,
-                          help='sample some percentage for evaluation.')
-        self.add_argument('-adv', '--neg_adversarial_sampling', action='store_true',
-                          help='if use negative adversarial sampling')
-        self.add_argument('-a', '--adversarial_temperature', default=1.0, type=float,
-                          help='adversarial_temperature')
-        self.add_argument('--valid', action='store_true',
-                          help='if valid a model')
-        self.add_argument('--test', action='store_true',
-                          help='if test a model')
-        self.add_argument('-rc', '--regularization_coef', type=float, default=0.000002,
-                          help='set value > 0.0 if regularization is used')
-        self.add_argument('-rn', '--regularization_norm', type=int, default=3,
-                          help='norm used in regularization')
-        self.add_argument('--num_proc', type=int, default=1,
-                          help='number of process used')
-        self.add_argument('--num_thread', type=int, default=1,
-                          help='number of thread used')
-        self.add_argument('--rel_part', action='store_true',
-                          help='enable relation partitioning')
-        self.add_argument('--async_update', action='store_true',
-                          help='allow async_update on node embedding')
-        self.add_argument('--force_sync_interval', type=int, default=-1,
-                          help='We force a synchronization between processes every x steps')
 
         self.add_argument('--machine_id', type=int, default=0,
                           help='Unique ID of current machine.')
@@ -221,9 +147,6 @@ def start_client(args, logger):
     local2global.share_memory_()
 
     train_data = TrainDataset(dataset, args, ranks=args.num_client)
-    # if there is no cross partition relaiton, we fall back to strict_rel_part
-    args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
-    args.soft_rel_part = args.mix_cpu_gpu and args.rel_part and train_data.cross_part
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = dataset.n_entities
