@@ -310,8 +310,10 @@ def main():
             
             for metric in logs[0].keys():
                 metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+            print("-------------- Test result --------------")
             for k, v in metrics.items():
                 print('Test average {} : {}'.format(k, v))
+            print("-----------------------------------------")
 
             for proc in procs:
                 proc.join()
