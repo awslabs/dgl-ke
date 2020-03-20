@@ -127,6 +127,7 @@ def start_client(args, logger):
     # We don't use relation partition in distributed training yet
     args.rel_part = False 
     args.strict_rel_part = False
+    args.soft_rel_part = False
     args.total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
