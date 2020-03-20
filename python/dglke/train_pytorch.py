@@ -28,6 +28,7 @@ if TH_VERSION.version[0] == 1 and TH_VERSION.version[1] < 2:
     raise Exception("DGL-ke has to work with Pytorch version >= 1.2")
 from .models.pytorch.tensor_models import thread_wrapped_func
 from .models import KEModel
+from .utils import save_model
 
 import os
 import logging
@@ -292,10 +293,8 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             end += count
             percent += 1
 
-            if args.save_emb is not None:
-                if not os.path.exists(args.save_emb):
-                    os.mkdir(args.save_emb)
-                model.save_emb(args.save_emb, args.dataset)
+            if not args.no_save_emb:
+                save_model(args, model)
 
         if args.test:
             args.num_thread = 1

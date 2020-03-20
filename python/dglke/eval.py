@@ -107,7 +107,8 @@ def get_logger(args):
     return logger
 
 
-def main(args):
+def main():
+    args = ArgParser().parse_args()
     args.eval_filter = not args.no_eval_filter
     if args.neg_deg_sample_eval:
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
@@ -211,6 +212,4 @@ def main(args):
     print('Test takes {:.3f} seconds'.format(time.time() - start))
 
 if __name__ == '__main__':
-    args = ArgParser().parse_args()
-    main(args)
-
+    main()
