@@ -161,19 +161,22 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
             barrier.wait()
 
         if (step + 1) % args.log_interval == 0:
-            for k in logs[0].keys():
-                v = sum(l[k] for l in logs) / len(logs)
-                print('[{}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
-            logs = []
-            print('[{}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
-                                                            time.time() - start))
-            print('[{}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
-                rank, sample_time, forward_time, backward_time, update_time))
-            sample_time = 0
-            update_time = 0
-            forward_time = 0
-            backward_time = 0
-            start = time.time()
+            if (client is not None) and (client.get_machine_id() != 0):
+                pass
+            else:
+                for k in logs[0].keys():
+                    v = sum(l[k] for l in logs) / len(logs)
+                    print('[{}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
+                logs = []
+                print('[{}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
+                                                                time.time() - start))
+                print('[{}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
+                    rank, sample_time, forward_time, backward_time, update_time))
+                sample_time = 0
+                update_time = 0
+                forward_time = 0
+                backward_time = 0
+                start = time.time()
 
         if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
             valid_start = time.time()
@@ -243,12 +246,12 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
     client.barrier()
     train_time_start = time.time()
     train(args, model, train_sampler, None, rank, rel_parts, cross_rels, barrier, client)
+    total_train_time = time.time() - train_time_start
     client.barrier()
-    print('Total train time {:.3f} seconds'.format(time.time() - train_time_start))
 
     model = None
 
-    if client.get_id() % args.num_client == 0: # pull full model from kvstore
+    if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
 
         args.num_test_proc = args.num_client
         dataset_full = get_dataset(args.data_path, args.dataset, args.format)
@@ -281,7 +284,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         count = int(model_test.n_entities / 100)
         end = start + count
         while True:
-            print("Pull %d / 100 ..." % percent)
+            print("Pull model from kvstore: %d / 100 ..." % percent)
             if end >= model_test.n_entities:
                 end = -1
             tmp_id = entity_id[start:end]
@@ -292,9 +295,11 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             start = end
             end += count
             percent += 1
-
-            if not args.no_save_emb:
-                save_model(args, model)
+        
+        print('Total train time {:.3f} seconds'.format(total_train_time))
+        if not args.no_save_emb:
+            print("save model to %s ..." % args.save_path)
+            save_model(args, model_test)
 
         if args.test:
             args.num_thread = 1
@@ -344,11 +349,13 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             
             for metric in logs[0].keys():
                 metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+
+            print("-------------- Test result --------------")
             for k, v in metrics.items():
                 print('Test average {} : {}'.format(k, v))
+            print("-----------------------------------------")
 
             for proc in procs:
                 proc.join()
 
-        if client.get_id() == 0:
-            client.shut_down()
+        client.shut_down() # shut down kvserver
