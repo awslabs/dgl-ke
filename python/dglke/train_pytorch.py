@@ -294,7 +294,8 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             percent += 1
 
             if not args.no_save_emb:
-                save_model(args, model)
+                print("save model to %s ..." % args.save_path)
+                save_model(args, model_test)
 
         if args.test:
             args.num_thread = 1
