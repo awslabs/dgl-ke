@@ -106,7 +106,7 @@ def ssh_cmd(cmd_str, ip, user_name, ssh_key=None):
     if ssh_key is None:
         ssh_cmd_str = 'ssh %s@%s \'%s\'' %(user_name, ip, cmd_str)
     else:
-        ssh_cmd_str = 'ssh -i %s %s@%s \'nohup %s\'' %(ssh_key, user_name, ip, cmd_str)
+        ssh_cmd_str = 'ssh -i %s %s@%s \'%s & exit\'' %(ssh_key, user_name, ip, cmd_str)
 
     return ssh_cmd_str
 
