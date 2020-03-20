@@ -121,6 +121,7 @@ def start_client(args, logger):
     init_time_start = time.time()
     time.sleep(WAIT_TIME) # wait for launch script
 
+    args.rel_part = False
     args.total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
