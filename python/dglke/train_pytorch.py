@@ -161,19 +161,22 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
             barrier.wait()
 
         if (step + 1) % args.log_interval == 0:
-            for k in logs[0].keys():
-                v = sum(l[k] for l in logs) / len(logs)
-                print('[{}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
-            logs = []
-            print('[{}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
-                                                            time.time() - start))
-            print('[{}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
-                rank, sample_time, forward_time, backward_time, update_time))
-            sample_time = 0
-            update_time = 0
-            forward_time = 0
-            backward_time = 0
-            start = time.time()
+            if (client is not None) and (client.get_machine_id() != 0):
+                pass
+            else:
+                for k in logs[0].keys():
+                    v = sum(l[k] for l in logs) / len(logs)
+                    print('[{}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
+                logs = []
+                print('[{}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
+                                                                time.time() - start))
+                print('[{}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
+                    rank, sample_time, forward_time, backward_time, update_time))
+                sample_time = 0
+                update_time = 0
+                forward_time = 0
+                backward_time = 0
+                start = time.time()
 
         if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
             valid_start = time.time()
@@ -248,7 +251,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
 
     model = None
 
-    if client.get_id() % args.num_client == 0: # pull full model from kvstore
+    if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
 
         args.num_test_proc = args.num_client
         dataset_full = get_dataset(args.data_path, args.dataset, args.format)
