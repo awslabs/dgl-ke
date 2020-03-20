@@ -20,7 +20,6 @@
 import os
 import logging
 import time
-import json
 
 from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset

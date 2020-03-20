@@ -20,6 +20,7 @@
 import math
 import os
 import argparse
+import json
 
 def get_compatible_batch_size(batch_size, neg_sample_size):
     if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
@@ -55,7 +56,7 @@ def save_model(args, model):
 
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
-        super(ArgParser, self).__init__()
+        super(CommonArgParser, self).__init__()
 
         self.add_argument('--model_name', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
@@ -116,7 +117,8 @@ class CommonArgParser(argparse.ArgumentParser):
                                   'In multi-GPU training, the number of processes by default is set to match the number of GPUs.'\
                                   'If set explicitly, the number of processes needs to be divisible by the number of GPUs.')
         self.add_argument('--num_thread', type=int, default=1,
-                          help='The number of CPU threads to train the model in each process.')
+                          help='The number of CPU threads to train the model in each process.'\
+                                  'This argument is used for multiprocessing training.')
         self.add_argument('--force_sync_interval', type=int, default=-1,
                           help='We force a synchronization between processes every x steps for'\
                                   'multiprocessing training. This potentially stablizes the training process'
