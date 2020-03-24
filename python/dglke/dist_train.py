@@ -115,10 +115,11 @@ def construct_cmd_str(args, server_id_low, server_id_high):
     """
     server_count = get_server_count(args.ip_config)
     machine_count = get_machine_count(args.ip_config)
-    cmd_str = ''
-    cmd_str += 'while [ $%d -lt $%d ]\n' % (server_id_low, server_id_high)
+    cmd_str += '$SERVER_ID_LOW=%d\n' % server_id_low
+    cmd_str += 'while [ $SERVER_ID_LOW -lt %d ]\n' % server_id_high
     cmd_str += 'do\n'
-    cmd_str += '    echo %d %d \n' % (server_id_low, server_id_high)
+    cmd_str += '    echo %d %d &\n' % (server_id_low, server_id_high)
+    cmd_str += '    let SERVER_ID_LOW+=1\n'
     cmd_str += 'done'
     return cmd_str
 
