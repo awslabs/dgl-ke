@@ -118,7 +118,7 @@ def construct_cmd_str(args, server_id_low, server_id_high):
     cmd_str = ''
     cmd_str += 'while [ $%d -lt $%d ]\n' % (server_id_low, server_id_high)
     cmd_str += 'do\n'
-    cmd_str += '    echo %d %d' % (server_id_low, server_id_high)
+    cmd_str += '    echo %d %d \n' % (server_id_low, server_id_high)
     cmd_str += 'done'
     return cmd_str
 
