@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# setup.py
+# dist_train.py
 #
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
@@ -30,7 +30,6 @@ class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
 
-        self.add_argument('--user_name', type=str, help='user name for ssh.')
         self.add_argument('--ssh_key', type=str, help='ssh private key.')
         self.add_argument('--ip_config', type=str, help='IP configuration file of kvstore.')
         self.add_argument('--num_client_proc', type=int, default=1,
@@ -98,13 +97,13 @@ def wait_job(process, cmd_str):
         raise RuntimeError(mesg)
 
 
-def ssh_cmd(cmd_str, ip, user_name, ssh_key=None):
+def ssh_cmd(cmd_str, ip, ssh_key=None):
     """construct an ssh command
     """
     if ssh_key is None:
-        ssh_cmd_str = 'ssh %s@%s \'%s\'' %(user_name, ip, cmd_str)
+        ssh_cmd_str = 'ssh %s \'%s\'' %(ip, cmd_str)
     else:
-        ssh_cmd_str = 'ssh -i %s %s@%s \'%s & exit\'' %(ssh_key, user_name, ip, cmd_str)
+        ssh_cmd_str = 'ssh -i %s %s \'%s & exit\'' %(ssh_key, ip, cmd_str)
 
     return ssh_cmd_str
 
@@ -135,7 +134,7 @@ def launch(args):
             server_id_high = (machine_id+1) * int(count)
             construct_cmd_str(args, server_id_low, server_id_high)
             if is_local(ip) == False: # remote command
-                cmd_str = ssh_cmd(cmd_str, ip, args.user_name, args.ssh_key)
+                cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
             job_list.append(run_cmd(cmd_str))
             cmd_list.append(cmd_str)
             machine_id += 1
