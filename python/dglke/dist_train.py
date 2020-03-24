@@ -26,6 +26,8 @@ if os.name != 'nt':
     import fcntl
     import struct
 
+from .utils import CommonArgParser
+
 class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
