@@ -168,8 +168,8 @@ def launch(args):
             ip, _, _ = line.strip().split(' ')
             if is_local(ip) == False:
                 cmd_str = scp_file(args, file_path, ip)
-            job_list.append(run_cmd(cmd_str))
-            cmd_list.append(cmd_str)
+                job_list.append(run_cmd(cmd_str))
+                cmd_list.append(cmd_str)
     for i in range(len(job_list)):
         wait_job(job_list[i], cmd_list[i])
     # ssh and execute script
