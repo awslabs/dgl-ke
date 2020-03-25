@@ -110,9 +110,9 @@ def ssh_cmd(cmd_str, ip, ssh_key=None):
     """construct an ssh command
     """
     if ssh_key is None:
-        ssh_cmd_str = 'ssh %s \'%s\'' %(ip, cmd_str)
+        ssh_cmd_str = 'ssh %s \'%s\'' % (ip, cmd_str)
     else:
-        ssh_cmd_str = 'ssh -i %s %s \'%s & exit\'' %(ssh_key, ip, cmd_str)
+        ssh_cmd_str = 'ssh -i %s %s \'%s & exit\'' % (ssh_key, ip, cmd_str)
 
     return ssh_cmd_str
 
@@ -168,6 +168,7 @@ def launch(args):
             ip, _, _ = line.strip().split(' ')
             if is_local(ip) == False:
                 cmd_str = scp_file(args, file_path, ip)
+                print(cmd_str)
                 job_list.append(run_cmd(cmd_str))
                 cmd_list.append(cmd_str)
     for i in range(len(job_list)):
