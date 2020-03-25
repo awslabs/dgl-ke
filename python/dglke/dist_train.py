@@ -131,16 +131,25 @@ def scp_file(file, ip, path, ssh_key=None):
 def construct_cmd_script(args):
     """Construct command line string and write it into file
     """
+    machine_count = get_machine_count(args.ip_config)
+    total_client = args.num_client_proc * machine_count
     cmd_str = ''
     cmd_str += '#!/bin/bash\n\n'
     cmd_str += 'SERVER_ID_LOW=$1\n'
     cmd_str += 'SERVER_ID_HIGH=$2\n'
     cmd_str += 'while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]\n'
     cmd_str += 'do\n'
-    cmd_str += '    echo hello &\n'
-    cmd_str += '    let SERVER_ID_LOW+=1\n'
+    cmd_str += '    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \\\n'
+    cmd_str += '    --dataset %s --data_path %s --ip_config %s --hidden_dim %d --gamma %f --lr %f \\\n'
+    cmd_str += '    --total_client %d --server_id $SERVER_ID_LOW & \n' % (args.model_name, 
+                                                                          args.dataset, 
+                                                                          args.data_path, 
+                                                                          args.ip_config, 
+                                                                          args.hidden_dim,
+                                                                          args.gamma,
+                                                                          args.lr,
+                                                                          total_client)
     cmd_str += 'done\n'
-    cmd_str += 'echo world'
 
     file_path = os.path.join(args.path, SCRIPT_FILE)
     if os.path.exists(file_path):
