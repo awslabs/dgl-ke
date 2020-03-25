@@ -91,8 +91,12 @@ class KGDataset:
         self.train = self.read_triple(train_path, "train", skip_first_line, format)
         if valid_path is not None:
             self.valid = self.read_triple(valid_path, "valid", skip_first_line, format)
+        else:
+            self.valid = None
         if test_path is not None:
             self.test = self.read_triple(test_path, "test", skip_first_line, format)
+        else:
+            self.test = None
 
     def read_entity(self, entity_path):
         with open(entity_path) as f:
@@ -156,6 +160,8 @@ class PartitionKGDataset():
             self.n_relations = int(f.readline().strip())
         if read_triple == True:
             self.train = self.read_triple(train_path, "train")
+        else:
+            self.train = None
 
     def read_triple(self, path, mode):
         heads = []
@@ -373,6 +379,9 @@ class KGDatasetUDDRaw(KGDataset):
         format = _parse_srd_format(format)
         self.load_entity_relation(path, files, format)
 
+        assert len(files) == 1 or len(files) == 3, 'raw_udd_{htr} format requires 1 or 3 input files. '\
+                'When 1 files are provided, they must be train_file. '\
+                'When 3 files are provided, they must be train_file, valid_file and test_file.'
         # Only train set is provided
         if len(files) == 1:
             super(KGDatasetUDDRaw, self).__init__("entities.tsv",
@@ -380,7 +389,7 @@ class KGDatasetUDDRaw(KGDataset):
                                                   os.path.join(path, files[0]),
                                                   format=format)
         # Train, validation and test set are provided
-        if len(files) == 3:
+        elif len(files) == 3:
             super(KGDatasetUDDRaw, self).__init__("entities.tsv",
                                                   "relation.tsv",
                                                   os.path.join(path, files[0]),
@@ -438,13 +447,16 @@ class KGDatasetUDD(KGDataset):
                 'File {} now exist in {}'.format(f, path)
 
         format = _parse_srd_format(format)
+        assert len(files) == 3 or len(files) == 5, 'udd_{htr} format requires 3 or 5 input files. '\
+                'When 3 files are provided, they must be entity2id, relation2id, train_file. '\
+                'When 5 files are provided, they must be entity2id, relation2id, train_file, valid_file and test_file.'
         if len(files) == 3:
             super(KGDatasetUDD, self).__init__(os.path.join(path, files[0]),
                                                os.path.join(path, files[1]),
                                                os.path.join(path, files[2]),
                                                None, None,
                                                format=format)
-        if len(files) == 5:
+        elif len(files) == 5:
             super(KGDatasetUDD, self).__init__(os.path.join(path, files[0]),
                                                os.path.join(path, files[1]),
                                                os.path.join(path, files[2]),
