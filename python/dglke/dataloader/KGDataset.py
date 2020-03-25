@@ -409,13 +409,13 @@ class KGDatasetUDDRaw(KGDataset):
                     dst_id = _get_id(entity_map, dst)
                     rel_id = _get_id(rel_map, rel)
 
-        entities = ["{}\t{}\n".format(key, val) for key, val in entity_map.items()]
+        entities = ["{}\t{}\n".format(val, key) for key, val in entity_map.items()]
         with open(os.path.join(path, "entities.tsv"), "w+") as f:
             f.writelines(entities)
         self.entity2id = entity_map
         self.n_entities = len(entities)
 
-        relations = ["{}\t{}\n".format(key, val) for key, val in rel_map.items()]
+        relations = ["{}\t{}\n".format(val, key) for key, val in rel_map.items()]
         with open(os.path.join(path, "relations.tsv"), "w+") as f:
             f.writelines(relations)
         self.relation2id = rel_map
