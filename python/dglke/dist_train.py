@@ -158,7 +158,9 @@ def construct_cmd_script(args):
     if args.test == True:
         cmd_str += ' --test'
     if args.no_save_emb == True:
-        cmd_str += '  --no_save_emb'
+        cmd_str += ' --no_save_emb'
+    if args.adv == True:
+        cmd_str += ' -adv'
 
     file_path = os.path.join(args.path, SCRIPT_FILE)
     if os.path.exists(file_path):
