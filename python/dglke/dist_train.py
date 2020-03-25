@@ -179,6 +179,7 @@ def launch(args):
     with open(args.ip_config) as f:
         machine_id = 0
         for line in f:
+            ip, _, count = line.strip().split(' ')
             server_id_low = machine_id * int(count)
             server_id_high = (machine_id+1) * int(count)
             cmd_str = 'cd %s; rm *-shape; ./%s %d %d' % (args.path, SCRIPT_FILE, server_id_low, server_id_high)
