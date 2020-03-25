@@ -18,6 +18,7 @@
 #
 
 import os
+import stat
 import sys
 import subprocess
 import argparse
@@ -28,14 +29,20 @@ if os.name != 'nt':
 
 from .utils import CommonArgParser
 
+
+SCRIPT_FILE = 'dglke_start_kvserver_kvclient.sh'
+
+
 class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
 
+        self.add_argument('--path', type=str, help='path of distributed workspace.')
         self.add_argument('--ssh_key', type=str, help='ssh private key.')
         self.add_argument('--ip_config', type=str, help='IP configuration file of kvstore.')
         self.add_argument('--num_client_proc', type=int, default=1,
                           help='Number of client process on each machine.')
+
 
 def get_server_count(ip_config):
     """Get total server count from ip_config file
@@ -110,19 +117,42 @@ def ssh_cmd(cmd_str, ip, ssh_key=None):
     return ssh_cmd_str
 
 
-def construct_cmd_str(args, server_id_low, server_id_high):
-    """Construct command line string
+def scp_file(file, ip, path, ssh_key=None):
+    """scp file to remote machine
     """
-    server_count = get_server_count(args.ip_config)
-    machine_count = get_machine_count(args.ip_config)
+    if ssh_key is None:
+        scp_cmd_str = 'scp %s %s:%s' % (file, ip, path)
+    else:
+        scp_cmd_str = 'scp -i %s %s %s:%s' % (ssh_key, file, ip, path)
+
+    return scp_cmd_str
+
+
+def construct_cmd_script(args):
+    """Construct command line string and write it into file
+    """
     cmd_str = ''
-    cmd_str += '$SERVER_ID_LOW=%d\n' % server_id_low
-    cmd_str += 'while [ $SERVER_ID_LOW -lt %d ]\n' % server_id_high
+    cmd_str += '#!/bin/bash\n'
+    cmd_str += '$SERVER_ID_LOW=$1\n'
+    cmd_str += '$SERVER_ID_HIGH=$2\n'
+    cmd_str += 'while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]\n'
     cmd_str += 'do\n'
-    cmd_str += '    echo %d %d &\n' % (server_id_low, server_id_high)
+    cmd_str += '    echo hello &\n'
     cmd_str += '    let SERVER_ID_LOW+=1\n'
-    cmd_str += 'done'
-    return cmd_str
+    cmd_str += 'done\n'
+    cmd_str += 'echo world'
+
+    file_path = os.path.join(args.path, SCRIPT_FILE)
+    if os.path.exist(file_path):
+        os.remove(file_path)
+
+    with open(file_path) as f:
+        f.write(cmd_str)
+
+    st = os.stat('file_path')
+    os.chmod(file_path, st.st_mode | stat.S_IEXEC)
+
+    return file_path
 
 
 def launch(args):
@@ -130,18 +160,29 @@ def launch(args):
     """
     job_list = []
     cmd_list = []
+    file_path = construct_cmd_script(args)
+    # copy script file to remote machine
     with open(args.ip_config) as f:
-        machine_id = 0
         for line in f:
-            ip, port, count = line.strip().split(' ')
-            server_id_low = machine_id * int(count)
-            server_id_high = (machine_id+1) * int(count)
-            cmd_str = construct_cmd_str(args, server_id_low, server_id_high)
-            if is_local(ip) == False: # remote command
-                cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
+            ip, _, _ = line.strip().split(' ')
+            if is_local(ip) == False:
+                cmd_str = scp_file(args, file_path, ip)
             job_list.append(run_cmd(cmd_str))
             cmd_list.append(cmd_str)
-            machine_id += 1
+    for i in range(len(job_list)):
+        wait_job(job_list[i], cmd_list[i])
+    # ssh and execute script
+    job_list = []
+    cmd_list = []
+    with open(args.ip_config) as f:
+        server_id_low = machine_id * int(count)
+        server_id_high = (machine_id+1) * int(count)
+        cmd_str = 'cd %s; rm *-shape; ./%s %d %d' % (args.path, SCRIPT_FILE, server_id_low, server_id_high)
+        if is_local(ip) == False: # remote command
+            cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
+        job_list.append(run_cmd(cmd_str))
+        cmd_list.append(cmd_str)
+        machine_id += 1
     # wait job finish
     for i in range(len(job_list)):
         wait_job(job_list[i], cmd_list[i])
