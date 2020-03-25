@@ -167,7 +167,7 @@ def launch(args):
         for line in f:
             ip, _, _ = line.strip().split(' ')
             if is_local(ip) == False:
-                cmd_str = scp_file(args, file_path, ip)
+                cmd_str = scp_file(file_path, ip, args.path, args.ssh_key)
                 print(cmd_str)
                 job_list.append(run_cmd(cmd_str))
                 cmd_list.append(cmd_str)
