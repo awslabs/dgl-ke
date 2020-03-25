@@ -139,14 +139,14 @@ def construct_cmd_script(args):
     cmd_str += 'SERVER_ID_HIGH=$2\n'
     cmd_str += 'while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]\n'
     cmd_str += 'do\n'
-    cmd_str += '\tMKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \\\n' % (args.model_name)
-    cmd_str += '\t--dataset %s --data_path %s --ip_config %s --hidden_dim %d --gamma %f --lr %f \\\n' % (args.dataset, 
+    cmd_str += '    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \\\n' % (args.model_name)
+    cmd_str += '    --dataset %s --data_path %s --ip_config %s --hidden_dim %d --gamma %f --lr %f \\\n' % (args.dataset, 
                                                                                                          args.data_path,
                                                                                                          args.ip_config,
                                                                                                          args.hidden_dim,
                                                                                                          args.gamma,
                                                                                                          args.lr)
-    cmd_str += '\t--total_client %d --server_id $SERVER_ID_LOW & \n' % (total_client)
+    cmd_str += '    --total_client %d --server_id $SERVER_ID_LOW & \n' % (total_client)
     cmd_str += 'done\n'
 
     file_path = os.path.join(args.path, SCRIPT_FILE)
