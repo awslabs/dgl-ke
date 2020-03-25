@@ -558,17 +558,34 @@ class EvalDataset(object):
         Global configs.
     """
     def __init__(self, dataset, args):
-        src = np.concatenate((dataset.train[0], dataset.valid[0], dataset.test[0]))
-        etype_id = np.concatenate((dataset.train[1], dataset.valid[1], dataset.test[1]))
-        dst = np.concatenate((dataset.train[2], dataset.valid[2], dataset.test[2]))
+        src = [dataset.train[0]]
+        etype_id = [dataset.train[1]]
+        dst = [dataset.train[2]]
+        self.num_train = len(dataset.train[0])
+        if dataset.valid is not None:
+            src.append(dataset.valid[0])
+            etype_id.append(dataset.valid[1])
+            dst.append(dataset.valid[2])
+            self.num_valid = len(dataset.valid[0])
+        else:
+            self.num_valid = 0
+        if dataset.test is not None:
+            src.append(dataset.test[0])
+            etype_id.append(dataset.test[1])
+            dst.append(dataset.test[2])
+            self.num_test = len(dataset.test[0])
+        else:
+            self.num_test = 0
+        assert len(src) > 1, "we need to have at least validation set or test set."
+        src = np.concatenate(src)
+        etype_id = np.concatenate(etype_id)
+        dst = np.concatenate(dst)
+
         coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
                                     shape=[dataset.n_entities, dataset.n_entities])
         g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
         g.edata['tid'] = F.tensor(etype_id, F.int64)
         self.g = g
-        self.num_train = len(dataset.train[0])
-        self.num_valid = len(dataset.valid[0])
-        self.num_test = len(dataset.test[0])
 
         if args.eval_percent < 1:
             self.valid = np.random.randint(0, self.num_valid,
