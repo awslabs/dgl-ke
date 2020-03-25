@@ -121,6 +121,14 @@ def main():
     args.strict_rel_part = False
     args.soft_rel_part = False
     args.async_update = False
+    if len(args.gpu) > 1:
+        args.mix_cpu_gpu = True
+        if args.num_proc < len(args.gpu):
+            args.num_proc = len(args.gpu)
+    # We need to ensure that the number of processes should match the number of GPUs.
+    if len(args.gpu) > 1 and args.num_proc > 1:
+        assert args.num_proc % len(args.gpu) == 0, \
+                'The number of processes needs to be divisible by the number of GPUs'
 
     logger = get_logger(args)
     # Here we want to use the regualr negative sampler because we need to ensure that
