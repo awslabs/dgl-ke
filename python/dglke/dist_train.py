@@ -150,7 +150,7 @@ def construct_cmd_script(args):
     f.write(cmd_str)
     f.close()
 
-    st = os.stat('file_path')
+    st = os.stat(file_path)
     os.chmod(file_path, st.st_mode | stat.S_IEXEC)
 
     return file_path
