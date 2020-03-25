@@ -166,11 +166,11 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
             else:
                 for k in logs[0].keys():
                     v = sum(l[k] for l in logs) / len(logs)
-                    print('[{}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
+                    print('[proc {}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
                 logs = []
-                print('[{}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
+                print('[proc {}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
                                                                 time.time() - start))
-                print('[{}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
+                print('[proc {}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
                     rank, sample_time, forward_time, backward_time, update_time))
                 sample_time = 0
                 update_time = 0
@@ -186,13 +186,13 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
             if barrier is not None:
                 barrier.wait()
             test(args, model, valid_samplers, rank, mode='Valid')
-            print('validation take {:.3f} seconds:'.format(time.time() - valid_start))
+            print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
             if args.soft_rel_part:
                 model.prepare_cross_rels(cross_rels)
             if barrier is not None:
                 barrier.wait()
 
-    print('train {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
+    print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
     if args.async_update:
         model.finish_async_update()
     if args.strict_rel_part or args.soft_rel_part:
