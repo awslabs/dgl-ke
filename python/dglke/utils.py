@@ -105,7 +105,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Randomly sample some percentage of edges for evaluation.')
         self.add_argument('--no_eval_filter', action='store_true',
                           help='Disable filter positive edges from randomly constructed negative edges for evaluation')
-        self.add_argument('-log', '--log_interval', type=int, default=1000000000,
+        self.add_argument('-log', '--log_interval', type=int, default=1000,
                           help='Print runtime of different components every x steps.')
         self.add_argument('--eval_interval', type=int, default=10000,
                           help='Print evaluation results on the validation dataset every x steps'\
