@@ -143,7 +143,7 @@ def construct_cmd_script(args):
     cmd_str += 'echo world'
 
     file_path = os.path.join(args.path, SCRIPT_FILE)
-    if os.path.exist(file_path):
+    if os.path.exists(file_path):
         os.remove(file_path)
 
     with open(file_path) as f:
