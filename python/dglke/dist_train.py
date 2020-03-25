@@ -132,9 +132,9 @@ def construct_cmd_script(args):
     """Construct command line string and write it into file
     """
     cmd_str = ''
-    cmd_str += '#!/bin/bash\n'
-    cmd_str += '$SERVER_ID_LOW=$1\n'
-    cmd_str += '$SERVER_ID_HIGH=$2\n'
+    cmd_str += '#!/bin/bash\n\n'
+    cmd_str += 'SERVER_ID_LOW=$1\n'
+    cmd_str += 'SERVER_ID_HIGH=$2\n'
     cmd_str += 'while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]\n'
     cmd_str += 'do\n'
     cmd_str += '    echo hello &\n'
