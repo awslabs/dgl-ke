@@ -163,12 +163,12 @@ def launch(args):
     cmd_list = []
     file_path = construct_cmd_script(args)
     # copy script file to remote machine
+    print("Copy script to remote machine ...")
     with open(args.ip_config) as f:
         for line in f:
             ip, _, _ = line.strip().split(' ')
             if is_local(ip) == False:
                 cmd_str = scp_file(file_path, ip, args.path, args.ssh_key)
-                print(cmd_str)
                 job_list.append(run_cmd(cmd_str))
                 cmd_list.append(cmd_str)
     for i in range(len(job_list)):
@@ -177,14 +177,16 @@ def launch(args):
     job_list = []
     cmd_list = []
     with open(args.ip_config) as f:
-        server_id_low = machine_id * int(count)
-        server_id_high = (machine_id+1) * int(count)
-        cmd_str = 'cd %s; rm *-shape; ./%s %d %d' % (args.path, SCRIPT_FILE, server_id_low, server_id_high)
-        if is_local(ip) == False: # remote command
-            cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
-        job_list.append(run_cmd(cmd_str))
-        cmd_list.append(cmd_str)
-        machine_id += 1
+        machine_id = 0
+        for line in f:
+            server_id_low = machine_id * int(count)
+            server_id_high = (machine_id+1) * int(count)
+            cmd_str = 'cd %s; rm *-shape; ./%s %d %d' % (args.path, SCRIPT_FILE, server_id_low, server_id_high)
+            if is_local(ip) == False: # remote command
+                cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
+            job_list.append(run_cmd(cmd_str))
+            cmd_list.append(cmd_str)
+            machine_id += 1
     # wait job finish
     for i in range(len(job_list)):
         wait_job(job_list[i], cmd_list[i])
