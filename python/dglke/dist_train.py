@@ -131,24 +131,34 @@ def scp_file(file, ip, path, ssh_key=None):
 def construct_cmd_script(args):
     """Construct command line string and write it into file
     """
-    machine_count = get_machine_count(args.ip_config)
-    total_client = args.num_client_proc * machine_count
-    cmd_str = ''
-    cmd_str += '#!/bin/bash\n\n'
-    cmd_str += 'SERVER_ID_LOW=$1\n'
-    cmd_str += 'SERVER_ID_HIGH=$2\n'
-    cmd_str += 'while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]\n'
-    cmd_str += 'do\n'
-    cmd_str += '    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s\\\n' % (args.model_name)
-    cmd_str += '    --dataset %s --data_path %s --ip_config %s --hidden_dim %d --gamma %f --lr %f\\\n' % (args.dataset, 
-                                                                                                         args.data_path,
-                                                                                                         args.ip_config,
-                                                                                                         args.hidden_dim,
-                                                                                                         args.gamma,
-                                                                                                         args.lr)
-    cmd_str += '    --total_client %d --server_id $SERVER_ID_LOW &\n' % (total_client)
-    cmd_str += '    let SERVER_ID_LOW+=1\n'
-    cmd_str += 'done\n'
+    total_client = args.num_client_proc * get_machine_count(args.ip_config)
+    cmd_str = '''#!/bin/bash
+    SERVER_ID_LOW=$1
+    SERVER_ID_HIGH=$2
+
+    while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]
+    do
+        MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \
+        --dataset %s --data_path %s --format %s --ip_config %s --hidden_dim %d --gamma %f --lr %f \
+        --total_client %d --server_id $SERVER_ID_LOW &
+        let SERVER_ID_LOW+=1
+    done
+
+    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_client --model %s \
+    --dataset %s --data_path %s --format %s --save_path %s --ip_config %s --batch_size %d \
+    --neg_sample_size %d --hidden_dim %d --gamma %f --lr %f --max_step %d --log_interval %d \
+    --num_thread %d --batch_size_eval %d --neg_sample_size_eval %d \
+    --regularization_coef %f --num_client %d''' % (args.model_name, args.dataset, args.data_path, args.format,
+                                                   args.ip_config, args.hidden_dim, args.gamma, args.lr,
+                                                   total_client, args.model_name, args.dataset, args.data_path,
+                                                   args.format, args.save_path, args.ip_config, args.batch_size,
+                                                   args.neg_sample_size, args.hidden_dim, args.gamma, args.lr,
+                                                   args.max_step, args.log_interval, args.num_thread, args.batch_size_eval,
+                                                   args.neg_sample_size_eval, args.regularization_coef, args.num_client_proc)
+    if args.test == True:
+        cmd_str += ' --test'
+    if args.no_save_emb == True:
+        cmd_str += '  --no_save_emb'
 
     file_path = os.path.join(args.path, SCRIPT_FILE)
     if os.path.exists(file_path):
