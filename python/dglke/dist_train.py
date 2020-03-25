@@ -146,8 +146,9 @@ def construct_cmd_script(args):
     if os.path.exists(file_path):
         os.remove(file_path)
 
-    with open(file_path) as f:
-        f.write(cmd_str)
+    f = open(file_path, 'w')
+    f.write(cmd_str)
+    f.close()
 
     st = os.stat('file_path')
     os.chmod(file_path, st.st_mode | stat.S_IEXEC)
