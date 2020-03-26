@@ -20,6 +20,8 @@
 import os
 import argparse
 import time
+import socket
+import sys
 
 import dgl
 from dgl.contrib import KVServer
@@ -132,7 +134,7 @@ def check_port_available(port):
                 return False
             raise e
         s.close()
-        
+
         return True
 
 
