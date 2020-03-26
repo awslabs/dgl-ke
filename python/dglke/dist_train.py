@@ -136,6 +136,11 @@ def construct_cmd_script(args):
     SERVER_ID_LOW=$1
     SERVER_ID_HIGH=$2
 
+    if [ -f "entity_emb-data-shape" ]; then
+        echo "Delete temp files..."
+        rm *-shape
+    fi
+
     while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]
     do
         MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \
@@ -200,9 +205,9 @@ def launch(args):
         machine_id = 0
         for line in f:
             ip, _, count = line.strip().split(' ')
-            server_id_low = machine_id * int(count)
-            server_id_high = (machine_id+1) * int(count)
-            cmd_str = 'cd %s; rm *-shape; ./%s %d %d' % (args.path, SCRIPT_FILE, server_id_low, server_id_high)
+            id_low = machine_id * int(count)
+            id_high = (machine_id+1) * int(count)
+            cmd_str = 'cd %s; ./%s %d %d' % (args.path, SCRIPT_FILE, id_low, id_high)
             if is_local(ip) == False: # remote command
                 cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
             job_list.append(run_cmd(cmd_str))
