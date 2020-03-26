@@ -133,33 +133,33 @@ def construct_cmd_script(args):
     """
     total_client = args.num_client_proc * get_machine_count(args.ip_config)
     cmd_str = '''#!/bin/bash
-    SERVER_ID_LOW=$1
-    SERVER_ID_HIGH=$2
+SERVER_ID_LOW=$1
+SERVER_ID_HIGH=$2
 
-    if [ -f "entity_emb-data-shape" ]; then
-        echo "Delete temp files..."
-        rm *-shape
-    fi
+if [ -f "entity_emb-data-shape" ]; then
+    echo "Delete temp files..."
+    rm *-shape
+fi
 
-    while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]
-    do
-        MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \
-        --dataset %s --data_path %s --format %s --ip_config %s --hidden_dim %d --gamma %f --lr %f \
-        --total_client %d --server_id $SERVER_ID_LOW &
-        let SERVER_ID_LOW+=1
-    done
+while [ $SERVER_ID_LOW -lt $SERVER_ID_HIGH ]
+do
+    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_server --model %s \
+    --dataset %s --data_path %s --format %s --ip_config %s --hidden_dim %d --gamma %f --lr %f \
+    --total_client %d --server_id $SERVER_ID_LOW &
+    let SERVER_ID_LOW+=1
+done
 
-    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_client --model %s \
-    --dataset %s --data_path %s --format %s --save_path %s --ip_config %s --batch_size %d \
-    --neg_sample_size %d --hidden_dim %d --gamma %f --lr %f --max_step %d --log_interval %d \
-    --num_thread %d --batch_size_eval %d --neg_sample_size_eval %d \
-    --regularization_coef %f --num_client %d''' % (args.model_name, args.dataset, args.data_path, args.format,
-                                                   args.ip_config, args.hidden_dim, args.gamma, args.lr,
-                                                   total_client, args.model_name, args.dataset, args.data_path,
-                                                   args.format, args.save_path, args.ip_config, args.batch_size,
-                                                   args.neg_sample_size, args.hidden_dim, args.gamma, args.lr,
-                                                   args.max_step, args.log_interval, args.num_thread, args.batch_size_eval,
-                                                   args.neg_sample_size_eval, args.regularization_coef, args.num_client_proc)
+MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_client --model %s \
+--dataset %s --data_path %s --format %s --save_path %s --ip_config %s --batch_size %d \
+--neg_sample_size %d --hidden_dim %d --gamma %f --lr %f --max_step %d --log_interval %d \
+--num_thread %d --batch_size_eval %d --neg_sample_size_eval %d \
+--regularization_coef %f --num_client %d''' % (args.model_name, args.dataset, args.data_path, args.format,
+                                                args.ip_config, args.hidden_dim, args.gamma, args.lr,
+                                                total_client, args.model_name, args.dataset, args.data_path,
+                                                args.format, args.save_path, args.ip_config, args.batch_size,
+                                                args.neg_sample_size, args.hidden_dim, args.gamma, args.lr,
+                                                args.max_step, args.log_interval, args.num_thread, args.batch_size_eval,
+                                                args.neg_sample_size_eval, args.regularization_coef, args.num_client_proc)
     if args.test == True:
         cmd_str += ' --test'
     if args.no_save_emb == True:
