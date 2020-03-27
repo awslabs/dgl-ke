@@ -154,12 +154,12 @@ MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_client --model %s \
 --neg_sample_size %d --hidden_dim %d --gamma %f --lr %f --max_step %d --log_interval %d \
 --num_thread %d --batch_size_eval %d --neg_sample_size_eval %d \
 --regularization_coef %f --num_client %d''' % (args.model_name, args.dataset, args.data_path, args.format,
-                                                args.ip_config, args.hidden_dim, args.gamma, args.lr,
-                                                total_client, args.model_name, args.dataset, args.data_path,
-                                                args.format, args.save_path, args.ip_config, args.batch_size,
-                                                args.neg_sample_size, args.hidden_dim, args.gamma, args.lr,
-                                                args.max_step, args.log_interval, args.num_thread, args.batch_size_eval,
-                                                args.neg_sample_size_eval, args.regularization_coef, args.num_client_proc)
+                                            args.ip_config, args.hidden_dim, args.gamma, args.lr,
+                                            total_client, args.model_name, args.dataset, args.data_path,
+                                            args.format, args.save_path, args.ip_config, args.batch_size,
+                                            args.neg_sample_size, args.hidden_dim, args.gamma, args.lr,
+                                            args.max_step, args.log_interval, args.num_thread, args.batch_size_eval,
+                                            args.neg_sample_size_eval, args.regularization_coef, args.num_client_proc)
     if args.test == True:
         cmd_str += ' --test'
     if args.no_save_emb == True:
