@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# setup.py
+# kvclient.py
 #
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
@@ -44,10 +44,6 @@ class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
 
-        self.add_argument('--machine_id', type=int, default=0,
-                          help='Unique ID of current machine.')
-        self.add_argument('--total_machine', type=int, default=1,
-                          help='Total number of machine.')
         self.add_argument('--ip_config', type=str, default='ip_config.txt',
                           help='IP configuration file of kvstore')
         self.add_argument('--num_client', type=int, default=1,
@@ -131,24 +127,24 @@ def start_client(args, logger):
     args.soft_rel_part = False
     # We don't support validation in distributed training
     args.valid = False
-    args.total_machine = get_machine_count(args.ip_config)
+    total_machine = get_machine_count(args.ip_config)
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
-    args.machine_id = get_local_machine_id(server_namebook)
+    machine_id = get_local_machine_id(server_namebook)
 
     dataset, entity_partition_book, local2global = get_partition_dataset(
         args.data_path,
         args.dataset,
-        args.machine_id)
+        machine_id)
 
     n_entities = dataset.n_entities
     n_relations = dataset.n_relations
 
-    print('Partition %d n_entities: %d' % (args.machine_id, n_entities))
-    print("Partition %d n_relations: %d" % (args.machine_id, n_relations))
+    print('Partition %d n_entities: %d' % (machine_id, n_entities))
+    print("Partition %d n_relations: %d" % (machine_id, n_relations))
 
     entity_partition_book = F.tensor(entity_partition_book)
-    relation_partition_book = get_long_tail_partition(dataset.n_relations, args.total_machine)
+    relation_partition_book = get_long_tail_partition(dataset.n_relations, total_machine)
     relation_partition_book = F.tensor(relation_partition_book)
     local2global = F.tensor(local2global)
 

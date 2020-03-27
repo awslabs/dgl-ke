@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# setup.py
+# train_pytorch.py
 #
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #

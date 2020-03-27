@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# setup.py
+# kvserver.py
 #
 # Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
@@ -20,6 +20,8 @@
 import os
 import argparse
 import time
+import socket
+import sys
 
 import dgl
 from dgl.contrib import KVServer
@@ -120,12 +122,33 @@ def get_server_data(args, machine_id):
    return g2l, model.entity_emb.emb, model.entity_emb.state_sum, model.relation_emb.emb, model.relation_emb.state_sum
 
 
+def check_port_available(port):
+    """Return True is port is available to use
+    """
+    while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(('', port)) ## Try to open port
+        except OSError as e:
+            if e.errno is 98: ## Errorno 98 means address already bound
+                return False
+            raise e
+        s.close()
+
+        return True
+
+
 def start_server(args):
     """Start kvstore service
     """
     th.set_num_threads(NUM_THREAD)
 
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
+
+    port = server_namebook[args.server_id][2]
+    if check_port_available(port) == False:
+        print("Error: port %d is not available." % port)
+        exit()
 
     my_server = KGEServer(server_id=args.server_id, 
                           server_namebook=server_namebook, 
