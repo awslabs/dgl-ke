@@ -44,16 +44,6 @@ class ArgParser(CommonArgParser):
                           help='Number of client process on each machine.')
 
 
-def get_server_count(ip_config):
-    """Get total server count from ip_config file
-    """
-    with open(ip_config) as f:
-        _, _, server_count = f.readline().strip().split(' ')
-        server_count = int(server_count)
-
-    return server_count
-
-
 def get_machine_count(ip_config):
     """Get total machine count from ip_config file
     """
