@@ -262,14 +262,13 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         model_test = load_model(None, args, dataset_full.n_entities, dataset_full.n_relations)
         eval_dataset = EvalDataset(dataset_full, args)
 
-        if args.test:
-            model_test.share_memory()
-
-        if args.neg_sample_size_eval < 0:
-            args.neg_sample_size_eval = dataset_full.n_entities
         args.eval_filter = not args.no_eval_filter
         if args.neg_deg_sample_eval:
             assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
+
+        if args.neg_sample_size_eval < 0:
+            args.neg_sample_size_eval = args.neg_sample_size = eval_dataset.g.number_of_nodes()
+        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
 
         print("Pull relation_emb ...")
         relation_id = F.arange(0, model_test.n_relations)
@@ -302,7 +301,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             save_model(args, model_test)
 
         if args.test:
-            args.num_thread = 1
+            model_test.share_memory()
             test_sampler_tails = []
             test_sampler_heads = []
             for i in range(args.num_test_proc):
