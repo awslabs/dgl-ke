@@ -212,7 +212,7 @@ def main():
             metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
         print("-------------- Test result --------------")
         for k, v in metrics.items():
-            print('Test average {} at [{}/{}]: {}'.format(k, args.step, args.max_step, v))
+            print('Test average {}: {}'.format(k, v))
         print("-----------------------------------------")
 
         for proc in procs:
