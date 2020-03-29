@@ -252,23 +252,30 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
     model = None
 
     if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
-
+        # Pull model from kvstore
         args.num_test_proc = args.num_client
-        dataset_full = get_dataset(args.data_path, args.dataset, args.format)
-
-        print('Full data n_entities: ' + str(dataset_full.n_entities))
-        print("Full data n_relations: " + str(dataset_full.n_relations))
-
-        model_test = load_model(None, args, dataset_full.n_entities, dataset_full.n_relations)
-        eval_dataset = EvalDataset(dataset_full, args)
+        dataset_full = dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+        args.train = False
+        args.valid = False
+        args.test = True
+        args.strict_rel_part = False
+        args.soft_rel_part = False
+        args.async_update = False
 
         args.eval_filter = not args.no_eval_filter
         if args.neg_deg_sample_eval:
             assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
+        print('Full data n_entities: ' + str(dataset_full.n_entities))
+        print("Full data n_relations: " + str(dataset_full.n_relations))
+
+        eval_dataset = EvalDataset(dataset_full, args)
+
         if args.neg_sample_size_eval < 0:
             args.neg_sample_size_eval = args.neg_sample_size = eval_dataset.g.number_of_nodes()
-        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+            args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+
+        model_test = load_model(None, args, dataset_full.n_entities, dataset_full.n_relations)
 
         print("Pull relation_emb ...")
         relation_id = F.arange(0, model_test.n_relations)
@@ -294,14 +301,16 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             start = end
             end += count
             percent += 1
-        
-        print('Total train time {:.3f} seconds'.format(total_train_time))
+    
         if not args.no_save_emb:
             print("save model to %s ..." % args.save_path)
             save_model(args, model_test)
 
+        print('Total train time {:.3f} seconds'.format(total_train_time))
+
         if args.test:
             model_test.share_memory()
+
             test_sampler_tails = []
             test_sampler_heads = []
             for i in range(args.num_test_proc):
