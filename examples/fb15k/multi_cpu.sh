@@ -1,7 +1,26 @@
+# -*- coding: utf-8 -*-
+#
+# multi_cpu.sh
+#
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 #!/bin/bash
 
 # TransE-l1 training
-dglke_train --model TransE_l1 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
 --gamma 16.0 --lr 0.01 --max_step 500 --log_interval 100 --batch_size_eval 16 --test -adv \
 --regularization_coef 1.00E-07 --num_thread 1 --num_proc 48
 
@@ -33,7 +52,7 @@ dglke_eval --model_name TransE_l1 --dataset FB15k --hidden_dim 400 --gamma 16.0 
 ##################################################
 
 # TransE-l2 training
-dglke_train --model TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
 --gamma 19.9 --lr 0.25 --max_step 500 --log_interval 100 --batch_size_eval 16 --test -adv \
 --regularization_coef 1.00E-09 --num_thread 1 --num_proc 48
 
@@ -65,7 +84,7 @@ dglke_eval --model_name TransE_l2 --dataset FB15k --hidden_dim 400 --gamma 19.9 
 ##################################################
 
 # DistMult training
-dglke_train --model DistMult --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+dglke_train --model_name DistMult --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
 --gamma 143.0 --lr 0.08 --max_step 1000 --log_interval 100 --batch_size_eval 16 --test -adv \
 --num_thread 1 --num_proc 10
 
@@ -97,7 +116,7 @@ dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 400 --gamma 143.0 
 ##################################################
 
 # ComplEx training
-dglke_train --model ComplEx --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+dglke_train --model_name ComplEx --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
 --gamma 143.0 --lr 0.1 --max_step 1000 --log_interval 100 --batch_size_eval 16 --test -adv \
 --regularization_coef 2.00E-06 --num_thread 1 --num_proc 10
 
