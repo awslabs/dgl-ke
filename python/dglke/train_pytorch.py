@@ -367,5 +367,4 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             for proc in procs:
                 proc.join()
 
-        if client.get_machine_id() == 0:
-            client.shut_down() # shut down kvserver
+        client.shut_down() # shut down kvserver
