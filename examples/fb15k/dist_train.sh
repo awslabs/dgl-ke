@@ -30,7 +30,7 @@ dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_
 
 # TransE-l2 eval
 dglke_eval --model_name TransE_l2 --dataset FB15k --hidden_dim 400 --gamma 19.9 --batch_size_eval 16 \
---num_thread 1 --num_proc 16 --model_path ~/my_task/ckpts/TransE_l2_FB15k_4/
+--num_thread 1 --num_proc 16 --model_path ~/my_task/ckpts/TransE_l2_FB15k_1/
 
 # DistMult training
 dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_config.txt \
