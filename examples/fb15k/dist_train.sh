@@ -5,15 +5,15 @@ dglke_partition --dataset FB15k -k 4 --data_path ~/my_task
 
 # TransE-l1 training
 dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_config.txt \
---num_client_proc 16 --model TransE_l2 --dataset FB15k --data_path ~/my_task --hidden_dim 400 \
---gamma 19.9 --lr 0.25 --batch_size 1000 --neg_sample_size 200 --max_step 1000 --log_interval 100 \
---batch_size_eval 16 --test -adv --regularization_coef 1.00E-07 --no_save_emb --num_thread 1
+--num_client_proc 16 --model TransE_l1 --dataset FB15k --data_path ~/my_task --hidden_dim 400 \
+--gamma 16.0 --lr 0.01 --batch_size 1000 --neg_sample_size 200 --max_step 500 --log_interval 100 \
+--batch_size_eval 16 --test -adv --regularization_coef 1.00E-07 --num_thread 1
 
 # TransE-l2 training
 dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_config.txt \
 --num_client_proc 16 --model TransE_l2 --dataset FB15k --data_path ~/my_task --hidden_dim 400 \
 --gamma 19.9 --lr 0.25 --batch_size 1000 --neg_sample_size 200 --max_step 500 --log_interval 100 \
---batch_size_eval 16 --test -adv --regularization_coef 1.00E-07 --num_thread 1
+--batch_size_eval 16 --test -adv --regularization_coef 1.00E-09 --num_thread 1
 
 ################## Script Result #################
 # Total train time 31.804 seconds
@@ -30,7 +30,7 @@ dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_
 
 # TransE-l2 eval
 dglke_eval --model_name TransE_l2 --dataset FB15k --hidden_dim 400 --gamma 19.9 --batch_size_eval 16 \
---num_thread 1 --num_proc 16 --model_path ~/my_task/ckpts/TransE_l2_FB15k_0/
+--num_thread 1 --num_proc 16 --model_path ~/my_task/ckpts/TransE_l2_FB15k_4/
 
 # DistMult training
 dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_config.txt \

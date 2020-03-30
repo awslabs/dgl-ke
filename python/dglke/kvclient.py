@@ -193,7 +193,7 @@ def start_client(args, logger):
     cross_rels = train_data.cross_rels if args.soft_rel_part else None
 
     procs = []
-    barrier = mp.Barrier(args.num_client)
+    #barrier = mp.Barrier(args.num_client)
     for i in range(args.num_client):
         proc = mp.Process(target=dist_train_test, args=(args,
                                                         model,
@@ -203,8 +203,7 @@ def start_client(args, logger):
                                                         local2global,
                                                         i,
                                                         rel_parts,
-                                                        cross_rels,
-                                                        barrier))
+                                                        cross_rels))
         procs.append(proc)
         proc.start()
     for proc in procs:
