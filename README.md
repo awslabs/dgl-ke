@@ -21,9 +21,9 @@ pip install dglke
 Train a `transE` model on `FB15k` dataset by runing the following command:
 
 ```
-dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
---gamma 16.0 --lr 0.01 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
---regularization_coef 1.00E-07 --num_thread 1 --num_proc 8
+dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+--gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
+--regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
 ```
 
 This command will download the `FB15k` dataset, train `transE` model on that, and save the trained embeddings into file. 
