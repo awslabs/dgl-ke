@@ -26,7 +26,7 @@ dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sampl
 --regularization_coef 1.00E-07 --num_thread 1 --num_proc 8
 ```
 
-This command will download the `FB15k` dataset, train `transE` model on that, and finally save the trained embeddings into file. 
+This command will download the `FB15k` dataset, train `transE` model on that, and save the trained embeddings into file. 
 
 ### Performance and Scalability
 
