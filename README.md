@@ -10,33 +10,29 @@ Knowledge graphs (KGs) are data structures that store information about differen
   <b>Figure</b>: DGL-KE Overall Architecture
 </p>
 
-Get started with our [tutorials](https://docs.dgl.ai)!
+### A Quick Start
 
-## Installation
-
-DGL-KE is built in Python (version 3.6 or later) and relies on [DGL](https://github.com/dmlc/dgl) (at least version 0.4.2). The package can run with both [Pytorch](https://pytorch.org/) and [MXNet](https://mxnet.apache.org/). For Pytorch, it works with Pytorch v1.2 or newer. For MXNet, it works with MXNet 1.5 or newer.
-
-#### Using anaconda
+To install the latest version of DGL-KE run:
 
 ```
-conda install -c dglteam dgl-ke
+pip install dglke
 ```
 
-#### Using pip
+Then try to train a `transE` model on `FB15k` dataset by runing the following command:
 
 ```
-pip install dgl-ke
+dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+--gamma 16.0 --lr 0.01 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
+--regularization_coef 1.00E-07 --num_thread 1 --num_proc 8
 ```
 
-#### Build from source
+### Performance and Scalability
 
-Refer to the guide [here](https://docs.dgl.ai/install/index.html#install-from-source).
+DGL-KE is designed for learning at scale. It introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
 
-## Performance and Scalability
+Learn more details with our [tutorials](https://docs.dgl.ai)!
 
-DGL-KE is designed for learning at scale, and it introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
-
-## License
+### License
 
 This project is licensed under the Apache-2.0 License.
 
