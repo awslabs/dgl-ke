@@ -18,7 +18,7 @@ To install the latest version of DGL-KE run:
 pip install dglke
 ```
 
-Then try to train a `transE` model on `FB15k` dataset by runing the following command:
+Train a `transE` model on `FB15k` dataset by runing the following command:
 
 ```
 dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
@@ -26,11 +26,13 @@ dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sampl
 --regularization_coef 1.00E-07 --num_thread 1 --num_proc 8
 ```
 
+This command will download the `FB15k` dataset, train `transE` model on that, and finally save the trained embeddings into file. 
+
 ### Performance and Scalability
 
 DGL-KE is designed for learning at scale. It introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
 
-Learn more details with our [tutorials](https://docs.dgl.ai)!
+See our [benchmark](https://github.com/awslabs/dgl-ke/tree/master/examples) and learn more details with our [tutorials](https://docs.dgl.ai)!
 
 ### License
 
