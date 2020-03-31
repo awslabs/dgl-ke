@@ -15,7 +15,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 #!/bin/bash
 
@@ -34,7 +33,6 @@ dglke_partition --dataset wn18 -k 4 --data_path ~/my_task
 # write graph 3...
 # there are 141442 edges in the graph and 9867 edge cuts for 4 partitions.
 ##################################################
-
 
 # TransE-l1 training
 dglke_dist_train --path ~/my_task --ssh_key ~/mctt.pem --ip_config ~/my_task/ip_config.txt \
