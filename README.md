@@ -10,16 +10,15 @@ Knowledge graphs (KGs) are data structures that store information about differen
   <b>Figure</b>: DGL-KE Overall Architecture
 </p>
 
+### A Quick Start
 
-### A quick start
-
-Intsall DGL-KE using `pip`:
+To install the latest version of DGL-KE run:
 
 ```
-pip install dgl-ke
+pip install dglke
 ```
 
-Train a `transE` model on `FB15k` dataset:
+Then try to train a `transE` model on `FB15k` dataset by runing the following command:
 
 ```
 dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
@@ -29,9 +28,9 @@ dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --neg_sampl
 
 ### Performance and Scalability
 
-DGL-KE is designed for learning at scale, and it introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
+DGL-KE is designed for learning at scale. It introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
 
-Get started with our [tutorials](https://docs.dgl.ai)!
+Learn more details with our [tutorials](https://docs.dgl.ai)!
 
 ### License
 
