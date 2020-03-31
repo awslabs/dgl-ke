@@ -54,7 +54,7 @@ dglke_train --model_name DistMult --dataset Freebase --no_save_emb --log_interva
 ##################################################
 
 # ComplEx
-DGLBACKEND=pytorch dglke_train --model_name ComplEx --dataset Freebase --no_save_emb --log_interval 100 \
+dglke_train --model_name ComplEx --dataset Freebase --no_save_emb --log_interval 100 \
 --batch_size 1024 --neg_sample_size 256 --hidden_dim 400 --gamma 143.0 --lr 0.1 --max_step 50000 \
 --batch_size_eval 1000 --neg_sample_size_eval 1000 --test -adv --num_thread 1 --num_proc 48
 
