@@ -19,13 +19,13 @@ DGL-KE is built in Python (version 3.6 or later) and relies on [DGL](https://git
 #### Using anaconda
 
 ```
-conda install -c dglteam xxx
+conda install -c dglteam dgl-ke
 ```
 
 #### Using pip
 
 ```
-pip install xxx
+pip install dgl-ke
 ```
 
 #### Build from source
