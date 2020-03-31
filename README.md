@@ -37,4 +37,3 @@ See our [benchmark](https://github.com/awslabs/dgl-ke/tree/master/examples) and 
 ### License
 
 This project is licensed under the Apache-2.0 License.
-
