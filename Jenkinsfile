@@ -6,13 +6,16 @@ def init_git() {
   sh "git submodule update --recursive --init"
 }
 
-def install_dgl() {
-  sh "pip3 install --pre dgl"
+def install_dgl(dev) {
+  if dev == "cpu":
+    sh "bash tests/scripts/install_dgl.sh"
+  else:
+    sh "bash tests/scripts/install_dgl_cu.sh"
 }
 
 def kg_test_linux(backend, dev) {
   init_git()
-  install_dgl()
+  install_dgl(dev)
   timeout(time: 20, unit: 'MINUTES') {
     sh "bash tests/scripts/task_kg_test.sh ${backend} ${dev}"
   }
