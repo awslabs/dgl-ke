@@ -44,18 +44,6 @@ DGL-KE is designed for learning at scale. It introduces various novel optimizati
   <b>Figure</b>: DGL-KE vs Pytorch-BigGraph on Freebase
 </p>
 
-<p align="center">
-  <img src="https://github.com/awslabs/dgl-ke/blob/master/img/vs-gv-fb15k.png" alt="vs-graphvite-fb15k" width="700">
-  <br>
-  <b>Figure</b>: DGL-KE vs GraphVite on FB15k
-</p>
-
-<p align="center">
-  <img src="https://github.com/awslabs/dgl-ke/blob/master/img/vs-pbg-fb.png" alt="vs-pbg-fb" width="750">
-  <br>
-  <b>Figure</b>: DGL-KE vs Pytorch-BigGraph on Freebase
-</p>
-
 See our [benchmark](https://github.com/awslabs/dgl-ke/tree/master/examples) and learn more details with our [tutorials](https://docs.dgl.ai)!
 
 ### License
