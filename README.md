@@ -33,13 +33,13 @@ This command will download the `FB15k` dataset, train `transE` model on that, an
 DGL-KE is designed for learning at scale. It introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges show that DGL-KE can compute embeddings in 100 minutes on a EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup overthe best competing approaches.
 
 <p align="center">
-  <img src="https://github.com/aksnzhy/dgl-ke/blob/master/img/vs-gv-fb15k.png" alt="vs-graphvite-fb15k" width="700">
+  <img src="https://github.com/awslabs/dgl-ke/blob/master/img/vs-gv-fb15k.png" alt="vs-graphvite-fb15k" width="700">
   <br>
   <b>Figure</b>: DGL-KE vs GraphVite on FB15k
 </p>
 
 <p align="center">
-  <img src="https://github.com/aksnzhy/dgl-ke/blob/master/img/vs-pbg-fb.png" alt="vs-pbg-fb" width="750">
+  <img src="https://github.com/awslabs/dgl-ke/blob/master/img/vs-pbg-fb.png" alt="vs-pbg-fb" width="750">
   <br>
   <b>Figure</b>: DGL-KE vs Pytorch-BigGraph on Freebase
 </p>
