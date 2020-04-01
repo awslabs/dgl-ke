@@ -1,47 +1,26 @@
-.. DGL-KE documentation master file, created by
-   sphinx-quickstart on Tue Mar 31 07:38:55 2020.
+.. dglke documentation master file, created by
+   sphinx-quickstart on Wed Apr  1 12:56:21 2020.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to DGL-KE's documentation!
-==================================
+DGL-KE Documentation
+=================================
 
-DGL-KE is a DGL-based package for computing node embeddings and relation embeddings
-of knowledge graphs efficiently. This package is adapted from
-[KnowledgeGraphEmbedding](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding).
-We enable fast and scalable training of knowledge graph embedding, while still keeping
-the package as extensible as KnowledgeGraphEmbedding. On a single machine, it takes
-only a few minutes for medium-size knowledge graphs, such as FB15k and wn18, and
-takes a couple of hours on Freebase, which has hundreds of millions of edges.
+Knowledge graphs (KGs) are data structures that store information about different entities (nodes) and their relations (edges). A common approach of using KGs in various machine learning tasks is to compute knowledge graph embeddings. DGL-KE is a high performance, easy-to-use, and scalable package for learning large-scale knowledge graph embeddings. The package is implemented on the top of Deep Graph Library (DGL) and developers can run DGL-KE on CPU machine, GPU machine, as well as clusters with a number of popular models, including TransE, TransR, RESCAL, DistMult, ComplEx, and RotatE.
 
-DGL-KE includes the following knowledge graph embedding models:
+.. image:: ../images/dgl_ke_arch.png
+    :width: 650  
 
-* TransE (TransE_l1 with L1 distance and TransE_l2 with L2 distance)
-* DistMult
-* ComplEx
-* RESCAL
-* TransR
-* RotatE
 
-We will add other popular models in the future.
-
-DGL-KE supports multiple training modes:
-
-* Multiprocessing CPU training
-* Multi-GPU GPU training
-* Distributed training
+Get started with DGL-KE!
+----------------------------------------
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :glob:
+   :maxdepth: 1
 
-   /get_started
-   /ec2
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   install
+   train_built_in
+   train_user_data
+   dist_train
+   hyper_param
