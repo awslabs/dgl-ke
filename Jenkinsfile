@@ -1,3 +1,5 @@
+#!/usr/bin/env groovy
+
 def init_git() {
   sh "rm -rf *"
   checkout scm
