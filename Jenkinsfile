@@ -7,7 +7,7 @@ def init_git() {
 }
 
 def install_dgl() {
-  sh "pip install --pre dgl"
+  sh "pip3 install --pre dgl"
 }
 
 def kg_test_linux(backend, dev) {
