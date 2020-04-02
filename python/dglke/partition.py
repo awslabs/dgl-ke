@@ -76,14 +76,20 @@ def write_txt_graph(path, file_name, part_dict, total_nodes, total_relations):
 def main():
     parser = argparse.ArgumentParser(description='Partition a knowledge graph')
     parser.add_argument('--data_path', type=str, default='data',
-                        help='root path of all dataset')
+                        help='The path of the directory where DGL-KE loads knowledge graph data.')
     parser.add_argument('--dataset', type=str, default='FB15k',
                         help='dataset name, under data_path')
     parser.add_argument('--data_files', type=str, default=None, nargs='+',
-                        help='a list of data files, e.g. entity relation train valid test')
+                        help='A list of data file names. This is used if users want to train KGE'\
+                                'on their own datasets. If the format is raw_udd_{htr},'\
+                                'users need to provide train_file [valid_file] [test_file].'\
+                                'If the format is udd_{htr}, users need to provide'\
+                                'entity_file relation_file train_file [valid_file] [test_file].'\
+                                'In both cases, valid_file and test_file are optional.')
     parser.add_argument('--format', type=str, default='built_in',
-                        help='the format of the dataset, it can be built_in,'\
-                                'raw_udd_{htr} and udd_{htr}')
+                        help='The format of the dataset. For builtin knowledge graphs,'\
+                                'the foramt should be built_in. For users own knowledge graphs,'\
+                                'it needs to be raw_udd_{htr} or udd_{htr}.')
     parser.add_argument('-k', '--num-parts', required=True, type=int,
                         help='The number of partitions')
     args = parser.parse_args()

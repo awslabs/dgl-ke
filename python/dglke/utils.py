@@ -65,9 +65,9 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('--data_path', type=str, default='data',
                           help='The path of the directory where DGL-KE loads knowledge graph data.')
         self.add_argument('--dataset', type=str, default='FB15k',
-                          help='The name of the knowledge graph stored under data_path. If it is one of'\
-                                  'the builtin knowledge grpahs such as FB15k, DGL-KE will automatically'\
-                                  'download the knowledge graph and keep it under data_path.')
+                          help='The name of the builtin knowledge graph. Currently, the builtin knowledge '\
+                                  'graphs include FB15k, FB15k-237, wn18, wn18rr and Freebase. '\
+                                  'DGL-KE automatically downloads the knowledge graph and keep it under data_path.')
         self.add_argument('--format', type=str, default='built_in',
                           help='The format of the dataset. For builtin knowledge graphs,'\
                                   'the foramt should be built_in. For users own knowledge graphs,'\

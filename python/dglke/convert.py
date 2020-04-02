@@ -25,13 +25,18 @@ from .dataloader import get_dataset
 def main():
     parser = argparse.ArgumentParser(description='Convert knowledge graph format')
     parser.add_argument('--data_path', type=str, default='data',
-                        help='root path of all dataset')
+                        help='The path of the directory where DGL-KE loads knowledge graph data.')
     parser.add_argument('--data_files', type=str, required=True, nargs='+',
-                        help='a list of data files, e.g. train valid test')
+                        help='A list of data file names. This is used if users want to train KGE'\
+                                'on their own datasets. If the format is raw_udd_{htr},'\
+                                'users need to provide train_file [valid_file] [test_file].'\
+                                'If the format is udd_{htr}, users need to provide'\
+                                'entity_file relation_file train_file [valid_file] [test_file].'\
+                                'In both cases, valid_file and test_file are optional.')
     parser.add_argument('--input_format', type=str, default='raw_udd_{htr}',
-                        help='the format of the input dataset.')
+                        help='The format of the input dataset.')
     parser.add_argument('--output_format', type=str, default='udd_{htr}',
-                        help='the format of the output dataset.')
+                        help='The format of the output dataset.')
     parser.add_argument('--output_path', type=str, default='data',
                         help='The path of the output files.')
     args = parser.parse_args()
