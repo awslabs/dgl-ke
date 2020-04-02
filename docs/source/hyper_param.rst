@@ -117,17 +117,36 @@ Training knowledge graph embeddings contains large numbers of tensor computation
 
 The following command trains the ``transE`` model on ``FB15k`` on a single GPU::
 
-    dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 1000 \
+    dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 100 \
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
     --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000
 
-Most of the options here we have already seen in the previous section. The only difference is that we add ``--gpu 0`` here to indicate that we will use 1 GPU to train our model. Compared to the cpu training, every 100 steps only takes ``0.68`` seconds on each Nvidia v100 GPU, which is much faster ``22.8`` second in CPU training::
+Most of the options here we have already seen in the previous section. The only difference is that we add ``--gpu 0`` to indicate that we will use 1 GPU to train our model. Compared to the cpu training, every 100 steps only takes ``0.72`` seconds on the Nvidia v100 GPU, which is much faster ``8.9`` second in CPU training::
 
-    [proc 0][Train](24000/24000) average pos_loss: 0.2704171320796013
-    [proc 0][Train](24000/24000) average neg_loss: 0.39646861135959627
-    [proc 0][Train](24000/24000) average loss: 0.33344287276268003
-    [proc 0][Train](24000/24000) average regularization: 0.0017754920991137624
-    [proc 0][Train] 100 steps take 0.680 seconds
+  [proc 0]sample: 0.165, forward: 0.282, backward: 0.217, update: 0.087
+  [proc 0][Train](1900/24000) average pos_loss: 0.32798981070518496
+  [proc 0][Train](1900/24000) average neg_loss: 0.45353577584028243
+  [proc 0][Train](1900/24000) average loss: 0.3907627931237221
+  [proc 0][Train](1900/24000) average regularization: 0.0012039361777715384
+  [proc 0][Train] 100 steps take 0.726 seconds
+  [proc 0]sample: 0.137, forward: 0.282, backward: 0.218, update: 0.087
+  [proc 0][Train](2000/24000) average pos_loss: 0.31407852172851564
+  [proc 0][Train](2000/24000) average neg_loss: 0.44177248477935793
+  [proc 0][Train](2000/24000) average loss: 0.3779255014657974
+  [proc 0][Train](2000/24000) average regularization: 0.0012163800827693194
+  [proc 0][Train] 100 steps take 0.760 seconds
+  [proc 0]sample: 0.171, forward: 0.282, backward: 0.218, update: 0.087
+  [proc 0][Train](2100/24000) average pos_loss: 0.309254549741745
+  [proc 0][Train](2100/24000) average neg_loss: 0.43288875490427015
+  [proc 0][Train](2100/24000) average loss: 0.37107165187597274
+  [proc 0][Train](2100/24000) average regularization: 0.0012251652684062719
+  [proc 0][Train] 100 steps take 0.726 seconds
+  [proc 0]sample: 0.136, forward: 0.283, backward: 0.219, update: 0.087
+  [proc 0][Train](2200/24000) average pos_loss: 0.3109792047739029
+  [proc 0][Train](2200/24000) average neg_loss: 0.4351910164952278
+  [proc 0][Train](2200/24000) average loss: 0.3730851110816002
+  [proc 0][Train](2200/24000) average regularization: 0.0012286945607047528
+  [proc 0][Train] 100 steps take 0.732 seconds
 
 
 Mix CPU-GPU training
