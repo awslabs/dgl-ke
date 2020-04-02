@@ -50,7 +50,7 @@ if [ "$2" == "cpu" ]; then
         --data_path /data/kg || fail "run DistMult on $2"
 
     # verify saving training result
-    python3 eval.py --model_name DistMult --dataset FB15k --hidden_dim 100 \
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
         --gamma 500.0 --batch_size 16 --eval_percent 0.01 --data_path /data/kg || fail "eval DistMult on $2"
 elif [ "$2" == "gpu" ]; then
     # verify GPU training DistMult
