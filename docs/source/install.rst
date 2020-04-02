@@ -34,7 +34,8 @@ or you can install DGL from source::
     cmake ../
     make -j4
     cd ../python
-    python3 setup.py install
+    sudo python3 setup.py install
+
 
 
 Install DGL-KE 
