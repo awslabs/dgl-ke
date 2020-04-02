@@ -17,7 +17,6 @@ DGL-KE provides four commands to users:
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-
 Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. In DGL-KE, we uses multi-processes instead of multi-threads for parallel training. In this design, the enity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
 
 .. image:: ../images/multi-core.png
@@ -86,6 +85,18 @@ As we can see, every 100 steps will take almost ``8.9`` seconds on each process.
 ``--test`` indicates that we will do an evaluation at the end.
 
 After training, we can see a new directory ``ckpts/TransE_l2_FB15k_0``, which stores our training logs and trained KG embeddings. Users can set ``--no_save_emb`` to stop saving embedding to the file. 
+
+
+Training on Powerful Workstation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+DGL-KE can efficiently train KG embeddings on the powerful workstation, which could have a large number of CPU cores. As an example, we start an ``r5dn.24xlarge`` instance on AWS EC2. This instance has 48 cores and 768 GB memory. The following command trains the previous ``transE`` model on this machine. Note that, as we use 48 cores in parallel, the ``--max_step`` will be decreased from ``3000`` to ``500``::
+
+  dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+  --gamma 19.9 --lr 0.25 --max_step 500 --log_interval 100 --batch_size_eval 16 --test -adv \
+  --regularization_coef 1.00E-09 --num_thread 1 --num_proc 48
+
+
 
 
 Training on single GPU
