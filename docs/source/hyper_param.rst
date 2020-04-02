@@ -57,14 +57,31 @@ DGL-KE uses *mini-batch SGD* training. The ``--batch_size`` and ``--neg_batch_si
 
 ``--log_interval`` indicates that on every ``100`` steps we print the training loss on the screen like this::
 
-   [proc 7][Train](100/500) average pos_loss: 0.7686050720512867
-   [proc 7][Train](100/500) average neg_loss: 0.6058262066915632
-   [proc 7][Train](100/500) average loss: 0.6872156363725662
-   [proc 7][Train](100/500) average regularization: 8.930973201586312e-06
-   [proc 7][Train] 100 steps take 22.813 seconds
-   [proc 7]sample: 0.226, forward: 13.125, backward:
+  [proc 7][Train](2900/3000) average pos_loss: 0.2691971030831337
+  [proc 7][Train](2900/3000) average neg_loss: 0.3952002424001694
+  [proc 7][Train](2900/3000) average loss: 0.33219867378473283
+  [proc 7][Train](2900/3000) average regularization: 0.001801597059238702
+  [proc 7][Train] 100 steps take 8.903 seconds
+  [proc 7]sample: 0.264, forward: 6.140, backward: 1.942, update: 0.555
+  [proc 4][Train](2900/3000) average pos_loss: 0.2709790524840355
+  [proc 4][Train](2900/3000) average neg_loss: 0.397322960793972
+  [proc 4][Train](2900/3000) average loss: 0.3341510048508644
+  [proc 4][Train](2900/3000) average regularization: 0.0018006288178730756
+  [proc 4][Train] 100 steps take 8.906 seconds
+  [proc 4]sample: 0.254, forward: 6.087, backward: 1.989, update: 0.575
+  [proc 4][Train](3000/3000) average pos_loss: 0.27121892631053923
+  [proc 5][Train](3000/3000) average pos_loss: 0.2708482551574707
+  [proc 4][Train](3000/3000) average neg_loss: 0.396016526222229
+  [proc 5][Train](3000/3000) average neg_loss: 0.39040900617837904
+  [proc 4][Train](3000/3000) average loss: 0.3336177259683609
+  [proc 5][Train](3000/3000) average loss: 0.3306286296248436
+  [proc 4][Train](3000/3000) average regularization: 0.0018079591123387217
+  [proc 5][Train](3000/3000) average regularization: 0.0018065990647301079
+  [proc 0][Train](3000/3000) average pos_loss: 0.2704304122924805
+  [proc 1][Train](3000/3000) average pos_loss: 0.27033439934253695
+  [proc 4][Train] 100 steps take 8.856 seconds
 
-As we can see, every 100 steps will take ``22.8`` seconds on each process.
+As we can see, every 100 steps will take almost ``8.9`` seconds on each process. We can compare this result with GPU training in the following sections.
 
 ``--test`` indicates that we will do an evaluation at the end.
 
