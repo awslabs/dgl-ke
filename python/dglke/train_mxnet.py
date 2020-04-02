@@ -28,10 +28,10 @@ import json
 
 from .models import KEModel
 
-if "MXNET_DKL_KE_PROFILER" in os.environ:
-    mxnet_profiler = True
+if "MXNET_PROFILER" in os.environ:
+    mxprofiler = True
 else:
-    mxnet_profiler = False
+    mxprofiler = False
 
 def load_model(logger, args, n_entities, n_relations, ckpt=None):
     model = KEModel(args, args.model_name, n_entities, n_relations,
@@ -64,7 +64,7 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
     if args.strict_rel_part:
         model.prepare_relation(mx.gpu(gpu_id))
 
-    if mxnet_profiler:
+    if mxprofiler:
         from mxnet import profiler
         profiler.set_config(profile_all=True,
                             aggregate_stats=True,
@@ -74,7 +74,7 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
     for step in range(0, args.max_step):
         pos_g, neg_g = next(train_sampler)
         args.step = step
-        if(step == 1 and mxnet_profiler):
+        if(step == 1 and mxprofiler):
             profiler.set_state('run')
         with mx.autograd.record():
             loss, log = model.forward(pos_g, neg_g, gpu_id)
@@ -96,7 +96,7 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
             print('test:', time.time() - start)
     if args.strict_rel_part:
         model.writeback_relation(rank, rel_parts)
-    if mxnet_profiler:
+    if mxprofiler:
         nd.waitall()
         profiler.set_state('stop')
         profiler.dump()

@@ -31,6 +31,16 @@ dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sampl
 
 This command will download the `FB15k` dataset, train the `transE` model on that, and save the trained embeddings into the file. 
 
+If analysising mxnet performance for models, please source code install, and then run one of the following command:
+
+```
+export MXNet_PROFILER=1
+
+MXNET_PROFILER=1 dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
+--gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
+--regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
+```
+
 ### Performance and Scalability
 
 DGL-KE is designed for learning at scale. It introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges shows that DGL-KE can compute embeddings in 100 minutes on an EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup over the best competing approaches.
