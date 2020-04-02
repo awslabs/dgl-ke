@@ -39,22 +39,21 @@ After training, you will see the following messages::
     Test average HITS@10 : 0.8479202993008413
     -----------------------------------------
 
+``--num_proc`` indicates that we will launch ``8`` processes in parallel for the training task, and ``--num_thread`` indicates that each process will use ``1`` thread. Typically, ``num_proc * num_thread`` is ``<=`` the ``number_of_cores`` of the current machine. For example, when the number of processes is the same as the number of CPU cores, the user should use just ``1`` thread in each process for the best. performance.
 
-``--num_proc`` indicates that we will launch ``8`` processes in parallel for the training task, and ``--num_thread`` indicates that each process will use ``1`` thread. Typically, ``num_proc * num_thread`` is set to ``<=`` the ``number_of _cores`` of the current machine for the best performance. For example, when the number of processes is the same as the number of CPU cores, a user should use one thread in each process.
+``--model_name`` is used to specify our model, including ``TransE_l2``, ``TransE_l1``, ``DistMult``, ``ComplEx``, ``TransR``, ``RESCAL``, and ``RotatE``. More models will be added in the future.
 
-``--model_name`` is used to specify our model, including ``TransE_l2``, ``TransE_l1``, ``DistMult``, ``ComplEx``, ``TransR``, ``RESCAL``, and ``RotatE``.
-
-``--dataset`` is used to choose a built-in dataset, including ``FB15k``, ``FB15k-237``, ``wn18``, ``wn18rr``, and ``Freebase``. See more details about the built-in KG on this `page`__.
+``--dataset`` is used to choose a built-in KG dataset, including ``FB15k``, ``FB15k-237``, ``wn18``, ``wn18rr``, and ``Freebase``. See more details about the built-in KG dataset on this `page`__.
 
 .. __: ./train_built_in.html
 
-``--batch_size``, ``--neg_batch_size`` is the hyper-parameter used for training sampler, and ``--batch_size_eval`` is the hyper-parameter used for the test.
+DGL-KE uses *mini-batch SGD* training. The ``--batch_size`` and ``--neg_batch_size`` are the hyper-parameters used for training. The ``--batch_size_eval`` is the hyper-parameter used for the test.
 
-``--hidden_dim`` defines the dimension size of the KG embeddings. ``--gamma`` is a hyper-parameter to initialize embeddings. ``--regularization_coef`` is the hyper-parameter for regularization.
+``--hidden_dim`` indicates the dimension size of the KG embeddings. ``--gamma`` is a hyper-parameter used to initialize embeddings. ``--regularization_coef`` is the hyper-parameter used for regularization.
 
-``--lr`` is used to set the learning rate for our optimization algorithm. ``--max_step`` defines the maximal learning steps for the training task. Note that, the total steps in our training is ``max_step * num_proc``. With multi-processing, we need to adjust the number of ``--max_step`` in each process. Usually, we only need the total number of steps performed by all processes equal to the number of steps performed in the single-process training.
+``--lr`` is learning rate used for our optimization algorithm. ``--max_step`` defines the maximal learning steps. Note that, the total number of steps in our training task is ``max_step * num_proc``. With multi-processing, we need to adjust the number of ``--max_step`` in each process. Usually, we only need the total number of steps performed by all processes equal to the number of steps performed in the single-process training.
 
-``-adv`` indicates whether to use negative adversarial sampling. It will weight negative samples with higher scores more.
+``-adv`` indicates whether to use negative adversarial sampling, which will weight negative samples with higher scores more.
 
 ``--log_interval`` indicates that on every ``100`` steps we print the training loss on the screen like this::
 
@@ -67,19 +66,9 @@ After training, you will see the following messages::
 
 As we can see, every 100 steps will take ``22.8`` seconds on each process.
 
-``--test`` indicates that we will do an evaluation after training. It could print the following outputs to the screen::
+``--test`` indicates that we will do an evaluation at the end.
 
-    training takes 37.735950231552124 seconds
-    -------------- Test result --------------
-    Test average MRR : 0.47615999491724303
-    Test average MR : 58.97734929153053
-    Test average HITS@1 : 0.28428501295051717
-    Test average HITS@3 : 0.6277276497773865
-    Test average HITS@10 : 0.775862944592101
-    -----------------------------------------
-    testing takes 110.887 seconds
-
-After training, we can see a new folder ``ckpts/TransE_l2_FB15k_0``, which stores our training log and trained KG embeddings. Users can set ``--no_save_emb`` to stop saving embedding to the file. 
+After training, we can see a new directory ``ckpts/TransE_l2_FB15k_0``, which stores our training logs and trained KG embeddings. Users can set ``--no_save_emb`` to stop saving embedding to the file. 
 
 
 Training on single GPU
