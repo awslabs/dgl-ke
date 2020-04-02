@@ -1,6 +1,6 @@
 #!/bin/bash
 . /opt/conda/etc/profile.d/conda.sh
-KG_DIR="./python/dglke"
+KG_DIR="${PWD}/python/dglke"
 
 function fail {
     echo FAIL: $@
@@ -28,9 +28,7 @@ else
 fi
 
 export DGLBACKEND=$1
-export DGL_LIBRARY_PATH=${PWD}/build
 export PYTHONPATH=${PWD}/python:$KG_DIR:$PYTHONPATH
-export DGL_DOWNLOAD_DIR=${PWD}
 conda activate ${DGLBACKEND}-ci
 # test
 if [ "$2" == "cpu" ]; then

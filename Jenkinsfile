@@ -6,10 +6,6 @@ def init_git() {
   sh "git submodule update --recursive --init"
 }
 
-def install_dgl(dev) {
-  sh "bash tests/scripts/install_dgl.sh ${dev}"
-}
-
 def kg_test_linux(backend, dev) {
   init_git()
   timeout(time: 20, unit: 'MINUTES') {
