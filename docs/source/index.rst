@@ -20,10 +20,6 @@ Knowledge graphs (KGs) are data structures that store information about differen
     :width: 650  
 
 
-System Design and Implementation
----------------------------------------
-
-
 Get started with DGL-KE!
 ----------------------------------------
 
