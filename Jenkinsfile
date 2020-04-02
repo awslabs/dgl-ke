@@ -12,7 +12,6 @@ def install_dgl(dev) {
 
 def kg_test_linux(backend, dev) {
   init_git()
-  install_dgl(dev)
   timeout(time: 20, unit: 'MINUTES') {
     sh "bash tests/scripts/task_kg_test.sh ${backend} ${dev}"
   }

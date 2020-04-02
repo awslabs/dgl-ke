@@ -33,6 +33,11 @@ export PYTHONPATH=${PWD}/python:$KG_DIR:$PYTHONPATH
 export DGL_DOWNLOAD_DIR=${PWD}
 conda activate ${DGLBACKEND}-ci
 # test
+if [ "$2" == "cpu" ]; then
+    pip install --pre dgl
+else
+    pip install --pre dgl-cu101
+fi
 
 pushd $KG_DIR> /dev/null
 
