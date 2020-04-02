@@ -167,7 +167,7 @@ The ``--mix_cpu_gpu`` training will keep node and relation embeddings in CPU mem
     [proc 0][Train] 100 steps take 1.073 seconds
     [proc 0]sample: 0.158, forward: 0.383, backward: 0.214, update: 0.316
 
-As we can see, the *mix_cpu_gpu* training takes ``1.07`` seconds on every 100 steps.
+As we can see, the *mix_cpu_gpu* training takes ``1.07`` seconds on every 100 steps. It is slower than pure GPU training but still much faster than CPU.
 
 
 Training on Multi-GPU
