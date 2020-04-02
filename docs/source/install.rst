@@ -2,7 +2,7 @@ Installation Guide
 ----------------------------------
 
 
-This topic explains how to install DGL-KE. We recommend installing DGL-KE by using ``pip`` and from source.
+This topic explains how to install DGL-KE. We recommend installing DGL-KE by using ``pip`` and from the source.
 
 System requirements
 ^^^^^^^^^^^^^^^^^^^^^^^
