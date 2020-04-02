@@ -7,10 +7,7 @@ def init_git() {
 }
 
 def install_dgl(dev) {
-  if dev == "cpu":
-    sh "bash tests/scripts/install_dgl.sh"
-  else:
-    sh "bash tests/scripts/install_dgl_cu.sh"
+  sh "bash tests/scripts/install_dgl.sh ${dev}"
 }
 
 def kg_test_linux(backend, dev) {
