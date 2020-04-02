@@ -17,6 +17,7 @@ DGL-KE provides four commands to users:
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+
 Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. In DGL-KE, we uses multi-processes instead of multi-threads for parallel training. In this design, the enity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
 
 .. image:: ../images/multi-core.png
@@ -27,6 +28,17 @@ The following command trains the ``transE`` model on ``FB15k`` dataset on a mult
   dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
   --gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
   --regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
+
+After training, you will see the following messages::
+
+    -------------- Test result --------------
+    Test average MRR : 0.6520483281422476
+    Test average MR : 43.725415178344704
+    Test average HITS@1 : 0.5257063533713666
+    Test average HITS@3 : 0.7524081190431853
+    Test average HITS@10 : 0.8479202993008413
+    -----------------------------------------
+
 
 ``--num_proc`` indicates that we will launch ``8`` processes in parallel for the training task, and ``--num_thread`` indicates that each process will use ``1`` thread. Typically, ``num_proc * num_thread`` is set to ``<=`` the ``number_of _cores`` of the current machine for the best performance. For example, when the number of processes is the same as the number of CPU cores, a user should use one thread in each process.
 
