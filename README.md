@@ -15,6 +15,7 @@ Knowledge graphs (KGs) are data structures that store information about differen
 To install the latest version of DGL-KE run:
 
 ```
+pip install dgl
 pip install dglke
 ```
 
