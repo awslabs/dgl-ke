@@ -64,14 +64,12 @@ Once you install DGL-KE successfully, you can test it by the following command::
     --neg_sample_size 200 --hidden_dim 400 --gamma 19.9 --lr 0.25 --max_step 500 --log_interval 100 \
     --batch_size_eval 16 -adv --regularization_coef 1.00E-09 --test --num_thread 1 --num_proc 8
 
-This command will download the ``FB15k`` dataset, train the ``transE`` model on that, and save the trained embeddings into the file. You can see the following output at the end of the training::
+This command will download the ``FB15k`` dataset, train the ``transE`` model on that, and save the trained embeddings into the file. You could see the following output at the end::
 
-    training takes 37.735950231552124 seconds
     -------------- Test result --------------
-    Test average MRR : 0.47615999491724303
-    Test average MR : 58.97734929153053
-    Test average HITS@1 : 0.28428501295051717
-    Test average HITS@3 : 0.6277276497773865
-    Test average HITS@10 : 0.775862944592101
+    Test average MRR : 0.47221913961451095
+    Test average MR : 58.68289854581774
+    Test average HITS@1 : 0.2784276548560207
+    Test average HITS@3 : 0.6244265375564998
+    Test average HITS@10 : 0.7726295474936941
     -----------------------------------------
-    testing takes 110.887 seconds
