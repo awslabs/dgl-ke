@@ -17,8 +17,12 @@ DGL-KE provides four commands to users:
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. The following command will train a ``transE`` model on ``FB15k`` dataset on a multi-core machine::
+Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. In DGL-KE, we uses multi-processes instead of multi-threads for parallel training. In this design, the enity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
 
+.. image:: ../images/multi-core.png
+    :width: 400
+
+The following command trains the ``transE`` model on ``FB15k`` dataset on a multi-core machine::
 
   dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
   --gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
