@@ -39,7 +39,6 @@ After training, you will see the following messages::
     Test average HITS@10 : 0.8479202993008413
     -----------------------------------------
 
-
 ``--num_proc`` indicates that we will launch ``8`` processes in parallel for the training task, and ``--num_thread`` indicates that each process will use ``1`` thread. Typically, ``num_proc * num_thread`` is ``<=`` the ``number_of_cores`` of the current machine. For example, when the number of processes is the same as the number of CPU cores, the user should use just ``1`` thread in each process for the best. performance.
 
 ``--model_name`` is used to specify our model, including ``TransE_l2``, ``TransE_l1``, ``DistMult``, ``ComplEx``, ``TransR``, ``RESCAL``, and ``RotatE``. More models will be added in the future.
