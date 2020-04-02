@@ -28,6 +28,17 @@ The following command trains the ``transE`` model on ``FB15k`` dataset on a mult
   --gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
   --regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
 
+After training, you will see the following messages::
+
+    -------------- Test result --------------
+    Test average MRR : 0.6520483281422476
+    Test average MR : 43.725415178344704
+    Test average HITS@1 : 0.5257063533713666
+    Test average HITS@3 : 0.7524081190431853
+    Test average HITS@10 : 0.8479202993008413
+    -----------------------------------------
+
+
 ``--num_proc`` indicates that we will launch ``8`` processes in parallel for the training task, and ``--num_thread`` indicates that each process will use ``1`` thread. Typically, ``num_proc * num_thread`` is set to ``<=`` the ``number_of _cores`` of the current machine for the best performance. For example, when the number of processes is the same as the number of CPU cores, a user should use one thread in each process.
 
 ``--model_name`` is used to specify our model, including ``TransE_l2``, ``TransE_l1``, ``DistMult``, ``ComplEx``, ``TransR``, ``RESCAL``, and ``RotatE``.
