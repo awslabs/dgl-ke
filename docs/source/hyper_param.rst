@@ -96,13 +96,24 @@ DGL-KE can efficiently train KG embeddings on the powerful workstation, which co
   --gamma 19.9 --lr 0.25 --max_step 500 --log_interval 100 --batch_size_eval 16 --test -adv \
   --regularization_coef 1.00E-09 --num_thread 1 --num_proc 48
 
+The training result::
 
+    -------------- Test result --------------
+    Test average MRR : 0.6342726325727872
+    Test average MR : 45.80598770970527
+    Test average HITS@1 : 0.5021922770902811
+    Test average HITS@3 : 0.7371468233143167
+    Test average HITS@10 : 0.8409794992466693
+    -----------------------------------------
 
 
 Training on single GPU
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Training knowledge graph embedding contains large numbers of tensor computation, which can be accelerated by GPU. DGL-KE can run on single-GPU, as well as the multi-GPU machine. Also, it can run in a *mix-gpu-cpu* environment, where the embedding data cannot be fit into GPU memory.
+Training knowledge graph embeddings contains large numbers of tensor computation, which can be accelerated by GPU. DGL-KE can run on single-GPU, as well as the multi-GPU machine. Also, it can run in a *mix-gpu-cpu* environment, where the embedding data cannot be fit into GPU memory.
+
+.. image:: ../images/multi-gpu.png
+    :width: 400
 
 The following command trains the ``transE`` model on ``FB15k`` on a single GPU::
 
