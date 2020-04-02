@@ -45,44 +45,57 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--model_name', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
                                    'RESCAL', 'DistMult', 'ComplEx', 'RotatE'],
-                          help='model to use')
+                          help='The models provided by DGL-KE.')
         self.add_argument('--data_path', type=str, default='data',
-                          help='root path of all dataset')
+                          help='The path of the directory where DGL-KE loads knowledge graph data.')
         self.add_argument('--dataset', type=str, default='FB15k',
-                          help='dataset name, under data_path')
+                          help='The name of the builtin knowledge graph. Currently, the builtin knowledge '\
+                                  'graphs include FB15k, FB15k-237, wn18, wn18rr and Freebase. '\
+                                  'DGL-KE automatically downloads the knowledge graph and keep it under data_path.')
         self.add_argument('--format', type=str, default='built_in',
-                          help='the format of the dataset, it can be built_in,'\
-                                'raw_udd_{htr} and udd_{htr}')
+                          help='The format of the dataset. For builtin knowledge graphs,'\
+                                  'the foramt should be built_in. For users own knowledge graphs,'\
+                                  'it needs to be raw_udd_{htr} or udd_{htr}.')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
-                          help='a list of data files, e.g. entity relation train valid test')
+                          help='A list of data file names. This is used if users want to train KGE'\
+                                  'on their own datasets. If the format is raw_udd_{htr},'\
+                                  'users need to provide train_file [valid_file] [test_file].'\
+                                  'If the format is udd_{htr}, users need to provide'\
+                                  'entity_file relation_file train_file [valid_file] [test_file].'\
+                                  'In both cases, valid_file and test_file are optional.')
         self.add_argument('--model_path', type=str, default='ckpts',
-                          help='the place where models are saved')
+                          help='The path of the directory where models are saved.')
         self.add_argument('--batch_size_eval', type=int, default=8,
-                          help='batch size used for eval and test')
+                          help='The batch size used for evaluation.')
         self.add_argument('--neg_sample_size_eval', type=int, default=-1,
-                          help='negative sampling size for testing')
+                          help='The negative sampling size for evaluation.')
         self.add_argument('--neg_deg_sample_eval', action='store_true',
-                          help='negative sampling proportional to vertex degree for testing')
+                          help='Negative sampling proportional to vertex degree for evaluation.')
         self.add_argument('--hidden_dim', type=int, default=256,
-                          help='hidden dim used by relation and entity')
+                          help='The hidden dim used by relation and entity')
         self.add_argument('-g', '--gamma', type=float, default=12.0,
-                          help='margin value')
+                          help='The margin value in the score function. It is used by TransX and RotatE.')
         self.add_argument('--eval_percent', type=float, default=1,
-                          help='sample some percentage for evaluation.')
+                          help='The percentage of data used for evaluation.')
         self.add_argument('--no_eval_filter', action='store_true',
-                          help='do not filter positive edges among negative edges for evaluation')
+                          help='Disable filter positive edges from randomly constructed negative edges for evaluation')
         self.add_argument('--gpu', type=int, default=[-1], nargs='+',
                           help='a list of active gpu ids, e.g. 0')
         self.add_argument('--mix_cpu_gpu', action='store_true',
-                          help='mix CPU and GPU training')
+                          help='Evaluate a knowledge graph embedding model with both CPUs and GPUs.'\
+                                  'The embeddings are stored in CPU memory and the training is performed in GPUs.'\
+                                  'This is usually used for training a large knowledge graph embeddings.')
         self.add_argument('-de', '--double_ent', action='store_true',
-                          help='double entitiy dim for complex number')
+                          help='Double entitiy dim for complex number It is used by RotatE.')
         self.add_argument('-dr', '--double_rel', action='store_true',
-                          help='double relation dim for complex number')
+                          help='Double relation dim for complex number.')
         self.add_argument('--num_proc', type=int, default=1,
-                          help='number of process used')
+                          help='The number of processes to evaluate the model in parallel.'\
+                                  'For multi-GPU, the number of processes by default is set to match the number of GPUs.'\
+                                  'If set explicitly, the number of processes needs to be divisible by the number of GPUs.')
         self.add_argument('--num_thread', type=int, default=1,
-                          help='number of thread used')
+                          help='The number of CPU threads to evaluate the model in each process.'\
+                                  'This argument is used for multiprocessing computation.')
 
     def parse_args(self):
         args = super().parse_args()
