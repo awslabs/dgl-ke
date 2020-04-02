@@ -98,4 +98,4 @@ Most of the options we have already seen in previous sections. Here are some new
 
 All the other options are the same as single-machine training. For some EC2 users, you can also set ``--ssh_key`` for right *ssh* permission.
 
-If you don't set ``--no_save_embed`` option. The trained KG embeddings will be stored in ``machine_0`` by default.
+If you don't set ``--no_save_embed`` option. The trained KG embeddings will be stored in ``machine_0/my_task/ckpts`` by default.
