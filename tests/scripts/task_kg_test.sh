@@ -50,8 +50,9 @@ if [ "$2" == "cpu" ]; then
         --data_path /data/kg || fail "run DistMult on $2"
 
     # verify saving training result
-    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
-        --gamma 500.0 --batch_size 16 --eval_percent 0.01 --data_path /data/kg || fail "eval DistMult on $2"
+    python3 eval.py --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 500.0 --batch_size 16 --eval_percent 0.01 --model_path ckpts/DistMult_FB15k_0/ \
+        --data_path /data/kg || fail "eval DistMult on $2"
 elif [ "$2" == "gpu" ]; then
     # verify GPU training DistMult
     dglke_train --model DistMult --dataset FB15k --batch_size 128 \
@@ -67,7 +68,8 @@ elif [ "$2" == "gpu" ]; then
 
     # verify saving training result
     dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
-        --gamma 500.0 --batch_size 16 --gpu 0 --eval_percent 0.01 --data_path /data/kg || fail "eval DistMult on $2"
+        --gamma 500.0 --batch_size 16 --gpu 0 --model_path ckpts/DistMult_FB15k_0/ \
+        --eval_percent 0.01 --data_path /data/kg || fail "eval DistMult on $2"
 
     if [ "$1" == "pytorch" ]; then
         # verify mixed CPU GPU training with async_update
@@ -98,8 +100,8 @@ elif [ "$2" == "gpu" ]; then
             --async_update || fail "run multiprocess TransR on $2"
 
         dglke_eval --model_name TransR --dataset FB15k --hidden_dim 100 \
-            --gamma 500.0 --batch_size 16 --num_proc 2 --gpu 0 --eval_percent 0.01 \
-            --mix_cpu_gpu --data_path /data/kg || fail "eval multiprocess TransR on $2"
+            --gamma 500.0 --batch_size 16 --num_proc 2 --gpu 0 --model_path ckpts/TransR_FB15k_0/ \
+            --eval_percent 0.01 --mix_cpu_gpu --data_path /data/kg || fail "eval multiprocess TransR on $2"
     fi
 fi
 
