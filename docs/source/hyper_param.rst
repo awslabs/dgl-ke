@@ -17,7 +17,7 @@ DGL-KE provides four commands to users:
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. In DGL-KE, we uses multi-processes instead of multi-threads for parallel training. In this design, the enity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
+Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. In DGL-KE, we use multi-processes instead of multi-threads for parallel training. In this design, the entity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
 
 .. image:: ../images/multi-core.png
     :width: 400
