@@ -154,20 +154,32 @@ Mix CPU-GPU training
 
 By default, DGL-KE keeps all node and relation embeddings in GPU memory for single-GPU training. Therefore, it cannot train embeddings of large knowledge graphs because the capacity of GPU memory typically is much smaller than the CPU memory. So if your KG embedding is too large to fit into the GPU memory, you can use ``--mix_cpu_gpu`` training::
 
-    dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 1000 \
+    dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 100 \
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
     --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000 --mix_cpu_gpu
 
 The ``--mix_cpu_gpu`` training will keep node and relation embeddings in CPU memory and perform batch computation in GPU. In this way, you can train very large KG embeddings as long as your cpu memory can handle it. While the training speed of *mix_cpu_gpu* training will be slower than pure GPU training::
 
-    [proc 0][Train](24000/24000) average pos_loss: 0.2693914473056793
-    [proc 0][Train](24000/24000) average neg_loss: 0.39576649993658064
-    [proc 0][Train](24000/24000) average loss: 0.3325789734721184
-    [proc 0][Train](24000/24000) average regularization: 0.0017816077976021915
-    [proc 0][Train] 100 steps take 1.073 seconds
-    [proc 0]sample: 0.158, forward: 0.383, backward: 0.214, update: 0.316
+   [proc 0][Train](8200/24000) average pos_loss: 0.2720812517404556
+   [proc 0][Train](8200/24000) average neg_loss: 0.4004567116498947
+   [proc 0][Train](8200/24000) average loss: 0.3362689846754074
+   [proc 0][Train](8200/24000) average regularization: 0.0014934110222384334
+   [proc 0][Train] 100 steps take 0.958 seconds
+   [proc 0]sample: 0.133, forward: 0.339, backward: 0.185, update: 0.301
+   [proc 0][Train](8300/24000) average pos_loss: 0.27434037417173385
+   [proc 0][Train](8300/24000) average neg_loss: 0.40289842933416364
+   [proc 0][Train](8300/24000) average loss: 0.33861940175294875
+   [proc 0][Train](8300/24000) average regularization: 0.001497904829448089
+   [proc 0][Train] 100 steps take 0.970 seconds
+   [proc 0]sample: 0.145, forward: 0.339, backward: 0.185, update: 0.300
+   [proc 0][Train](8400/24000) average pos_loss: 0.27482498317956927
+   [proc 0][Train](8400/24000) average neg_loss: 0.40262984931468965
+   [proc 0][Train](8400/24000) average loss: 0.3387274172902107
+   [proc 0][Train](8400/24000) average regularization: 0.0015005254035349936
+   [proc 0][Train] 100 steps take 0.958 seconds
+   [proc 0]sample: 0.132, forward: 0.338, backward: 0.185, update: 0.301
 
-As we can see, the *mix_cpu_gpu* training takes ``1.07`` seconds on every 100 steps. It is slower than pure GPU training but still much faster than CPU.
+As we can see, the *mix_cpu_gpu* training takes ``0.95`` seconds on every 100 steps. It is slower than pure GPU training (``0.73``) but still much faster than CPU (``8.9``).
 
 
 Training on Multi-GPU
