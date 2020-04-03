@@ -29,17 +29,7 @@ dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sampl
 --regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
 ```
 
-This command will download the `FB15k` dataset, train the `transE` model on that, and save the trained embeddings into the file. 
-
-If analysising mxnet performance for models, please source code install, and then run one of the following command:
-
-```
-export MXNet_PROFILER=1
-
-MXNET_PROFILER=1 dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
---gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
---regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
-```
+This command will download the `FB15k` dataset, train the `transE` model on that, and save the trained embeddings into the file.
 
 ### Performance and Scalability
 
