@@ -189,7 +189,7 @@ Users can speed up the ``--mix_cpu_gpu`` training by using ``--async_update`` op
     --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000 --mix_cpu_gpu --async_update
 
 
-We can see that trainnig time goes down from ``0.95`` to ``0.84`` seconds on every 100 steps::
+We can see that the training time goes down from ``0.95`` to ``0.84`` seconds on every 100 steps::
 
   [proc 0][Train](22500/24000) average pos_loss: 0.2683987358212471
   [proc 0][Train](22500/24000) average neg_loss: 0.3919999450445175
@@ -223,18 +223,31 @@ The following command shows how to training our ``transE`` model using 4 Nvidia 
 
     dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 1000 \
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
-    --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 1 2 3 --max_step 6000
+    --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 1 2 3 --max_step 6000 --async_update
 
-Compared to single-GPU training, we change ``--gpu 0`` to ``--gpu 0 1 2 3``, and also we change ``--max_step`` from ``24000`` to ``6000``.
+Compared to single-GPU training, we change ``--gpu 0`` to ``--gpu 0 1 2 3``, and also we change ``--max_step`` from ``24000`` to ``6000``::
 
-Users can add ``--async_update`` option for multi-GPU training. This optimization overlaps batch computation in GPU with gradient updates on CPU to speed up the overall training::
+  [proc 0][Train](5800/6000) average pos_loss: 0.2675808426737785
+  [proc 0][Train](5800/6000) average neg_loss: 0.3915132364630699
+  [proc 0][Train](5800/6000) average loss: 0.3295470401644707
+  [proc 0][Train](5800/6000) average regularization: 0.0017635633377358318
+  [proc 0][Train] 100 steps take 1.123 seconds
+  [proc 0]sample: 0.237, forward: 0.472, backward: 0.215, update: 0.198
+  [proc 3][Train](5800/6000) average pos_loss: 0.26807423621416093
+  [proc 3][Train](5800/6000) average neg_loss: 0.3898271417617798
+  [proc 3][Train](5800/6000) average loss: 0.32895069003105165
+  [proc 3][Train](5800/6000) average regularization: 0.0017631534475367515
+  [proc 3][Train] 100 steps take 1.157 seconds
+  [proc 3]sample: 0.248, forward: 0.489, backward: 0.217, update: 0.202
+  [proc 1][Train](5900/6000) average pos_loss: 0.267591707110405
+  [proc 1][Train](5900/6000) average neg_loss: 0.3929813900589943
+  [proc 1][Train](5900/6000) average loss: 0.3302865487337112
+  [proc 1][Train](5900/6000) average regularization: 0.0017678673949558287
+  [proc 1][Train] 100 steps take 1.140 seconds
 
-    dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 1000 \
-    --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
-    --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 1 2 3 --async_update --max_step 6000
+As we can see, using 4 GPUs we have almost *3x* end-to-end performance speedup.
 
-
-``--async_update`` can increase system performance but it could slow down the model convergence. So DGL-KE provides another option called ``--force_sync_interval`` that forces all GPU sync their model on every ``N`` steps. For example, the following command will sync model across GPUs on every 1000 steps::
+Note that ``--async_update`` can increase system performance but it could also slow down the model convergence. So DGL-KE provides another option called ``--force_sync_interval`` that forces all GPU sync their model on every ``N`` steps. For example, the following command will sync model across GPUs on every 1000 steps::
 
     dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 1000 \
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
