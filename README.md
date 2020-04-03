@@ -17,16 +17,16 @@ Knowledge graphs (KGs) are data structures that store information about differen
 To install the latest version of DGL-KE run:
 
 ```
-pip install dgl
-pip install dglke
+sudo pip3 install dgl
+sudo pip3 install dglke
 ```
 
 Train a `transE` model on `FB15k` dataset by running the following command:
 
 ```
-dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
---gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
---regularization_coef 1.00E-09 --num_thread 1 --num_proc 8
+DGLBACKEND=pytorch dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 19.9 --lr 0.25 --max_step 500 --log_interval 100 \
+--batch_size_eval 16 -adv --regularization_coef 1.00E-09 --test --num_thread 1 --num_proc 8
 ```
 
 This command will download the `FB15k` dataset, train the `transE` model on that, and save the trained embeddings into the file. 

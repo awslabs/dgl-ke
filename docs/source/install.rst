@@ -16,7 +16,7 @@ DGL-KE requires Python version 3.5 or later. Python 3.4 or earlier is not tested
 
 DGL-KE supports multiple tensor libraries as backends, e.g., PyTorch and MXNet. For requirements on backends and how to select one, see Working with different backends. As a demo, we install Pytorch using ``pip``::
 
-    pip3 install torch
+    sudo pip3 install torch
 
 
 Install DGL
@@ -24,7 +24,7 @@ Install DGL
 
 DGL-KE is implemented on the top of DGL. You can install DGL using pip::
 
-    pip3 install dgl
+    sudo pip3 install dgl
 
 or you can install DGL from source::
 
@@ -43,7 +43,7 @@ Install DGL-KE
 
 After installing DGL, you can install DGL-KE. The fastest way to install DGL-KE is by using pip::
 
-    pip3 install dglke
+    sudo pip3 install dglke
 
 or you can install DGL-KE from source::
 
