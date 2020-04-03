@@ -518,5 +518,3 @@ class RotatEScore(nn.Block):
  
                 return gamma - score
             return fn
-
-

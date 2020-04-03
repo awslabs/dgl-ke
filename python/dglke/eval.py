@@ -119,7 +119,6 @@ def get_logger(args):
     print("Logs are being recorded at: {}".format(log_file))
     return logger
 
-
 def main():
     args = ArgParser().parse_args()
     args.eval_filter = not args.no_eval_filter

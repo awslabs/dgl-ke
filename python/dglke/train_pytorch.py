@@ -71,7 +71,6 @@ class KGEClient(KVClient):
     def get_local2global(self):
         return self._l2g
 
-
 def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
     """Create kvclient and connect to kvstore service
     """
@@ -94,7 +93,6 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     return my_client
 
-
 def load_model(logger, args, n_entities, n_relations, ckpt=None):
     model = KEModel(args, args.model_name, n_entities, n_relations,
                     args.hidden_dim, args.gamma,
@@ -102,7 +100,6 @@ def load_model(logger, args, n_entities, n_relations, ckpt=None):
     if ckpt is not None:
         assert False, "We do not support loading model emb for genernal Embedding"
     return model
-
 
 def load_model_from_checkpoint(logger, args, n_entities, n_relations, ckpt_path):
     model = load_model(logger, args, n_entities, n_relations)

@@ -49,7 +49,6 @@ class ArgParser(CommonArgParser):
         self.add_argument('--num_client', type=int, default=1,
                           help='Number of client on each machine.')
 
-
 def get_long_tail_partition(n_relations, n_machine):
     """Relation types has a long tail distribution for many dataset.
        So we need to average shuffle the data before we partition it.
@@ -68,7 +67,6 @@ def get_long_tail_partition(n_relations, n_machine):
 
     return partition_book 
 
-
 def local_ip4_addr_list():
     """Return a set of IPv4 address
     """
@@ -85,7 +83,6 @@ def local_ip4_addr_list():
 
     return nic
 
-
 def get_local_machine_id(server_namebook):
     """Get machine ID via server_namebook
     """
@@ -101,7 +98,6 @@ def get_local_machine_id(server_namebook):
 
     return res
 
-
 def get_machine_count(ip_config):
     """Get total machine count
     """
@@ -109,7 +105,6 @@ def get_machine_count(ip_config):
         machine_count = len(f.readlines())
 
     return machine_count
-
 
 def start_client(args, logger):
     """Start kvclient for training
@@ -208,12 +203,10 @@ def start_client(args, logger):
     for proc in procs:
         proc.join()
 
-
 def main():
     args = ArgParser().parse_args()
     logger = get_logger(args)
     start_client(args, logger)   
-
 
 if __name__ == '__main__':
     main()

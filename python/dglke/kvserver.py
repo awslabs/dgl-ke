@@ -31,7 +31,6 @@ import torch as th
 from .train_pytorch import load_model
 from .dataloader import get_server_partition_dataset
 
-
 NUM_THREAD = 1 # Fix the number of threads to 1 on kvstore
 
 class KGEServer(KVServer):
@@ -54,7 +53,6 @@ class KGEServer(KVServer):
         """Set learning rate for Row-Sparse Adagrad updater
         """
         self.clr = learning_rate
-
 
 # Note: Most of the args are unnecessary for KVStore, will remove them later
 class ArgParser(argparse.ArgumentParser):
@@ -94,7 +92,6 @@ class ArgParser(argparse.ArgumentParser):
                           help='IP configuration file of kvstore')
         self.add_argument('--total_client', type=int, default=1,
                           help='Total number of client worker nodes')
-
 
 def get_server_data(args, machine_id):
    """Get data from data_path/dataset/part_machine_id
@@ -137,7 +134,6 @@ def check_port_available(port):
 
         return True
 
-
 def start_server(args):
     """Start kvstore service
     """
@@ -174,11 +170,9 @@ def start_server(args):
 
     my_server.start()
     
-
 def main():
     args = ArgParser().parse_args()
     start_server(args)
-
 
 if __name__ == '__main__':
     main()
