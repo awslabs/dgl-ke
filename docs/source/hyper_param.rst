@@ -182,10 +182,39 @@ The ``--mix_cpu_gpu`` training will keep node and relation embeddings in CPU mem
 As we can see, the *mix_cpu_gpu* training takes ``0.95`` seconds on every 100 steps. It is slower than pure GPU training (``0.73``) but still much faster than CPU (``8.9``).
 
 
+Users can speed up the ``--mix_cpu_gpu`` training by using ``--async_update`` option. When using this option, the GPU device will not wait for the CPU to finish its job when it performs update operation::
+
+    dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 100 \
+    --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
+    --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000 --mix_cpu_gpu --async_update
+
+
+We can see that trainnig time goes down from ``0.95`` to ``0.84`` seconds on every 100 steps::
+
+  [proc 0][Train](22500/24000) average pos_loss: 0.2683987358212471
+  [proc 0][Train](22500/24000) average neg_loss: 0.3919999450445175
+  [proc 0][Train](22500/24000) average loss: 0.33019934087991715
+  [proc 0][Train](22500/24000) average regularization: 0.0017611468932591378
+  [proc 0][Train] 100 steps take 0.842 seconds
+  [proc 0]sample: 0.161, forward: 0.381, backward: 0.200, update: 0.099
+  [proc 0][Train](22600/24000) average pos_loss: 0.2682730385661125
+  [proc 0][Train](22600/24000) average neg_loss: 0.39290413081645964
+  [proc 0][Train](22600/24000) average loss: 0.3305885857343674
+  [proc 0][Train](22600/24000) average regularization: 0.0017612565110903234
+  [proc 0][Train] 100 steps take 0.838 seconds
+  [proc 0]sample: 0.159, forward: 0.379, backward: 0.200, update: 0.098
+  [proc 0][Train](22700/24000) average pos_loss: 0.2688949206471443
+  [proc 0][Train](22700/24000) average neg_loss: 0.3927029174566269
+  [proc 0][Train](22700/24000) average loss: 0.33079892098903657
+  [proc 0][Train](22700/24000) average regularization: 0.0017607113404665142
+  [proc 0][Train] 100 steps take 0.859 seconds
+
+
+
 Training on Multi-GPU
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-DGL-KE also supports multi-GPU training, which can increase performance by distributing training across multiple GPUs. The following figure depicts 4 GPUs on a single machine and connected to the CPU through a PCIe switch. Multi-GPU training automatically keeps node and relation embeddings on CPUs and dispatch batches to different GPUs.
+DGL-KE also supports multi-GPU training, which can increase performance by distributing training across multiple GPU devices. The following figure depicts 4 GPUs on a single machine and connected to the CPU through a PCIe switch. Multi-GPU training automatically keeps node and relation embeddings on CPUs and dispatch batches to different GPUs.
 
 .. image:: ../images/multi-gpu.svg
     :width: 200
