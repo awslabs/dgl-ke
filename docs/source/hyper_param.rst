@@ -210,6 +210,7 @@ We can see that the training time goes down from ``0.95`` to ``0.84`` seconds on
   [proc 0][Train] 100 steps take 0.859 seconds
 
 
+
 Training on Multi-GPU
 ^^^^^^^^^^^^^^^^^^^^^^^
 
