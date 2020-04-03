@@ -188,7 +188,6 @@ Users can speed up the ``--mix_cpu_gpu`` training by using ``--async_update`` op
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
     --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000 --mix_cpu_gpu --async_update
 
-
 We can see that the training time goes down from ``0.95`` to ``0.84`` seconds on every 100 steps::
 
   [proc 0][Train](22500/24000) average pos_loss: 0.2683987358212471
