@@ -210,6 +210,7 @@ We can see that trainnig time goes down from ``0.95`` to ``0.84`` seconds on eve
   [proc 0][Train] 100 steps take 0.859 seconds
 
 
+
 Training on Multi-GPU
 ^^^^^^^^^^^^^^^^^^^^^^^
 
