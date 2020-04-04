@@ -142,7 +142,6 @@ class KGDataset:
 
         return (heads, rels, tails)
 
-
 class PartitionKGDataset():
     '''Load a partitioned knowledge graph
 
@@ -182,7 +181,6 @@ class PartitionKGDataset():
 
         return (heads, rels, tails)
 
-
 class KGDatasetFB15k(KGDataset):
     '''Load a knowledge graph FB15k
 
@@ -210,7 +208,6 @@ class KGDatasetFB15k(KGDataset):
                                              os.path.join(self.path, 'train.txt'),
                                              os.path.join(self.path, 'valid.txt'),
                                              os.path.join(self.path, 'test.txt'))
-
 
 class KGDatasetFB15k237(KGDataset):
     '''Load a knowledge graph FB15k-237
@@ -240,7 +237,6 @@ class KGDatasetFB15k237(KGDataset):
                                                 os.path.join(self.path, 'valid.txt'),
                                                 os.path.join(self.path, 'test.txt'))
 
-
 class KGDatasetWN18(KGDataset):
     '''Load a knowledge graph wn18
 
@@ -268,7 +264,6 @@ class KGDatasetWN18(KGDataset):
                                             os.path.join(self.path, 'train.txt'),
                                             os.path.join(self.path, 'valid.txt'),
                                             os.path.join(self.path, 'test.txt'))
-
 
 class KGDatasetWN18rr(KGDataset):
     '''Load a knowledge graph wn18rr
@@ -525,7 +520,6 @@ def get_dataset(data_path, data_name, format_str, files=None):
 
     return dataset
 
-
 def get_partition_dataset(data_path, data_name, part_id):
     part_name = os.path.join(data_name, 'partition_'+str(part_id))
     path = os.path.join(data_path, part_name)
@@ -555,7 +549,6 @@ def get_partition_dataset(data_path, data_name, part_id):
             local_to_global.append(int(line))
 
     return dataset, partition_book, local_to_global
-
 
 def get_server_partition_dataset(data_path, data_name, part_id):
     part_name = os.path.join(data_name, 'partition_'+str(part_id))
