@@ -28,6 +28,11 @@ import json
 
 from .models import KEModel
 
+if "MXNET_PROFILER" in os.environ:
+    mxprofiler = True
+else:
+    mxprofiler = False
+
 def load_model(logger, args, n_entities, n_relations, ckpt=None):
     model = KEModel(args, args.model_name, n_entities, n_relations,
                     args.hidden_dim, args.gamma,
@@ -59,10 +64,18 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
     if args.strict_rel_part:
         model.prepare_relation(mx.gpu(gpu_id))
 
+    if mxprofiler:
+        from mxnet import profiler
+        profiler.set_config(profile_all=True,
+                            aggregate_stats=True,
+                            continuous_dump=True,
+                            filename='profile_output.json')
     start = time.time()
     for step in range(0, args.max_step):
         pos_g, neg_g = next(train_sampler)
         args.step = step
+        if(step == 1 and mxprofiler):
+            profiler.set_state('run')
         with mx.autograd.record():
             loss, log = model.forward(pos_g, neg_g, gpu_id)
         loss.backward()
@@ -83,7 +96,11 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
             print('test:', time.time() - start)
     if args.strict_rel_part:
         model.writeback_relation(rank, rel_parts)
-
+    if mxprofiler:
+        nd.waitall()
+        profiler.set_state('stop')
+        profiler.dump()
+        print(profiler.dumps())
     # clear cache
     logs = []
 
