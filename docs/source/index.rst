@@ -19,6 +19,20 @@ Knowledge graphs (KGs) are data structures that store information about differen
 .. image:: ../images/dgl_ke_arch.png
     :width: 650  
 
+Performance and Scalability
+----------------------------------------
+
+DGL-KE is designed for learning at scale. It introduces various novel optimizations that accelerate training on knowledge graphs with millions of nodes and billions of edges. Our benchmark on knowledge graphs consisting of over *86M* nodes and *338M* edges shows that DGL-KE can compute embeddings in 100 minutes on an EC2 instance with 8 GPUs and 30 minutes on an EC2 cluster with 4 machines (48 cores/machine). These results represent a *2×∼5×* speedup over the best competing approaches.
+
+*DGL-KE vs Graphvite*
+
+.. image:: ../images/vs-gv-fb15k.png
+    :width: 650 
+
+*DGL-KE vs Pytorch-Biggraph*
+
+.. image:: ../images/vs-pbg-fb.png
+    :width: 650 
 
 Get started with DGL-KE!
 ----------------------------------------
