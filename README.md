@@ -29,7 +29,7 @@ DGLBACKEND=pytorch dglke_train --model_name TransE_l2 --dataset FB15k --batch_si
 --batch_size_eval 16 -adv --regularization_coef 1.00E-09 --test --num_thread 1 --num_proc 8
 ```
 
-This command will download the `FB15k` dataset, train the `transE` model on that, and save the trained embeddings into the file.
+This command will download the `FB15k` dataset, train the `transE` model and save the trained embeddings into the file.
 
 ### Performance and Scalability
 
