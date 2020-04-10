@@ -18,7 +18,7 @@ In this architecture, the entity embeddings and relation embeddings are stored i
 METIS Partition Algorithm
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In distributed training, all the training processes will communicate with KVStore through the network. This could bring a large amount of networking traffic and overhead. DGL-KE uses the `METIS graph partition`__ algorithm to solve this problem. For a cluster of ``P`` machines, we split the graph into ``P`` partitions using the METIS partition to a machine (all entities and triplets incident to the entities) to a machine as shown in the following Figure.
+In distributed training, all the training processes will communicate with KVStore through the network. This could bring a large amount of networking traffic and overhead. DGL-KE uses the `METIS graph partition`__ algorithm to solve this problem. For a cluster of ``P`` machines, we split the graph into ``P`` partitions using the METIS partition algorithm as shown in the following Figure.
 
 .. __: http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
 
@@ -38,7 +38,7 @@ Distributed training on DGL-KE usually involves three steps:
   2. Copy partitioned data to remote machines.
   3. Invoke the distributed training job by ``dglke_dist_train``.
 
-Here we demonstrate how to training KG embedding on ``FB15k`` dataset using 4 machines. Note that, the ``FB15k`` is just a small dataset as out toy demo. An interested user can try it on ``Freebase``, which contains *86M* nodes and *338M* edges.
+Here we demonstrate how to training KG embedding on ``FB15k`` dataset using 4 machines. Note that, the ``FB15k`` is just a small dataset as our toy demo. An interested user can try it on ``Freebase``, which contains *86M* nodes and *338M* edges.
 
 **Step 1: Prepare your machines**
 
