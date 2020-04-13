@@ -492,7 +492,9 @@ class KEModel(object):
             l2g = client.get_local2global()
             global_entity_id = l2g[entity_id]
 
+            print("pull entity")
             entity_data = client.pull(name='entity_emb', id_tensor=global_entity_id)
+            print("pull entity finish")
             relation_data = client.pull(name='relation_emb', id_tensor=relation_id)
 
             self.entity_emb.emb[entity_id] = entity_data
