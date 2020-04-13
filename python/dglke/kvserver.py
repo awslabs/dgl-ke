@@ -147,7 +147,7 @@ def start_server(args):
                           server_namebook=server_namebook, 
                           num_client=args.total_client)
 
-    #my_server.set_udf_push(adagrad_push_handler)
+    my_server.set_udf_push(adagrad_push_handler)
 
     my_server.set_clr(args.lr)
 

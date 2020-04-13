@@ -76,7 +76,7 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     my_client = KGEClient(server_namebook=server_namebook)
 
-    #my_client.set_udf_push(adagrad_push_handler)
+    my_client.set_udf_push(adagrad_push_handler)
 
     my_client.set_clr(args.lr)
 
