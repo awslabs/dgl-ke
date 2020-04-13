@@ -45,6 +45,11 @@ class KGEServer(KVServer):
         """
         self.clr = learning_rate
 
+    def set_udf_push(self, push_handler):
+        """Set user-defined push
+        """
+        self._udf_push = push_handler
+
 
 # Note: Most of the args are unnecessary for KVStore, will remove them later
 class ArgParser(argparse.ArgumentParser):
@@ -142,7 +147,7 @@ def start_server(args):
                           server_namebook=server_namebook, 
                           num_client=args.total_client)
 
-    my_server.set_push_handler(adagrad_push_handler)
+    my_server.set_udf_push(adagrad_push_handler)
 
     my_server.set_clr(args.lr)
 

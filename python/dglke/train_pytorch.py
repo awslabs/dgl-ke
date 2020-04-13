@@ -52,6 +52,12 @@ class KGEClient(KVClient):
         self.clr = learning_rate
 
 
+    def set_udf_push(self, push_handler):
+        """Set user-defined push
+        """
+        self._udf_push = push_handler
+
+
     def set_local2global(self, l2g):
         """Set local2global mapping
         """
@@ -70,7 +76,7 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     my_client = KGEClient(server_namebook=server_namebook)
 
-    my_client.set_push_handler(adagrad_push_handler)
+    my_client.set_udf_push(adagrad_push_handler)
 
     my_client.set_clr(args.lr)
 
