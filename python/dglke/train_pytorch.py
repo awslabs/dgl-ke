@@ -91,6 +91,8 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     my_client.set_local2global(l2g)
 
+    print("connect! %d" % my_client.get_id())
+
     return my_client
 
 def load_model(logger, args, n_entities, n_relations, ckpt=None):
@@ -240,7 +242,9 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         th.set_num_threads(args.num_thread)
 
     client = connect_to_kvstore(args, entity_pb, relation_pb, l2g)
+    print("1111")
     client.barrier()
+    print("2222")
     train_time_start = time.time()
     train(args, model, train_sampler, None, rank, rel_parts, cross_rels, barrier, client)
     total_train_time = time.time() - train_time_start
