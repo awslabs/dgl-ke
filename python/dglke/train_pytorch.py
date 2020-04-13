@@ -72,27 +72,24 @@ class KGEClient(KVClient):
 def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
     """Create kvclient and connect to kvstore service
     """
-    print("111")
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
-    print("222")
+
     my_client = KGEClient(server_namebook=server_namebook)
-    print("333")
+
     my_client.set_udf_push(adagrad_push_handler)
-    print("444")
+
     my_client.set_clr(args.lr)
-    print("555")
+
     my_client.connect()
-    print("666")
+
     if my_client.get_id() % args.num_client == 0:
         my_client.set_partition_book(name='entity_emb', partition_book=entity_pb)
         my_client.set_partition_book(name='relation_emb', partition_book=relation_pb)
     else:
         my_client.set_partition_book(name='entity_emb')
         my_client.set_partition_book(name='relation_emb')
-    print("777")
-    my_client.set_local2global(l2g)
 
-    print("connect! %d" % my_client.get_id())
+    my_client.set_local2global(l2g)
 
     return my_client
 
@@ -243,9 +240,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         th.set_num_threads(args.num_thread)
 
     client = connect_to_kvstore(args, entity_pb, relation_pb, l2g)
-    print("1111")
     client.barrier()
-    print("2222")
     train_time_start = time.time()
     train(args, model, train_sampler, None, rank, rel_parts, cross_rels, barrier, client)
     total_train_time = time.time() - train_time_start
