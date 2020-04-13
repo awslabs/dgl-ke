@@ -28,7 +28,7 @@ if TH_VERSION.version[0] == 1 and TH_VERSION.version[1] < 2:
     raise Exception("DGL-ke has to work with Pytorch version >= 1.2")
 from .models.pytorch.tensor_models import thread_wrapped_func
 from .models import KEModel
-from .utils import save_model, get_compatible_batch_size
+from .utils import save_model, get_compatible_batch_size, adagrad_push_handler
 
 import os
 import logging
@@ -42,22 +42,10 @@ import dgl.backend as F
 from .dataloader import EvalDataset
 from .dataloader import get_dataset
 
+
 class KGEClient(KVClient):
     """User-defined kvclient for DGL-KGE
     """
-    def _push_handler(self, name, ID, data, target):
-        """Row-Sparse Adagrad updater
-        """
-        original_name = name[0:-6]
-        state_sum = target[original_name+'_state-data-']
-        grad_sum = (data * data).mean(1)
-        state_sum.index_add_(0, ID, grad_sum)
-        std = state_sum[ID]  # _sparse_mask
-        std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-        tmp = (-self.clr * data / std_values)
-        target[name].index_add_(0, ID, tmp)
-
-
     def set_clr(self, learning_rate):
         """Set learning rate
         """
@@ -65,10 +53,14 @@ class KGEClient(KVClient):
 
 
     def set_local2global(self, l2g):
+        """Set local2global mapping
+        """
         self._l2g = l2g
 
 
     def get_local2global(self):
+        """Get local2global mapping
+        """
         return self._l2g
 
 def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
@@ -77,6 +69,8 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
     server_namebook = dgl.contrib.read_ip_config(filename=args.ip_config)
 
     my_client = KGEClient(server_namebook=server_namebook)
+
+    my_client.set_push_handler(adagrad_push_handler)
 
     my_client.set_clr(args.lr)
 
