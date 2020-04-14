@@ -509,10 +509,12 @@ class KEModel(object):
             for entity_id, entity_data in self.entity_emb.trace:
                 grad = entity_data.grad.data
                 global_entity_id =l2g[entity_id]
+                print("push entity")
                 client.push(name='entity_emb', id_tensor=global_entity_id, data_tensor=grad)
 
             for relation_id, relation_data in self.relation_emb.trace:
                 grad = relation_data.grad.data
+                print("push entity")
                 client.push(name='relation_emb', id_tensor=relation_id, data_tensor=grad)
 
         self.entity_emb.trace = []
