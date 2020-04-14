@@ -220,7 +220,6 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
         logs = []
         for sampler in test_samplers:
             for pos_g, neg_g in sampler:
-                print("sampler")
                 model.forward_test(pos_g, neg_g, logs, gpu_id)
 
         metrics = {}
@@ -284,7 +283,11 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
 
         if args.neg_sample_size_eval < 0:
             args.neg_sample_size_eval = args.neg_sample_size = eval_dataset.g.number_of_nodes()
-            args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+
+        if args.neg_sample_size_eval < 0:
+            args.neg_sample_size_eval = dataset_full.n_entities
+        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
 
         model_test = load_model(None, args, dataset_full.n_entities, dataset_full.n_relations)
 
