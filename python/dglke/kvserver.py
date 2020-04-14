@@ -43,7 +43,7 @@ class KGEServer(KVServer):
         """
         self.clr = learning_rate
 
-    def adagrad_push_handler(name, ID, data, target):
+    def adagrad_push_handler(self, name, ID, data, target):
         """Row-Sparse Adagrad update function
         """
         original_name = name[0:-6]
