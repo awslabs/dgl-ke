@@ -282,10 +282,6 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         eval_dataset = EvalDataset(dataset_full, args)
 
         if args.neg_sample_size_eval < 0:
-            args.neg_sample_size_eval = args.neg_sample_size = eval_dataset.g.number_of_nodes()
-        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
-
-        if args.neg_sample_size_eval < 0:
             args.neg_sample_size_eval = dataset_full.n_entities
         args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
 
