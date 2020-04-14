@@ -31,8 +31,6 @@ import torch as th
 from .train_pytorch import load_model
 from .dataloader import get_server_partition_dataset
 
-from .utils import adagrad_push_handler
-
 
 NUM_THREAD = 1 # Fix the number of threads to 1 on kvstore
 
@@ -44,6 +42,18 @@ class KGEServer(KVServer):
         """Set learning rate for Row-Sparse Adagrad updater
         """
         self.clr = learning_rate
+
+    def adagrad_push_handler(name, ID, data, target):
+        """Row-Sparse Adagrad update function
+        """
+        original_name = name[0:-6]
+        state_sum = target[original_name+'_state-data-']
+        grad_sum = (data * data).mean(1)
+        state_sum.index_add_(0, ID, grad_sum)
+        std = state_sum[ID]  # _sparse_mask
+        std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
+        tmp = (-self.clr * data / std_values)
+        target[name].index_add_(0, ID, tmp)
 
     def set_udf_push(self, push_handler):
         """Set user-defined push
@@ -147,7 +157,7 @@ def start_server(args):
                           server_namebook=server_namebook, 
                           num_client=args.total_client)
 
-    my_server.set_udf_push(adagrad_push_handler)
+    my_server.set_udf_push(my_server.adagrad_push_handler)
 
     my_server.set_clr(args.lr)
 

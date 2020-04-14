@@ -28,7 +28,7 @@ if TH_VERSION.version[0] == 1 and TH_VERSION.version[1] < 2:
     raise Exception("DGL-ke has to work with Pytorch version >= 1.2")
 from .models.pytorch.tensor_models import thread_wrapped_func
 from .models import KEModel
-from .utils import save_model, get_compatible_batch_size, adagrad_push_handler
+from .utils import save_model, get_compatible_batch_size
 
 import os
 import logging
@@ -50,6 +50,18 @@ class KGEClient(KVClient):
         """Set learning rate
         """
         self.clr = learning_rate
+
+    def adagrad_push_handler(name, ID, data, target):
+        """Row-Sparse Adagrad update function
+        """
+        original_name = name[0:-6]
+        state_sum = target[original_name+'_state-data-']
+        grad_sum = (data * data).mean(1)
+        state_sum.index_add_(0, ID, grad_sum)
+        std = state_sum[ID]  # _sparse_mask
+        std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
+        tmp = (-self.clr * data / std_values)
+        target[name].index_add_(0, ID, tmp)
 
 
     def set_udf_push(self, push_handler):
@@ -76,7 +88,7 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     my_client = KGEClient(server_namebook=server_namebook)
 
-    my_client.set_udf_push(adagrad_push_handler)
+    my_client.set_udf_push(my_client.adagrad_push_handler)
 
     my_client.set_clr(args.lr)
 

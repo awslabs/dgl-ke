@@ -30,17 +30,6 @@ def get_compatible_batch_size(batch_size, neg_sample_size):
             old_batch_size, neg_sample_size, batch_size))
     return batch_size
 
-def adagrad_push_handler(name, ID, data, target):
-    """Row-Sparse Adagrad updater
-    """
-    original_name = name[0:-6]
-    state_sum = target[original_name+'_state-data-']
-    grad_sum = (data * data).mean(1)
-    state_sum.index_add_(0, ID, grad_sum)
-    std = state_sum[ID]  # _sparse_mask
-    std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-    tmp = (-self.clr * data / std_values)
-    target[name].index_add_(0, ID, tmp)
 
 def save_model(args, model):
     if not os.path.exists(args.save_path):
