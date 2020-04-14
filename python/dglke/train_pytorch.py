@@ -220,6 +220,7 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
         logs = []
         for sampler in test_samplers:
             for pos_g, neg_g in sampler:
+                print("sampler")
                 model.forward_test(pos_g, neg_g, logs, gpu_id)
 
         metrics = {}
@@ -364,7 +365,6 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             for i in range(args.num_test_proc):
                 log = queue.get()
                 logs = logs + log
-                print("Get")
             
             for metric in logs[0].keys():
                 metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
