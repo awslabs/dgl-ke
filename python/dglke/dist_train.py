@@ -189,6 +189,7 @@ def launch(args):
             cmd_str = 'cd %s; ./%s %d %d' % (args.path, SCRIPT_FILE, id_low, id_high)
             if is_local(ip) == False: # remote command
                 cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
+                print(cmd_str)
             job_list.append(run_cmd(cmd_str))
             cmd_list.append(cmd_str)
             machine_id += 1
