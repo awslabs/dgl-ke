@@ -154,7 +154,7 @@ def start_client(args, logger):
     args.batch_size = get_compatible_batch_size(args.batch_size, args.neg_sample_size)
     args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
 
-    args.num_workers = 1 # fix num_workers to 8
+    args.num_workers = 8 # fix num_workers to 8
     train_samplers = []
     for i in range(args.num_client):
         train_sampler_head = train_data.create_sampler(args.batch_size,
