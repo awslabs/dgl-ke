@@ -51,7 +51,7 @@ class KGEClient(KVClient):
         """
         self.clr = learning_rate
 
-    def _default_push_handler(self, name, ID, data, target):
+    def adagrad_push_handler(self, name, ID, data, target):
         """Row-Sparse Adagrad update function
         """
         original_name = name[0:-6]
@@ -64,10 +64,10 @@ class KGEClient(KVClient):
         target[name].index_add_(0, ID, tmp)
 
 
-    #def set_udf_push(self, push_handler):
-    #    """Set user-defined push
-    #    """
-    #    self._udf_push = push_handler
+    def set_udf_push(self, push_handler):
+        """Set user-defined push
+        """
+        self._udf_push = push_handler
 
 
     def set_local2global(self, l2g):
@@ -88,7 +88,7 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     my_client = KGEClient(server_namebook=server_namebook)
 
-    #my_client.set_udf_push(my_client.adagrad_push_handler)
+    my_client.set_udf_push(my_client.adagrad_push_handler)
 
     my_client.set_clr(args.lr)
 
@@ -376,6 +376,6 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             for proc in procs:
                 proc.join()
 
-            print('testing takes {:.3f} seconds'.format(time.time() - start))
-
         client.shut_down() # shut down kvserver
+
+    client.barrier()
