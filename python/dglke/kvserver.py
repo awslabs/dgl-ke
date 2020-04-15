@@ -43,7 +43,7 @@ class KGEServer(KVServer):
         """
         self.clr = learning_rate
 
-    def adagrad_push_handler(self, name, ID, data, target):
+    def _default_push_handler(self, name, ID, data, target):
         """Row-Sparse Adagrad update function
         """
         original_name = name[0:-6]
@@ -55,10 +55,10 @@ class KGEServer(KVServer):
         tmp = (-self.clr * data / std_values)
         target[name].index_add_(0, ID, tmp)
 
-    def set_udf_push(self, push_handler):
-        """Set user-defined push
-        """
-        self._udf_push = push_handler
+    #def set_udf_push(self, push_handler):
+    #    """Set user-defined push
+    #    """
+    #    self._udf_push = push_handler
 
 
 # Note: Most of the args are unnecessary for KVStore, will remove them later
@@ -157,7 +157,7 @@ def start_server(args):
                           server_namebook=server_namebook, 
                           num_client=args.total_client)
 
-    my_server.set_udf_push(my_server.adagrad_push_handler)
+    #my_server.set_udf_push(my_server.adagrad_push_handler)
 
     my_server.set_clr(args.lr)
 
