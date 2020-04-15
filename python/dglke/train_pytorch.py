@@ -261,8 +261,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
     # Release the memory of local model
     model = None
 
-    #if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
-    if (client.get_id() % args.num_client == 0): # pull full model from kvstore
+    if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
         # Pull model from kvstore
         args.num_test_proc = args.num_client
         dataset_full = dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
@@ -321,7 +320,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
 
         if args.test:
             model_test.share_memory()
-
+            start = time.time()
             test_sampler_tails = []
             test_sampler_heads = []
             for i in range(args.num_test_proc):
@@ -376,5 +375,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
 
             for proc in procs:
                 proc.join()
+
+            print('testing takes {:.3f} seconds'.format(time.time() - start))
 
         client.shut_down() # shut down kvserver
