@@ -376,4 +376,6 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             for proc in procs:
                 proc.join()
 
+            print('testing takes {:.3f} seconds'.format(time.time() - start))
+
         client.shut_down() # shut down kvserver
