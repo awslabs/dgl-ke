@@ -35,30 +35,31 @@ from .dataloader import get_server_partition_dataset
 NUM_THREAD = 1 # Fix the number of threads to 1 on kvstore
 
 
+def row_saprse_adagrad(name, ID, data, target, lr):
+    """Row-Sparse Adagrad update function
+    """
+    original_name = name[0:-6]
+    state_sum = target[original_name+'_state-data-']
+    grad_sum = (data * data).mean(1)
+    state_sum.index_add_(0, ID, grad_sum)
+    std = state_sum[ID]  # _sparse_mask
+    std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
+    tmp = (-lr * data / std_values)
+    target[name].index_add_(0, ID, tmp)
+
+
 class KGEServer(KVServer):
     """User-defined kvstore for DGL-KGE
     """
     def set_clr(self, learning_rate):
         """Set learning rate for Row-Sparse Adagrad updater
         """
-        self.clr = learning_rate
+        self._udf_push_param = learning_rate
 
-    def _default_push_handler(self, name, ID, data, target):
-        """Row-Sparse Adagrad update function
+    def set_udf_push(self, push_handler):
+        """Set user-defined push
         """
-        original_name = name[0:-6]
-        state_sum = target[original_name+'_state-data-']
-        grad_sum = (data * data).mean(1)
-        state_sum.index_add_(0, ID, grad_sum)
-        std = state_sum[ID]  # _sparse_mask
-        std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-        tmp = (-self.clr * data / std_values)
-        target[name].index_add_(0, ID, tmp)
-
-    #def set_udf_push(self, push_handler):
-    #    """Set user-defined push
-    #    """
-    #    self._udf_push = push_handler
+        self._udf_push_handler = push_handler
 
 
 # Note: Most of the args are unnecessary for KVStore, will remove them later
@@ -157,9 +158,9 @@ def start_server(args):
                           server_namebook=server_namebook, 
                           num_client=args.total_client)
 
-    #my_server.set_udf_push(my_server.adagrad_push_handler)
-
     my_server.set_clr(args.lr)
+
+    my_server.set_udf_push(row_saprse_adagrad)
 
     if my_server.get_id() % my_server.get_group_count() == 0: # master server
         g2l, entity_emb, entity_emb_state, relation_emb, relation_emb_state = get_server_data(args, my_server.get_machine_id())
