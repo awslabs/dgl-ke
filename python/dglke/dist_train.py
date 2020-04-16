@@ -94,7 +94,7 @@ def ssh_cmd(cmd_str, ip, ssh_key=None):
     if ssh_key is None:
         ssh_cmd_str = 'ssh %s \'%s\'' % (ip, cmd_str)
     else:
-        ssh_cmd_str = 'ssh -i %s %s \'%s & exit\'' % (ssh_key, ip, cmd_str)
+        ssh_cmd_str = 'ssh -i %s %s \'%s & \'' % (ssh_key, ip, cmd_str)
 
     return ssh_cmd_str
 
