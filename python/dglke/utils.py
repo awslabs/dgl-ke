@@ -30,6 +30,7 @@ def get_compatible_batch_size(batch_size, neg_sample_size):
             old_batch_size, neg_sample_size, batch_size))
     return batch_size
 
+
 def save_model(args, model):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
