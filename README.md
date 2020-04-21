@@ -49,6 +49,20 @@ DGL-KE is designed for learning at scale. It introduces various novel optimizati
 
 Learn more details with our [documentation](https://aws-dglke.readthedocs.io/en/latest/index.html)!
 
+### Cite
+
+If you use DGL-KE in a scientific publication, we would appreciate citations to the following paper:
+
+```
+@misc{zheng2020dglke,
+    title={DGL-KE: Training Knowledge Graph Embeddings at Scale},
+    author={Da Zheng and Xiang Song and Chao Ma and Zeyuan Tan and Zihao Ye and Jin Dong and Hao Xiong and Zheng Zhang and George Karypis},
+    year={2020},
+    eprint={2004.08532},
+    archivePrefix={arXiv},
+}
+```
+
 ### License
 
 This project is licensed under the Apache-2.0 License.
