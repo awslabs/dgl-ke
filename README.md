@@ -47,7 +47,7 @@ DGL-KE is designed for learning at scale. It introduces various novel optimizati
   <b>Figure</b>: DGL-KE vs Pytorch-BigGraph on Freebase
 </p>
 
-Learn more details with our [documentation](https://aws-dglke.readthedocs.io/en/latest/index.html)!
+Learn more details with our [documentation](https://aws-dglke.readthedocs.io/en/latest/index.html)! If you are interested in the optimizations in DGL-KE, please check out [our paper](https://arxiv.org/abs/2004.08532) for more details.
 
 ### Cite
 
