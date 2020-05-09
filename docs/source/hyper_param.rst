@@ -14,7 +14,7 @@ DGL-KE provides four commands to users:
 ``dglke_dist_train`` launches a set of processes in the cluster for distributed training.
 
 
-This page provides tutorial for using DGL-KE on different settings. Users can find the full comamnd line arguments in this `page`__.
+This page provides tutorial for using DGL-KE on different settings. Users can find the full comamnd line arguments in this `page`__, or users can use ``--help`` option to check out all the arguments information of dglke command line.
 
 .. __: https://aws-dglke.readthedocs.io/en/latest/arguments.html
 
