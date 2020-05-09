@@ -6,6 +6,7 @@ dglke_train
 ^^^^^^^^^^^^
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
+
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -116,6 +117,7 @@ dglke_train
 dglke_eval
 ^^^^^^^^^^^^
 
+
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
 
@@ -176,6 +178,7 @@ dglke_eval
 
 dglke_dist_train
 ^^^^^^^^^^^^^^^^^
+
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
@@ -300,3 +303,4 @@ dglke_partition
 
   - ``-k NUM_PARTS`` or ``--num-parts NUM_PARTS``
     The number of partitions.
+
