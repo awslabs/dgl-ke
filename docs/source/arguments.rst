@@ -5,7 +5,8 @@ DGL-KE Command Line Arguments
 dglke_train
 ^^^^^^^^^^^^
 
-  - ``--model_name {*TransE*, *TransE_l1*, *TransE_l2*, *TransR*, *RESCAL*, *DistMult*, *ComplEx*, *RotatE*}``
+  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
+
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -93,7 +94,7 @@ dglke_train
     The temperature used for negative adversarial sampling.
 
   - ``-rc REGULARIZATION_COEF`` or ``--regularization_coef REGULARIZATION_COEF``
-   The coefficient for regularization.
+    The coefficient for regularization.
 
   - ``-rn REGULARIZATION_NORM`` or ``--regularization_norm REGULARIZATION_NORM``
     norm used in regularization.
@@ -116,7 +117,8 @@ dglke_train
 dglke_eval
 ^^^^^^^^^^^^
 
-  - ``--model_name {*TransE*, *TransE_l1*, *TransE_l2*, *TransR*, *RESCAL*, *DistMult*, *ComplEx*, *RotatE*}``
+
+  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -177,7 +179,8 @@ dglke_eval
 dglke_dist_train
 ^^^^^^^^^^^^^^^^^
 
-  - ``--model_name {*TransE*, *TransE_l1*, *TransE_l2*, *TransR*, *RESCAL*, *DistMult*, *ComplEx*, *RotatE*}``
+
+  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -300,4 +303,4 @@ dglke_partition
 
   - ``-k NUM_PARTS`` or ``--num-parts NUM_PARTS``
     The number of partitions.
-    
+
