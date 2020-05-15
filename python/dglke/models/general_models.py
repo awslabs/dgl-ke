@@ -49,6 +49,82 @@ else:
     from .pytorch.tensor_models import ExternalEmbedding
     from .pytorch.score_fun import *
 
+class InferModel(object):
+    def __init__(self, device, model_name, hidden_dim, double_entity_emb, double_relation_emb, gamma):
+        super(InferModel, self).__init__()
+
+        self.device = device
+        self.model_name = model_name
+        entity_dim = 2 * hidden_dim if double_entity_emb else hidden_dim
+        relation_dim = 2 * hidden_dim if double_relation_emb else hidden_dim
+
+        self.entity_emb = InferEmbedding(device)
+        self.relation_emb = InferEmbedding(device)
+
+        if model_name == 'TransE' or model_name == 'TransE_l2':
+            self.score_func = TransEScore(gamma, 'l2')
+        elif model_name == 'TransE_l1':
+            self.score_func = TransEScore(gamma, 'l1')
+        elif model_name == 'TransR':
+            assert False, 'Do not support inference of TransR model now.'
+        elif model_name == 'DistMult':
+            self.score_func = DistMultScore()
+        elif model_name == 'ComplEx':
+            self.score_func = ComplExScore()
+        elif model_name == 'RESCAL':
+            self.score_func = RESCALScore(relation_dim, entity_dim)
+        elif model_name == 'RotatE':
+            self.score_func = RotatEScore(gamma, 0.)
+
+    def load_emb(self, path, dataset):
+        """Load the model.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the model.
+        dataset : str
+            Dataset name as prefix to the saved embeddings.
+        """
+        self.entity_emb.load(path, dataset+'_'+self.model_name+'_entity')
+        self.relation_emb.load(path, dataset+'_'+self.model_name+'_relation')
+        self.score_func.load(path, dataset+'_'+self.model_name)
+
+    def score(self, head, rel, tail):
+        head_emb = self.entity_emb[head]
+        rel_emb = self.relation_emb[rel]
+        tail_emb = self.entity_emb[tail]
+
+        num_head = F.shape(head)[0]
+        num_rel = F.shape(rel)[0]
+        num_tail = F.shape(tail)[0]
+
+        batch_size = 16384
+        score = []
+        for i in range((num_head + batch_size - 1) // batch_size):
+            sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                               if (i + 1) * batch_size < num_head \
+                                               else num_head]
+            s_score = []
+            for j in range((num_tail + batch_size - 1) // batch_size):
+                st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
+                                                   if (j + 1) * batch_size < num_tail \
+                                                   else num_tail]
+
+                s_score.append(self.score_func.infer(sh_emb, rel_emb, st_emb))
+            score.append(F.cat(s_score, dim=2))
+        score = F.cat(score, dim=1)
+
+        return score
+
+    @property
+    def num_entity(self):
+        return self.entity_emb.shape[0]
+
+    @property
+    def num_rel(self):
+        return self.relation_emb.shape[0]
+
 class KEModel(object):
     """ DGL Knowledge Embedding Model.
 

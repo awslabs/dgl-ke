@@ -34,15 +34,20 @@ class ArgParser(argparse.ArgumentParser):
                                 'r_r: two list of relations are provided, and we will calculate the similarity in an N x N manner\n' \
                                 'r_*: only one list of relations is provided and we will calculate similarity between relations in r ' \
                                 'and all relations in the KG in an N_r x N_* manner \n'
-                                '*: treat all relations as input and calculate similarity in an N_* x N_* manner'
+                                '*: treat all relations as input and calculate similarity in an N_* x N_* manner')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
                           help='A list of data file names. This is used to provide necessary files containing the requried data ' \
                                'according to the format, e.g., for r_r_pw, two files are required as left_data and right_data; ' \
-                               'for r_*, only one file is required; for *, no file is required'
+                               'for r_*, only one file is required; for *, no file is required')
+        self.add_argument('--raw_data', default=False, action='store_true',
+                          help='whether the data profiled in data_files is in the raw object naming space or in mapped id space \n' \
+                                'If True, the data is in the original naming space and the inference program will do the id translation' \
+                                'according to id mapping files generated during the training progress. \n' \
+                                'If False, the data is just interger ids and it is assumed that user has already done the id translation')
         self.add_argument('--bcast', default=False, action='store_true',
                           help='Whether to broadcast topK at relation level. \n' \
                                'If False, no broadcast is done \n' \
-                               'Otherwise, broadcast at left r'
+                               'Otherwise, broadcast at left r')
         self.add_argument('--topK', type=int, default=10,
                           help='How many results are returned')
         self.add_argument('--sim_func' type=str, default='cosine',
@@ -52,6 +57,8 @@ class ArgParser(argparse.ArgumentParser):
                                 'l1: use l1 distance')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
+        self.add_argument('--gpu', type=int, default=-1,
+                          help='GPU device to use in inference, -1 means CPU')
 
 def main():
     args = ArgParser().parse_args()

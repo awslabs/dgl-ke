@@ -41,6 +41,7 @@ logsigmoid = functional.logsigmoid
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
 
+norm_l1 = lambda x : x.norm(p=1)
 norm = lambda x, p: x.norm(p=p)**p
 get_scalar = lambda x: x.detach().item()
 reshape = lambda arr, x, y: arr.view(x, y)
@@ -117,6 +118,26 @@ def async_update(args, emb, queue):
             if tmp.device != device:
                 tmp = tmp.to(device)
             emb.emb.index_add_(0, grad_indices, tmp)
+
+class InferEmbedding:
+    def __init__(self, device):
+        self.device = device
+
+    def load(self, path):
+        """Load embeddings.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the embedding.
+        name : str
+            Embedding name.
+        """
+        file_name = os.path.join(path, name+'.npy')
+        self.emb = th.Tensor(np.load(file_name))
+
+    def __call__(self, idx):
+        return self.emb[idx]
 
 class ExternalEmbedding:
     """Sparse Embedding for Knowledge Graph

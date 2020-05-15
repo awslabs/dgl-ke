@@ -211,6 +211,14 @@ class KGDatasetFB15k(KGDataset):
                                              os.path.join(self.path, 'valid.txt'),
                                              os.path.join(self.path, 'test.txt'))
 
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
+
 
 class KGDatasetFB15k237(KGDataset):
     '''Load a knowledge graph FB15k-237
@@ -239,6 +247,14 @@ class KGDatasetFB15k237(KGDataset):
                                                 os.path.join(self.path, 'train.txt'),
                                                 os.path.join(self.path, 'valid.txt'),
                                                 os.path.join(self.path, 'test.txt'))
+
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
 
 
 class KGDatasetWN18(KGDataset):
@@ -269,6 +285,14 @@ class KGDatasetWN18(KGDataset):
                                             os.path.join(self.path, 'valid.txt'),
                                             os.path.join(self.path, 'test.txt'))
 
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
+
 
 class KGDatasetWN18rr(KGDataset):
     '''Load a knowledge graph wn18rr
@@ -297,6 +321,14 @@ class KGDatasetWN18rr(KGDataset):
                                               os.path.join(self.path, 'train.txt'),
                                               os.path.join(self.path, 'valid.txt'),
                                               os.path.join(self.path, 'test.txt'))
+
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
 
 class KGDatasetFreebase(KGDataset):
     '''Load a knowledge graph Full Freebase
@@ -355,6 +387,14 @@ class KGDatasetFreebase(KGDataset):
         rels = np.array(rels, dtype=np.int64)
         print('Finished. Read {} {} triples.'.format(len(heads), mode))
         return (heads, rels, tails)
+
+    @property
+    def emap_fname(self):
+        return 'entity2id.txt'
+
+    @property
+    def rmap_fname(self):
+        return 'relation2id.txt'
 
 class KGDatasetUDDRaw(KGDataset):
     '''Load a knowledge graph user defined dataset
@@ -427,6 +467,14 @@ class KGDatasetUDDRaw(KGDataset):
     def read_relation(self, relation_path):
         return self.relation2id, self.n_relations
 
+    @property
+    def emap_fname(self):
+        return 'entities.tsv'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.tsv'
+
 class KGDatasetUDD(KGDataset):
     '''Load a knowledge graph user defined dataset
 
@@ -463,6 +511,8 @@ class KGDatasetUDD(KGDataset):
                                                os.path.join(path, files[3]),
                                                os.path.join(path, files[4]),
                                                format=format)
+        self.emap_file = files[0]
+        self.rmap_file = files[1]
 
     def read_entity(self, entity_path):
         n_entities = 0
@@ -497,6 +547,14 @@ class KGDatasetUDD(KGDataset):
         rels = np.array(rels, dtype=np.int64)
         print('Finished. Read {} {} triples.'.format(len(heads), mode))
         return (heads, rels, tails)
+
+    @property
+    def emap_fname(self):
+        return self.emap_file
+
+    @property
+    def rmap_fname(self):
+        return self.rmap_file
 
 def get_dataset(data_path, data_name, format_str, files=None):
     if format_str == 'built_in':

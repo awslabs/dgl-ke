@@ -21,6 +21,8 @@ import os
 import time
 import argparse
 
+from utils import load_model_config, load_raw_triplet_data, load_triplet_data
+
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(ArgParser, self).__init__()
@@ -40,7 +42,12 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--data_files', type=str, default=None, nargs='+',
                           help='A list of data file names. This is used to provide necessary files containing the requried data ' \
                                'according to the format, e.g., for h_r_t, three files are required as h_data, r_data and t_data, ' \
-                               'while for h_*_t, two files are required as h_data and t_data'
+                               'while for h_*_t, two files are required as h_data and t_data')
+        self.add_argument('--raw_data', default=False, action='store_true',
+                          help='whether the data profiled in data_files is in the raw object naming space or in mapped id space \n' \
+                                'If True, the data is in the original naming space and the inference program will do the id translation' \
+                                'according to id mapping files generated during the training progress. \n' \
+                                'If False, the data is just interger ids and it is assumed that user has already done the id translation')
         self.add_argument('--bcast', type=str, default=None,
                           help='Whether to broadcast topK in a specific side: \n',
                                'none: do not broadcast, return an universal topK across all results\n'
@@ -55,9 +62,116 @@ class ArgParser(argparse.ArgumentParser):
                                 'logsigmoid: score $log(sigmoid(x))$')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
+        self.add_argument('--entity_mfile', type=str, default=None,
+                          help='Entity ID mapping file.')
+        self.add_argument('--rel_mfile', type=str, default=None,
+                          help='Relation ID mapping file.')
+        self.add_argument('--gpu', type=int, default=-1,
+                          help='GPU device to use in inference, -1 means CPU')
 
 def main():
     args = ArgParser().parse_args()
+
+    config = load_model_config(os.path.join(args.model_path, 'config.json'))
+    if self.entity_mfile != None:
+        config['emap_file'] = os.path.join(self.data_path, self.entity_mfile)
+    if self.rel_mfile != None:
+        config['rmap_file'] = os.path.join(self.data_path, self.rel_mfile)
+
+    data_files = args.data_files
+    # parse input data first
+    if args.format == 'h_r_t':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
+                                                                        rel_f=data_files[1],
+                                                                        tail_f=data_files[2],
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=data_files[0],
+                                                rel_f=data_files[1],
+                                                tail_f=data_files[2])
+
+    elif args.format == 'h_r_*':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
+                                                                        rel_f=data_files[1],
+                                                                        tail_f=None,
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=data_files[0],
+                                                rel_f=data_files[1],
+                                                tail_f=None)
+
+    elif args.format == 'h_*_t':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
+                                                                        rel_f=None,
+                                                                        tail_f=data_files[2],
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=data_files[0],
+                                                rel_f=None,
+                                                tail_f=data_files[2])
+
+    elif args.format == '*_r_t':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
+                                                                        rel_f=data_files[1],
+                                                                        tail_f=data_files[2],
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=None,
+                                                rel_f=data_files[1],
+                                                tail_f=data_files[2])
+
+    elif args.format == 'h_*_*':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
+                                                                        rel_f=None,
+                                                                        tail_f=None,
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=data_files[0],
+                                                rel_f=None,
+                                                tail_f=None)
+
+    elif args.format == '*_r_*':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
+                                                                        rel_f=data_files[1],
+                                                                        tail_f=None,
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=None,
+                                                rel_f=data_files[1],
+                                                tail_f=None)
+
+    elif args.format == '*_*_t':
+        if args.raw_data:
+            head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
+                                                                        rel_f=None,
+                                                                        tail_f=data_files[2],
+                                                                        emap_f=config['emap_file'],
+                                                                        rmap_f=config['rmap_file'])
+        else:
+            head, rel, tail = load_triplet_data(head_f=None,
+                                                rel_f=None,
+                                                tail_f=data_files[2])
+
+    else:
+        assert False, "Unsupported format {}".format(args.format)
+
+    model = ScoreInfor(args.gpu, config, args.model_path, args.score_func)
+    result = model.topK(head, rel, tail, args.bcast, args.topK)
+
+    print(result)
+
 
 if __name__ == '__main__':
     main()

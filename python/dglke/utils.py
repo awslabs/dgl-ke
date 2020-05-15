@@ -19,8 +19,10 @@
 
 import math
 import os
+import csv
 import argparse
 import json
+import numpy as np
 
 def get_compatible_batch_size(batch_size, neg_sample_size):
     if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
@@ -30,7 +32,7 @@ def get_compatible_batch_size(batch_size, neg_sample_size):
             old_batch_size, neg_sample_size, batch_size))
     return batch_size
 
-def save_model(args, model):
+def save_model(args, model, emap_file=None, rmap_file=None):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
     model.save_emb(args.save_path, args.dataset)
@@ -51,8 +53,100 @@ def save_model(args, model):
                    'neg_adversarial_sampling': args.neg_adversarial_sampling,
                    'adversarial_temperature': args.adversarial_temperature,
                    'regularization_coef': args.regularization_coef,
-                   'regularization_norm': args.regularization_norm},
+                   'regularization_norm': args.regularization_norm,
+                   'emap_file':emap_file,
+                   'rmap_file':rmap_file},
                    outfile, indent=4)
+
+def load_model_config(config_f):
+    with open(config_f, 'w') as f:
+        config = json.load(f)
+
+    return config
+
+def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rmap_f=None):
+    if emap_f is not None:
+        eid_map = {}
+        id2e_map = {}
+        with open(emap_f, 'r') as f:
+            reader = csv.reader(f, delimiter='\t')
+            for row in reader:
+                eip_map[row[1]] = int(row[0])
+                id2e_map[int(row[0])] = row[1]
+
+    if rmap_f is not None:
+        rid_map = {}
+        id2r_map = {}
+        with open(rmap_f, 'r') as f:
+            reader = csv.reader(f, delimiter='\t')
+            for row in reader:
+                rip_map[row[1]] = int(row[0])
+                id2r_map[int(row[0])] = row[1]
+
+   if head_f is not None:
+        head = []
+        with open(head_f, 'r') as f:
+            id = f.readline()
+            if len(id) > 0:
+                head.append(eid_map[id])
+        head = np.asarray(head)
+    else:
+        head = None
+
+    if rel_f is not None:
+        rel = []
+        with open(ref_f, 'r') as f:
+            id = f.readline()
+            if len(id) > 0:
+                rel.append(rid_map[id])
+        rel = np.asarray(rel)
+    else:
+        rel = None
+
+    if tail_f is not None:
+        tail = []
+        with open(tail_f, 'r') as f:
+            id = f.readline()
+            if len(id) > 0:
+                tail.append(eid_map[id])
+        tail = np.asarray(tail)
+    else:
+        tail = None
+
+    return head, rel, tail, id2e_map, id2r_map
+
+def load_triplet_data(head_f=None, rel_f=None, tail_f=None):
+    if head_f is not None:
+        head = []
+        with open(head_f, 'r') as f:
+            id = f.readline()
+            if len(id) > 0:
+                head.append(int(id))
+        head = np.asarray(head)
+    else:
+        head = None
+
+    if rel_f is not None:
+        rel = []
+        with open(ref_f, 'r') as f:
+            id = f.readline()
+            if len(id) > 0:
+                rel.append(int(id))
+        rel = np.asarray(rel)
+    else:
+        rel = None
+
+    if tail_f is not None:
+        tail = []
+        with open(tail_f, 'r') as f:
+            id = f.readline()
+            if len(id) > 0:
+                tail.append(int(id))
+        tail = np.asarray(tail)
+    else:
+        tail = None
+
+    return head, rel, tail
 
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
