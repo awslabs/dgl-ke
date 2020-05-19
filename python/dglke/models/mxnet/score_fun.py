@@ -60,6 +60,13 @@ class TransEScore(nn.Block):
         score = head + rel - tail
         return {'score': self.gamma - nd.norm(score, ord=self.dist_ord, axis=-1)}
 
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_emb = head_emb.expand_dims(axis=1)
+        rel_emb = rel_emb.expand_dims(axis=0)
+        score = (head_emb + rel_emb).expand_dims(axis=2) - tail_emb.expand_dims(axis=0).expand_dims(axis=0)
+
+        return self.gamma - nd.norm(score, ord=self.dist_ord, axis=-1)
+
     def prepare(self, g, gpu_id, trace=False):
         pass
 
@@ -119,6 +126,9 @@ class TransRScore(nn.Block):
         rel = edges.data['emb']
         score = head + rel - tail
         return {'score': self.gamma - nd.norm(score, ord=1, axis=-1)}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        pass
 
     def prepare(self, g, gpu_id, trace=False):
         head_ids, tail_ids = g.all_edges(order='eid')
@@ -251,6 +261,13 @@ class DistMultScore(nn.Block):
         # TODO: check if there exists minus sign and if gamma should be used here(jin)
         return {'score': nd.sum(score, axis=-1)}
 
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_emb = head_emb.expand_dims(axis=1)
+        rel_emb = rel_emb.expand_dims(axis=0)
+        score = (head_emb * rel_emb).expand_dims(axis=2) * tail_emb.expand_dims(axis=0).expand_dims(axis=0)
+
+        return nd.sum(score, axis=-1)
+
     def prepare(self, g, gpu_id, trace=False):
         pass
 
@@ -310,6 +327,18 @@ class ComplExScore(nn.Block):
                 - img_head * real_tail * img_rel
         # TODO: check if there exists minus sign and if gamma should be used here(jin)
         return {'score': nd.sum(score, -1)}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        real_head, img_head = nd.split(head_emb, num_outputs=2, axis=-1)
+        real_tail, img_tail = nd.split(tail_emb, num_outputs=2, axis=-1)
+        real_rel, img_rel = nd.split(rel_emb, num_outputs=2, axis=-1)
+
+        score = (real_head.expand_dims(axis=1) * real_rel.expand_dims(axis=0)).expand_dims(axis=2) * real_tail.expand_dims(axis=0).expand_dims(axis=0) \
+                + (img_head.expand_dims(axis=1) * real_rel.expand_dims(axis=0)).expand_dims(axis=2) * img_tail.expand_dims(axis=0).expand_dims(axis=0) \
+                + (real_head.expand_dims(axis=1) * img_rel.expand_dims(axis=0)).expand_dims(axis=2) * img_tail.expand_dims(axis=0).expand_dims(axis=0) \
+                - (img_head.expand_dims(axis=1) * img_rel.expand_dims(axis=0)).expand_dims(axis=2) * real_tail.expand_dims(axis=0).expand_dims(axis=0)
+
+        return nd.sum(score, -1)
 
     def prepare(self, g, gpu_id, trace=False):
         pass
@@ -382,6 +411,18 @@ class RESCALScore(nn.Block):
         return {'score': mx.nd.sum(score, -1)}
         # return {'score': self.gamma - th.norm(score, p=1, dim=-1)}
 
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_emb = head_emb.expand_dims(axis=1).expand_dims(axis=1)
+        rel_emb = rel_emb.reshape(-1, self.relation_dim, self.entity_dim)
+        score = []
+        for i in range(tail_emb.shape[0]):
+            score.append(mx.nd.dot(rel_emb, tail_emb[i]))
+        score = mx.nd.stack(*score, axis=1).expand_dims(axis=0)
+        score = head_emb * score
+        #score = head_emb * mx.np.einsum('abc,dc->adb', rel_emb, tail_emb).expand_dims(axis=0)
+
+        return mx.nd.sum(score, -1)
+
     def prepare(self, g, gpu_id, trace=False):
         pass
 
@@ -452,6 +493,21 @@ class RotatEScore(nn.Block):
         #sqrt((x*x).sum() + eps)
         score = mx.nd.sqrt(real_score * real_score + img_score * img_score + self.eps).sum(-1)
         return {'score': self.gamma - score} 
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        re_head, im_head = nd.split(head_emb, num_outputs=2, axis=-1)
+        re_tail, im_tail = nd.split(tail_emb, num_outputs=2, axis=-1)
+
+        phase_rel = rel_emb / (self.emb_init / np.pi)
+        re_rel, im_rel = nd.cos(phase_rel), nd.sin(phase_rel)
+        real_score = re_head.expand_dims(axis=1) * re_rel.expand_dims(axis=0) - im_head.expand_dims(axis=1) * im_rel.expand_dims(axis=0)
+        img_score = re_head.expand_dims(axis=1) * im_rel.expand_dims(axis=0) + im_head.expand_dims(axis=1) * re_rel.expand_dims(axis=0)
+
+        real_score = real_score.expand_dims(axis=2) - re_tail.expand_dims(axis=0).expand_dims(axis=0)
+        img_score = img_score.expand_dims(axis=2) - im_tail.expand_dims(axis=0).expand_dims(axis=0)
+
+        score = mx.nd.sqrt(real_score * real_score + img_score * img_score + self.eps).sum(-1)
+        return self.gamma - score
 
     def prepare(self, g, gpu_id, trace=False):
         pass

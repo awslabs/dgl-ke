@@ -34,6 +34,7 @@ def logsigmoid(val):
     z = nd.exp(-max_elem) + nd.exp(-val - max_elem)
     return -(max_elem + nd.log(z))
 
+abs = lambda x : x.abs()
 get_device = lambda args : mx.gpu(args.gpu[0]) if args.gpu[0] >= 0 else mx.cpu()
 norm_l1 = lambda x: nd.sum(nd.abs(x))
 norm = lambda x, p: nd.sum(nd.abs(x) ** p)
@@ -43,6 +44,26 @@ get_scalar = lambda x: x.detach().asscalar()
 reshape = lambda arr, x, y: arr.reshape(x, y)
 
 cuda = lambda arr, gpu: arr.as_in_context(mx.gpu(gpu))
+
+class InferEmbedding:
+    def __init__(self, device):
+        self.device = device
+
+    def load(self, path):
+        """Load embeddings.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the embedding.
+        name : str
+            Embedding name.
+        """
+        file_name = os.path.join(path, name+'.npy')
+        self.emb = mx.nd.array(np.load(file_name))
+
+    def __call__(self, idx):
+        return self.emb[idx]
 
 class ExternalEmbedding:
     """Sparse Embedding for Knowledge Graph

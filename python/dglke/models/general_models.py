@@ -38,6 +38,7 @@ if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import reshape
     from .mxnet.tensor_models import cuda
     from .mxnet.tensor_models import ExternalEmbedding
+    from .mxnet.tensor_models import InferEmbedding
     from .mxnet.score_fun import *
 else:
     from .pytorch.tensor_models import logsigmoid
@@ -47,10 +48,15 @@ else:
     from .pytorch.tensor_models import reshape
     from .pytorch.tensor_models import cuda
     from .pytorch.tensor_models import ExternalEmbedding
+    from .pytorch.tensor_models import InferEmbedding
     from .pytorch.score_fun import *
 
+EMB_INIT_EPS = 2.0
+
 class InferModel(object):
-    def __init__(self, device, model_name, hidden_dim, double_entity_emb, double_relation_emb, gamma):
+    def __init__(self, device, model_name, hidden_dim, 
+        double_entity_emb=False, double_relation_emb=False,
+        gamma=0., batch_size=16384):
         super(InferModel, self).__init__()
 
         self.device = device
@@ -60,6 +66,7 @@ class InferModel(object):
 
         self.entity_emb = InferEmbedding(device)
         self.relation_emb = InferEmbedding(device)
+        self.batch_size = batch_size
 
         if model_name == 'TransE' or model_name == 'TransE_l2':
             self.score_func = TransEScore(gamma, 'l2')
@@ -74,7 +81,8 @@ class InferModel(object):
         elif model_name == 'RESCAL':
             self.score_func = RESCALScore(relation_dim, entity_dim)
         elif model_name == 'RotatE':
-            self.score_func = RotatEScore(gamma, 0.)
+            emb_init = (gamma + EMB_INIT_EPS) / hidden_dim
+            self.score_func = RotatEScore(gamma, emb_init)
 
     def load_emb(self, path, dataset):
         """Load the model.
@@ -99,7 +107,7 @@ class InferModel(object):
         num_rel = F.shape(rel)[0]
         num_tail = F.shape(tail)[0]
 
-        batch_size = 16384
+        batch_size = self.batch_size
         score = []
         for i in range((num_head + batch_size - 1) // batch_size):
             sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
@@ -113,9 +121,9 @@ class InferModel(object):
 
                 s_score.append(self.score_func.infer(sh_emb, rel_emb, st_emb))
             score.append(F.cat(s_score, dim=2))
-        score = F.cat(score, dim=1)
+        score = F.cat(score, dim=0)
 
-        return score
+        return F.reshape(score, (num_head * num_rel * num_tail,))
 
     @property
     def num_entity(self):
@@ -158,7 +166,7 @@ class KEModel(object):
         self.n_relations = n_relations
         self.model_name = model_name
         self.hidden_dim = hidden_dim
-        self.eps = 2.0
+        self.eps = EMB_INIT_EPS
         self.emb_init = (gamma + self.eps) / hidden_dim
 
         entity_dim = 2 * hidden_dim if double_entity_emb else hidden_dim

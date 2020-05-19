@@ -41,7 +41,7 @@ logsigmoid = functional.logsigmoid
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
 
-norm_l1 = lambda x : x.norm(p=1)
+abs = lambda x : x.abs()
 norm = lambda x, p: x.norm(p=p)**p
 get_scalar = lambda x: x.detach().item()
 reshape = lambda arr, x, y: arr.view(x, y)

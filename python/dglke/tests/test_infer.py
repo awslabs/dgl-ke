@@ -151,14 +151,14 @@ def check_infer_score(func_name):
             for k in range(tail_emb.shape[0]):
                 hemb = head_emb[i]
                 remb = rel_emb[j]
-                temb = tail_emb[k]
+                temb = F.unsqueeze(tail_emb[k], dim=0)
                 edge = FakeEdge(hemb, temb, remb)
                 score = score_func.edge_func(edge)['score']
-                t_score.append(score)
+                t_score.append(F.asnumpy(score))
             r_score.append(t_score)
         h_score.append(r_score)
-    score2 = th.tensor(h_score)
-    np.testing.assert_allclose(F.asnumpy(score1), F.asnumpy(score2),
+    score2 = np.asarray(h_score).reshape(head_emb.shape[0], rel_emb.shape[0], tail_emb.shape[0])
+    np.testing.assert_allclose(F.asnumpy(score1), score2,
                                    rtol=1e-5, atol=1e-5)
 
     # bcast head
@@ -179,14 +179,14 @@ def check_infer_score(func_name):
             for k in range(tail_emb.shape[0]):
                 hemb = head_emb[i]
                 remb = rel_emb[j]
-                temb = tail_emb[k]
+                temb = F.unsqueeze(tail_emb[k], dim=0)
                 edge = FakeEdge(hemb, temb, remb)
                 score = score_func.edge_func(edge)['score']
-                t_score.append(score)
+                t_score.append(F.asnumpy(score))
             r_score.append(t_score)
         h_score.append(r_score)
-    score2 = th.tensor(h_score)
-    np.testing.assert_allclose(F.asnumpy(score1), F.asnumpy(score2),
+    score2 = np.asarray(h_score).reshape(1, rel_emb.shape[0], tail_emb.shape[0])
+    np.testing.assert_allclose(F.asnumpy(score1), score2,
                                    rtol=1e-5, atol=1e-5)
 
     # bcast rel
@@ -207,14 +207,14 @@ def check_infer_score(func_name):
             for k in range(tail_emb.shape[0]):
                 hemb = head_emb[i]
                 remb = rel_emb[j]
-                temb = tail_emb[k]
+                temb = F.unsqueeze(tail_emb[k], dim=0)
                 edge = FakeEdge(hemb, temb, remb)
                 score = score_func.edge_func(edge)['score']
-                t_score.append(score)
+                t_score.append(F.asnumpy(score))
             r_score.append(t_score)
         h_score.append(r_score)
-    score2 = th.tensor(h_score)
-    np.testing.assert_allclose(F.asnumpy(score1), F.asnumpy(score2),
+    score2 = np.asarray(h_score).reshape(head_emb.shape[0], 1, tail_emb.shape[0])
+    np.testing.assert_allclose(F.asnumpy(score1), score2,
                                    rtol=1e-5, atol=1e-5)
 
     # bcast tail
@@ -235,14 +235,14 @@ def check_infer_score(func_name):
             for k in range(tail_emb.shape[0]):
                 hemb = head_emb[i]
                 remb = rel_emb[j]
-                temb = tail_emb[k]
+                temb = F.unsqueeze(tail_emb[k], dim=0)
                 edge = FakeEdge(hemb, temb, remb)
                 score = score_func.edge_func(edge)['score']
-                t_score.append(score)
+                t_score.append(F.asnumpy(score))
             r_score.append(t_score)
         h_score.append(r_score)
-    score2 = th.tensor(h_score)
-    np.testing.assert_allclose(F.asnumpy(score1), F.asnumpy(score2),
+    score2 = np.asarray(h_score).reshape(head_emb.shape[0], rel_emb.shape[0], 1)
+    np.testing.assert_allclose(F.asnumpy(score1), score2,
                                    rtol=1e-5, atol=1e-5)
 
 def test_score_func_transe():

@@ -58,7 +58,7 @@ class ArgParser(argparse.ArgumentParser):
                           help='How many results are returned')
         self.add_argument('--score_func' type=str, default='L1',
                           help='What kind of score is used in ranking and will be output: \n' \
-                                'l1: score = $|x|$ \n'
+                                'abs: score = $|x|$ \n'
                                 'logsigmoid: score $log(sigmoid(x))$')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')

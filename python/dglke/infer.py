@@ -25,13 +25,13 @@ import numpy as np
 import dgl.backend as F
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
+from models import InferModel
 if backend.lower() == 'mxnet':
-    from .mxnet.tensor_models import logsigmoid
-    from .mxnet.tensor_models import norm_l1
+    from models.mxnet.tensor_models import logsigmoid
+    from models.mxnet.tensor_models import abs
 else:
-    from .pytorch.tensor_models import logsigmoid
-    from .pytorch.tensor_models import norm_l1
-from .models import InferModel
+    from models.pytorch.tensor_models import logsigmoid
+    from models.pytorch.tensor_models import abs
 
 class ScoreInfer(object):
     """ Calculate score of triplet (h, r, t) based on pretained KG embeddings
@@ -47,17 +47,18 @@ class ScoreInfer(object):
 
     score_func : str
         What kind of score is used,
-            l1: score = $|x|$
+            abs: score = $|x|$
             logsigmoid: score $log(sigmoid(x))
     """
-    def __init__(self, device, config, model_path, sfunc='L1'):
-        assert score_func in ['l1', 'logsigmoid'], 'score function should be l1 or logsigmoid'
+    def __init__(self, device, config, model_path, sfunc='abs'):
+        assert sfunc in ['abs', 'logsigmoid'], 'score function should be abs or logsigmoid'
 
         self.device = 'cpu' if device < 0 else device
-        self.load_model(config, model_path)
+        self.config = config
+        self.model_path = model_path
         self.sfunc = sfunc
-        if sfunc == 'l1'
-            self.score_func = norm_l1
+        if sfunc == 'abs':
+            self.score_func = abs
         else:
             self.score_func = logsigmoid
 
@@ -76,15 +77,15 @@ class ScoreInfer(object):
         if head is None:
             head = F.arange(0, self.model.num_entity)
         else:
-            head = F.zerocopy_from_numpy(head)
+            head = F.tensor(head)
         if rel is None:
             rel = F.arange(0, self.model.num_rel)
         else:
-            rel = F.zerocopy_from_numpy(rel)
+            rel = F.tensor(rel)
         if tail is None:
             tail = F.arange(0, self.model.num_entity)
         else:
-            tail = F.zerocopy_from_numpy(tail)
+            tail = F.tensor(tail)
 
         num_head = F.shape(head)[0]
         num_rel = F.shape(rel)[0]
@@ -95,15 +96,16 @@ class ScoreInfer(object):
             raw_score = self.model.score(head, rel, tail)
             score = self.score_func(raw_score)
             idx = F.arange(0, num_head * num_rel * num_tail)
-            
-            if sfunc == 'l1':
-                sidx = argsort(score, dim=1, descending=False)
+
+            if self.sfunc == 'abs':
+                sidx = F.argsort(score, dim=0, descending=False)
             else:
-                sidx = argsort(score, dim=1, descending=True)
+                sidx = F.argsort(score, dim=0, descending=True)
 
             sidx = sidx[:k]
             score = score[sidx]
             idx = idx[sidx]
+            
             tail_idx = idx % num_tail
             idx = idx / num_tail
             rel_idx = idx % num_rel
@@ -117,14 +119,14 @@ class ScoreInfer(object):
         elif bcast == 'head':
             result = []
             for i in range(num_head):
-                raw_score = self.model.score(head[i], rel, tail)
+                raw_score = self.model.score(F.unsqueeze(head[i], 0), rel, tail)
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_rel * num_tail)
 
-                if sfunc == 'l1':
-                    sidx = argsort(score, dim=1, descending=False)
+                if self.sfunc == 'abs':
+                    sidx = F.argsort(score, dim=0, descending=False)
                 else:
-                    sidx = argsort(score, dim=1, descending=True)
+                    sidx = F.argsort(score, dim=0, descending=True)
 
                 sidx = sidx[:k]
                 score = score[sidx]
@@ -133,20 +135,21 @@ class ScoreInfer(object):
                 idx = idx / num_tail
                 rel_idx = idx % num_rel
 
-                result.append((np.full((k,), head[i]),
+                result.append((np.full((k,), F.asnumpy(head[i])),
                                F.asnumpy(rel[rel_idx]),
                                F.asnumpy(tail[tail_idx]),
                                F.asnumpy(score)))
         elif bcast == 'rel':
             result = []
             for i in range(num_rel):
-                raw_score = self.model.score(head, rel[i], tail)
+                raw_score = self.model.score(head, F.unsqueeze(rel[i], 0), tail)
                 score = self.score_func(raw_score)
+                idx = F.arange(0, num_head * num_tail)
 
-                if sfunc == 'l1':
-                    sidx = argsort(score, dim=1, descending=False)
+                if self.sfunc == 'abs':
+                    sidx = F.argsort(score, dim=0, descending=False)
                 else:
-                    sidx = argsort(score, dim=1, descending=True)
+                    sidx = F.argsort(score, dim=0, descending=True)
 
                 sidx = sidx[:k]
                 score = score[sidx]
@@ -156,19 +159,20 @@ class ScoreInfer(object):
                 head_idx = idx % num_head
 
                 result.append((F.asnumpy(head[head_idx]),
-                               np.full((k,), rel[i]),
+                               np.full((k,), F.asnumpy(rel[i])),
                                F.asnumpy(tail[tail_idx]),
                                F.asnumpy(score)))
         elif bcast == 'tail':
             result = []
             for i in range(num_tail):
-                raw_score = self.model.score(head, rel, tail[i])
+                raw_score = self.model.score(head, rel, F.unsqueeze(tail[i], 0))
                 score = self.score_func(raw_score)
+                idx = F.arange(0, num_head * num_rel)
 
-                if sfunc == 'l1':
-                    sidx = argsort(score, dim=1, descending=False)
+                if self.sfunc == 'abs':
+                    sidx = F.argsort(score, dim=0, descending=False)
                 else:
-                    sidx = argsort(score, dim=1, descending=True)
+                    sidx = F.argsort(score, dim=0, descending=True)
 
                 sidx = sidx[:k]
                 score = score[sidx]
@@ -178,13 +182,12 @@ class ScoreInfer(object):
                 head_idx = idx % num_head
                 result.append((F.asnumpy(head[head_idx]),
                                F.asnumpy(rel[rel_idx]),
-                               np.full((k,), tail[i]),
+                               np.full((k,), F.asnumpy(tail[i])),
                                F.asnumpy(score)))
         else:
             assert False, 'unknow broadcast type {}'.format(bcast)
 
         return result
-
 
 class EntitySimInfer():
     def __init__(self):
