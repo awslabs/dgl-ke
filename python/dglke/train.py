@@ -56,7 +56,6 @@ class ArgParser(CommonArgParser):
                           help='Allow asynchronous update on node embedding for multi-GPU training.'\
                                   'This overlaps CPU and GPU computation to speed up.')
 
-
 def get_logger(args):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
@@ -81,7 +80,6 @@ def get_logger(args):
     logger = logging.getLogger(__name__)
     print("Logs are being recorded at: {}".format(log_file))
     return logger
-
 
 def main():
     args = ArgParser().parse_args()

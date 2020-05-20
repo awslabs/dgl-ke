@@ -367,7 +367,6 @@ class TrainDataset(object):
                            exclude_positive=exclude_positive,
                            return_false_neg=False)
 
-
 class ChunkNegEdgeSubgraph(dgl.DGLGraph):
     """Wrapper for negative graph
 
@@ -405,7 +404,6 @@ class ChunkNegEdgeSubgraph(dgl.DGLGraph):
     @property
     def tail_nid(self):
         return self.subg.tail_nid
-
 
 def create_neg_subgraph(pos_g, neg_g, chunk_size, neg_sample_size, is_chunked,
                         neg_head, num_nodes):

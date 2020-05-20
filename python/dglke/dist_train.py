@@ -29,9 +29,7 @@ if os.name != 'nt':
 
 from .utils import CommonArgParser
 
-
 SCRIPT_FILE = 'dglke_start_kvserver_kvclient.sh'
-
 
 class ArgParser(CommonArgParser):
     def __init__(self):
@@ -43,7 +41,6 @@ class ArgParser(CommonArgParser):
         self.add_argument('--num_client_proc', type=int, default=1,
                           help='Number of client process on each machine.')
 
-
 def get_machine_count(ip_config):
     """Get total machine count from ip_config file
     """
@@ -51,7 +48,6 @@ def get_machine_count(ip_config):
         machine_count = len(f.readlines())
 
     return machine_count
-
 
 def local_ip4_addr_list():
     """Return a set of IPv4 address
@@ -69,7 +65,6 @@ def local_ip4_addr_list():
 
     return nic
 
-
 def is_local(ip_addr):
     """If ip_addr is a local ip
     """
@@ -78,14 +73,12 @@ def is_local(ip_addr):
     else:
         return False
 
-
 def run_cmd(cmd_str):
     """run command
     """
     os.environ['PATH'] = '/usr/local/bin:/bin:/usr/bin:/sbin/'
     process = subprocess.Popen(cmd_str, shell=True, env=os.environ)
     return process
-
 
 def wait_job(process, cmd_str):
     """Wait process finish its job
@@ -95,17 +88,15 @@ def wait_job(process, cmd_str):
     if retcode != 0:
         raise RuntimeError(mesg)
 
-
 def ssh_cmd(cmd_str, ip, ssh_key=None):
     """construct an ssh command
     """
     if ssh_key is None:
         ssh_cmd_str = 'ssh %s \'%s\'' % (ip, cmd_str)
     else:
-        ssh_cmd_str = 'ssh -i %s %s \'%s & exit\'' % (ssh_key, ip, cmd_str)
+        ssh_cmd_str = 'ssh -i %s %s \'%s\'' % (ssh_key, ip, cmd_str)
 
     return ssh_cmd_str
-
 
 def scp_file(file, ip, path, ssh_key=None):
     """scp file to remote machine
@@ -116,7 +107,6 @@ def scp_file(file, ip, path, ssh_key=None):
         scp_cmd_str = 'scp -i %s %s %s:%s' % (ssh_key, file, ip, path)
 
     return scp_cmd_str
-
 
 def construct_cmd_script(args):
     """Construct command line string and write it into file
@@ -170,7 +160,6 @@ MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_client --model %s \
 
     return file_path
 
-
 def launch(args):
     """launch kvclient and kvserver processes to cluster
     """
@@ -200,6 +189,7 @@ def launch(args):
             cmd_str = 'cd %s; ./%s %d %d' % (args.path, SCRIPT_FILE, id_low, id_high)
             if is_local(ip) == False: # remote command
                 cmd_str = ssh_cmd(cmd_str, ip, args.ssh_key)
+                print(cmd_str)
             job_list.append(run_cmd(cmd_str))
             cmd_list.append(cmd_str)
             machine_id += 1
@@ -207,11 +197,9 @@ def launch(args):
     for i in range(len(job_list)):
         wait_job(job_list[i], cmd_list[i])
 
-
 def main():
     args = ArgParser().parse_args()
     launch(args)
-
 
 if __name__ == '__main__':
     main()
