@@ -59,9 +59,12 @@ def save_model(args, model, emap_file=None, rmap_file=None):
                    outfile, indent=4)
 
 def load_model_config(config_f):
-    with open(config_f, 'w') as f:
-        config = json.load(f)
+    print(config_f)
+    with open(config_f, "r") as f:
+        config = json.loads(f.read())
+        #config = json.load(f)
 
+    print(config)
     return config
 
 def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rmap_f=None):
@@ -83,12 +86,13 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
                 rip_map[row[1]] = int(row[0])
                 id2r_map[int(row[0])] = row[1]
 
-   if head_f is not None:
+    if head_f is not None:
         head = []
         with open(head_f, 'r') as f:
             id = f.readline()
-            if len(id) > 0:
+            while len(id) > 0:
                 head.append(eid_map[id])
+                id = f.readline()
         head = np.asarray(head)
     else:
         head = None
@@ -97,8 +101,9 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
         rel = []
         with open(ref_f, 'r') as f:
             id = f.readline()
-            if len(id) > 0:
+            while len(id) > 0:
                 rel.append(rid_map[id])
+                id = f.readline()
         rel = np.asarray(rel)
     else:
         rel = None
@@ -107,8 +112,9 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
         tail = []
         with open(tail_f, 'r') as f:
             id = f.readline()
-            if len(id) > 0:
+            while len(id) > 0:
                 tail.append(eid_map[id])
+                id = f.readline()
         tail = np.asarray(tail)
     else:
         tail = None
@@ -120,18 +126,20 @@ def load_triplet_data(head_f=None, rel_f=None, tail_f=None):
         head = []
         with open(head_f, 'r') as f:
             id = f.readline()
-            if len(id) > 0:
+            while len(id) > 0:
                 head.append(int(id))
+                id = f.readline()
         head = np.asarray(head)
     else:
         head = None
 
     if rel_f is not None:
         rel = []
-        with open(ref_f, 'r') as f:
+        with open(rel_f, 'r') as f:
             id = f.readline()
-            if len(id) > 0:
+            while len(id) > 0:
                 rel.append(int(id))
+                id = f.readline()
         rel = np.asarray(rel)
     else:
         rel = None
@@ -140,8 +148,9 @@ def load_triplet_data(head_f=None, rel_f=None, tail_f=None):
         tail = []
         with open(tail_f, 'r') as f:
             id = f.readline()
-            if len(id) > 0:
+            while len(id) > 0:
                 tail.append(int(id))
+                id = f.readline()
         tail = np.asarray(tail)
     else:
         tail = None

@@ -21,7 +21,8 @@ import os
 import time
 import argparse
 
-from utils import load_model_config, load_raw_triplet_data, load_triplet_data
+from .utils import load_model_config, load_raw_triplet_data, load_triplet_data
+from .infer import ScoreInfer
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -49,16 +50,16 @@ class ArgParser(argparse.ArgumentParser):
                                 'according to id mapping files generated during the training progress. \n' \
                                 'If False, the data is just interger ids and it is assumed that user has already done the id translation')
         self.add_argument('--bcast', type=str, default=None,
-                          help='Whether to broadcast topK in a specific side: \n',
-                               'none: do not broadcast, return an universal topK across all results\n'
-                               'head: broadcast at head, return topK for each head\n'
-                               'rel: broadcast at relation, return topK for each relation\n'
+                          help='Whether to broadcast topK in a specific side: \n' \
+                               'none: do not broadcast, return an universal topK across all results\n' \
+                               'head: broadcast at head, return topK for each head\n' \
+                               'rel: broadcast at relation, return topK for each relation\n' \
                                'tail: broadcast at tail, return topK for each tail')
         self.add_argument('--topK', type=int, default=10,
                           help='How many results are returned')
-        self.add_argument('--score_func' type=str, default='L1',
+        self.add_argument('--score_func', type=str, default='none',
                           help='What kind of score is used in ranking and will be output: \n' \
-                                'abs: score = $|x|$ \n'
+                                'none: score = $x$ \n'
                                 'logsigmoid: score $log(sigmoid(x))$')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
@@ -73,12 +74,13 @@ def main():
     args = ArgParser().parse_args()
 
     config = load_model_config(os.path.join(args.model_path, 'config.json'))
-    if self.entity_mfile != None:
+    if args.entity_mfile != None:
         config['emap_file'] = os.path.join(self.data_path, self.entity_mfile)
-    if self.rel_mfile != None:
+    if args.rel_mfile != None:
         config['rmap_file'] = os.path.join(self.data_path, self.rel_mfile)
 
     data_files = args.data_files
+    print(args.format)
     # parse input data first
     if args.format == 'h_r_t':
         if args.raw_data:
@@ -167,7 +169,8 @@ def main():
     else:
         assert False, "Unsupported format {}".format(args.format)
 
-    model = ScoreInfor(args.gpu, config, args.model_path, args.score_func)
+    model = ScoreInfer(args.gpu, config, args.model_path, args.score_func)
+    model.load_model()
     result = model.topK(head, rel, tail, args.bcast, args.topK)
 
     print(result)

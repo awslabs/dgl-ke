@@ -54,7 +54,7 @@ else:
 EMB_INIT_EPS = 2.0
 
 class InferModel(object):
-    def __init__(self, device, model_name, hidden_dim, 
+    def __init__(self, device, model_name, hidden_dim,
         double_entity_emb=False, double_relation_emb=False,
         gamma=0., batch_size=16384):
         super(InferModel, self).__init__()
@@ -99,9 +99,9 @@ class InferModel(object):
         self.score_func.load(path, dataset+'_'+self.model_name)
 
     def score(self, head, rel, tail):
-        head_emb = self.entity_emb[head]
-        rel_emb = self.relation_emb[rel]
-        tail_emb = self.entity_emb[tail]
+        head_emb = self.entity_emb(head)
+        rel_emb = self.relation_emb(rel)
+        tail_emb = self.entity_emb(tail)
 
         num_head = F.shape(head)[0]
         num_rel = F.shape(rel)[0]

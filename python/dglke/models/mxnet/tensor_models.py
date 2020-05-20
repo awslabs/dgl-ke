@@ -34,7 +34,7 @@ def logsigmoid(val):
     z = nd.exp(-max_elem) + nd.exp(-val - max_elem)
     return -(max_elem + nd.log(z))
 
-abs = lambda x : x.abs()
+none = lambda x : x
 get_device = lambda args : mx.gpu(args.gpu[0]) if args.gpu[0] >= 0 else mx.cpu()
 norm_l1 = lambda x: nd.sum(nd.abs(x))
 norm = lambda x, p: nd.sum(nd.abs(x) ** p)
@@ -49,7 +49,7 @@ class InferEmbedding:
     def __init__(self, device):
         self.device = device
 
-    def load(self, path):
+    def load(self, path, name):
         """Load embeddings.
 
         Parameters

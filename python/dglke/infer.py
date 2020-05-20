@@ -25,13 +25,13 @@ import numpy as np
 import dgl.backend as F
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
-from models import InferModel
+from .models import InferModel
 if backend.lower() == 'mxnet':
-    from models.mxnet.tensor_models import logsigmoid
-    from models.mxnet.tensor_models import abs
+    from .models.mxnet.tensor_models import logsigmoid
+    from .models.mxnet.tensor_models import none
 else:
-    from models.pytorch.tensor_models import logsigmoid
-    from models.pytorch.tensor_models import abs
+    from .models.pytorch.tensor_models import logsigmoid
+    from .models.pytorch.tensor_models import none
 
 class ScoreInfer(object):
     """ Calculate score of triplet (h, r, t) based on pretained KG embeddings
@@ -47,28 +47,33 @@ class ScoreInfer(object):
 
     score_func : str
         What kind of score is used,
-            abs: score = $|x|$
+            none: score = $x$
             logsigmoid: score $log(sigmoid(x))
     """
-    def __init__(self, device, config, model_path, sfunc='abs'):
-        assert sfunc in ['abs', 'logsigmoid'], 'score function should be abs or logsigmoid'
+    def __init__(self, device, config, model_path, sfunc='none'):
+        assert sfunc in ['none', 'logsigmoid'], 'score function should be none or logsigmoid'
 
         self.device = 'cpu' if device < 0 else device
         self.config = config
         self.model_path = model_path
         self.sfunc = sfunc
-        if sfunc == 'abs':
-            self.score_func = abs
+        if sfunc == 'none':
+            self.score_func = none
         else:
             self.score_func = logsigmoid
 
-    def load_model(self, config, model_path):
+    def load_model(self):
+        config = self.config
+        model_path = self.model_path
+        # for none score func, use 0.
+        # for logsigmoid use original gamma to make the score closer to 0.
+        gamma=config['gamma'] if self.sfunc == 'logsigmoid' else 0.0
         model = InferModel(device=self.device,
                            model_name=config['model'],
-                           hidden_dim=config['emd_size'],
+                           hidden_dim=config['emb_size'],
                            double_entity_emb=config['double_ent'],
                            double_relation_emb=config['double_rel'],
-                           gamma=config['gamma'])
+                           gamma=gamma)
         dataset = config['dataset']
         model.load_emb(model_path, dataset)
         self.model = model
@@ -91,14 +96,14 @@ class ScoreInfer(object):
         num_rel = F.shape(rel)[0]
         num_tail = F.shape(tail)[0]
 
-        if bcast == 'none':
+        if bcast is None:
             result = []
             raw_score = self.model.score(head, rel, tail)
             score = self.score_func(raw_score)
             idx = F.arange(0, num_head * num_rel * num_tail)
 
-            if self.sfunc == 'abs':
-                sidx = F.argsort(score, dim=0, descending=False)
+            if self.sfunc == 'none':
+                sidx = F.argsort(score, dim=0, descending=True)
             else:
                 sidx = F.argsort(score, dim=0, descending=True)
 
@@ -123,8 +128,8 @@ class ScoreInfer(object):
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_rel * num_tail)
 
-                if self.sfunc == 'abs':
-                    sidx = F.argsort(score, dim=0, descending=False)
+                if self.sfunc == 'none':
+                    sidx = F.argsort(score, dim=0, descending=True)
                 else:
                     sidx = F.argsort(score, dim=0, descending=True)
 
@@ -146,8 +151,8 @@ class ScoreInfer(object):
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_head * num_tail)
 
-                if self.sfunc == 'abs':
-                    sidx = F.argsort(score, dim=0, descending=False)
+                if self.sfunc == 'none':
+                    sidx = F.argsort(score, dim=0, descending=True)
                 else:
                     sidx = F.argsort(score, dim=0, descending=True)
 
@@ -169,8 +174,8 @@ class ScoreInfer(object):
                 score = self.score_func(raw_score)
                 idx = F.arange(0, num_head * num_rel)
 
-                if self.sfunc == 'abs':
-                    sidx = F.argsort(score, dim=0, descending=False)
+                if self.sfunc == 'none':
+                    sidx = F.argsort(score, dim=0, descending=True)
                 else:
                     sidx = F.argsort(score, dim=0, descending=True)
 

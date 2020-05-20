@@ -41,7 +41,7 @@ logsigmoid = functional.logsigmoid
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
 
-abs = lambda x : x.abs()
+none = lambda x : x
 norm = lambda x, p: x.norm(p=p)**p
 get_scalar = lambda x: x.detach().item()
 reshape = lambda arr, x, y: arr.view(x, y)
@@ -123,7 +123,7 @@ class InferEmbedding:
     def __init__(self, device):
         self.device = device
 
-    def load(self, path):
+    def load(self, path, name):
         """Load embeddings.
 
         Parameters
