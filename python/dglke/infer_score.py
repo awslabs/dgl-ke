@@ -51,7 +51,7 @@ class ArgParser(argparse.ArgumentParser):
                                 'If False, the data is just interger ids and it is assumed that user has already done the id translation')
         self.add_argument('--bcast', type=str, default=None,
                           help='Whether to broadcast topK in a specific side: \n' \
-                               'none: do not broadcast, return an universal topK across all results\n' \
+                               'None: do not broadcast, return an universal topK across all results\n' \
                                'head: broadcast at head, return topK for each head\n' \
                                'rel: broadcast at relation, return topK for each relation\n' \
                                'tail: broadcast at tail, return topK for each tail')
@@ -59,8 +59,8 @@ class ArgParser(argparse.ArgumentParser):
                           help='How many results are returned')
         self.add_argument('--score_func', type=str, default='none',
                           help='What kind of score is used in ranking and will be output: \n' \
-                                'none: score = $x$ \n'
-                                'logsigmoid: score $log(sigmoid(x))$')
+                                'none: $score = x$ \n'
+                                'logsigmoid: $score = log(sigmoid(x))$')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
         self.add_argument('--entity_mfile', type=str, default=None,
@@ -116,7 +116,7 @@ def main():
         else:
             head, rel, tail = load_triplet_data(head_f=data_files[0],
                                                 rel_f=None,
-                                                tail_f=data_files[2])
+                                                tail_f=data_files[1])
 
     elif args.format == '*_r_t':
         if args.raw_data:
@@ -127,8 +127,8 @@ def main():
                                                                         rmap_f=config['rmap_file'])
         else:
             head, rel, tail = load_triplet_data(head_f=None,
-                                                rel_f=data_files[1],
-                                                tail_f=data_files[2])
+                                                rel_f=data_files[0],
+                                                tail_f=data_files[1])
 
     elif args.format == 'h_*_*':
         if args.raw_data:
@@ -151,7 +151,7 @@ def main():
                                                                         rmap_f=config['rmap_file'])
         else:
             head, rel, tail = load_triplet_data(head_f=None,
-                                                rel_f=data_files[1],
+                                                rel_f=data_files[0],
                                                 tail_f=None)
 
     elif args.format == '*_*_t':
@@ -164,7 +164,7 @@ def main():
         else:
             head, rel, tail = load_triplet_data(head_f=None,
                                                 rel_f=None,
-                                                tail_f=data_files[2])
+                                                tail_f=data_files[0])
 
     else:
         assert False, "Unsupported format {}".format(args.format)
@@ -173,8 +173,22 @@ def main():
     model.load_model()
     result = model.topK(head, rel, tail, args.bcast, args.topK)
 
-    print(result)
+    with open(args.output, 'w+') as f:
+        f.write('head\trel\ttail\tscore\n')
+        for res in result:
+            hl, rl, tl, sl = res
+            hl = hl.tolist()
+            rl = rl.tolist()
+            tl = tl.tolist()
+            sl = sl.tolist()
 
+            for h, r, t, s in zip(hl, rl, tl, sl):
+                if args.raw_data:
+                    h = id2e_map[h]
+                    r = id2r_map[r]
+                    t = id2e_map[t]
+                f.write('{}\t{}\t{}\t{}\n'.format(h, r, t, s))
+    print('Inference Done')
 
 if __name__ == '__main__':
     main()

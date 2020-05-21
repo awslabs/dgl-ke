@@ -127,11 +127,11 @@ class InferModel(object):
 
     @property
     def num_entity(self):
-        return self.entity_emb.shape[0]
+        return self.entity_emb.emb.shape[0]
 
     @property
     def num_rel(self):
-        return self.relation_emb.shape[0]
+        return self.relation_emb.emb.shape[0]
 
 class KEModel(object):
     """ DGL Knowledge Embedding Model.
