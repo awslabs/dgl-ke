@@ -24,10 +24,10 @@ import argparse
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(ArgParser, self).__init__()
-        self.add_argument('--data_path', type=str, default='data',
-                          help='root path of all dataset including id mapping files')
-        self.add_argument('--model_path', type=str, default='ckpts',
-                          help='the place where to load the model')
+        self.add_argument('--entity_mfile', type=str, default=None,
+                          help='Entity ID mapping file.')
+        self.add_argument('--emb_file', type=str, default=None,
+                          help='Numpy file containing the embeddings. Can be omitted if model_path is provided')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
                                 'e_e_pw: two list of entities are provided, and we will calculate the similarity pair by pair \n'
@@ -62,6 +62,59 @@ class ArgParser(argparse.ArgumentParser):
 
 def main():
     args = ArgParser().parse_args()
+    assert args.emb_file != None, 'emb_file should be provided for entity embeddings'
+
+    data_files = args.data_files
+    pair_wise = False
+    if args.format == 'e_e_pw':
+        if args.raw_data:
+            head, id2e_map = load_raw_entity_data(data_files[0],
+                                                  emap_f=config['emap_file'])
+            tail = load_raw_entity_data(data_files[1],
+                                        emap=id2e_map)
+        else:
+            head = load_entity_data(data_files[0])
+            tail = load_entity_data(data_files[1])
+        args.bcast = False
+        pair_wise = True
+    elif args.format == 'e_e':
+        if args.raw_data:
+            head, id2e_map = load_raw_entity_data(data_files[0],
+                                                  emap_f=config['emap_file'])
+            tail = load_raw_entity_data(data_files[1],
+                                        emap=id2e_map)
+        else:
+            head = load_entity_data(data_files[0])
+            tail = load_entity_data(data_files[1])
+    elif args.format == 'e_*':
+        if args.raw_data:
+            head, id2e_map = load_raw_entity_data(data_files[0],
+                                                  emap_f=config['emap_file'])
+        else:
+            head = load_entity_data(data_files[0])
+        tail = load_entity_data()
+    elif args.format == '*':
+        head = load_entity_data()
+        tail = load_entity_data()
+
+    model = EmbSimInfor(args.gpu, args.emb_file, 'entity' args.sim_func))
+    model.load_emb()
+    result = model.topK(head, tail, bcast=args.bcast, pair_ws=pair_wise, topk=args.topK)
+
+    with open(args.output, 'w+') as f:
+        f.write('head\ttail\tscore\n')
+        for res in result:
+            hl, tl, sl = res
+            hl = hl.tolist()
+            tl = tl.tolist()
+            sl = sl.tolist()
+
+            for h, t, s in zip(hl, tl, sl):
+                if args.raw_data:
+                    h = id2e_map[h]
+                    t = id2e_map[t]
+                f.write('{}\t{}\t{}\n'.format(h, t, s))
+    print('Inference Done')
 
 if __name__ == '__main__':
     main()

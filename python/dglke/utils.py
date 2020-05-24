@@ -157,6 +157,30 @@ def load_triplet_data(head_f=None, rel_f=None, tail_f=None):
 
     return head, rel, tail
 
+def load_raw_entity_data(file=None, map_f=None):
+    if map_f is not None:
+        o2id_map = {}
+        id2o_map = {}
+        with open(map_f, 'r') as f:
+            reader = csv.reader(f, delimiter='\t')
+            for row in reader:
+                o2id_map[row[1]] = int(row[0])
+                id2o_map[int(row[0])] = row[1]
+
+def load_entity_data(file=None):
+    if file is None:
+        return None
+
+    entity = []
+    with open(file, 'r') as f:
+        id = f.readline()
+        while len(id) > 0:
+            entity.append(int(id))
+            id = f.readline()
+    entity = np.asarray(entity)
+
+    return entitiy
+
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(CommonArgParser, self).__init__()

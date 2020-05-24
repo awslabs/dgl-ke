@@ -45,6 +45,49 @@ reshape = lambda arr, x, y: arr.reshape(x, y)
 
 cuda = lambda arr, gpu: arr.as_in_context(mx.gpu(gpu))
 
+def l2_dist(x, y, pw=False):
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return nd.norm(x-y, ord=2, axis=-1)
+
+def l1_dist(x, y, pw=False):
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return nd.norm(x-y, ord=1, axis=-1)
+
+def dot_dist(x, y, pw=False):
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return nd.sum(x * y, axis=-1)
+
+def cosine_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+    
+    x = nd.norm(x, ord=2, axis=-1)
+    y = nd.norm(y, ord=2, axis=-1)
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+       
+    return score / (x * y)
+
+def extended_jaccard_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+
+    x = nd.norm(x, ord=2, axis=-1)**2
+    y = nd.norm(y, ord=2, axis=-1)**2
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return score / (x + y - score)
+
 class InferEmbedding:
     def __init__(self, device):
         self.device = device

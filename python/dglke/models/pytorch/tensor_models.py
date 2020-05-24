@@ -47,6 +47,49 @@ get_scalar = lambda x: x.detach().item()
 reshape = lambda arr, x, y: arr.view(x, y)
 cuda = lambda arr, gpu: arr.cuda(gpu)
 
+def l2_dist(x, y, pw=False):
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return th.norm(x-y, p=2, dim=-1)
+
+def l1_dist(x, y, pw=False):
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return th.norm(x-y, p=1, dim=-1)
+
+def dot_dist(x, y, pw=False):
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return th.sum(x * y, dim=-1)
+
+def cosine_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+    
+    x = x.norm(p=2, dim=-1)
+    y = y.norm(p=2, dim=-1)
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+       
+    return score / (x * y)
+
+def extended_jaccard_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+
+    x = x.norm(p=2, dim=-1)**2
+    y = y.norm(p=2, dim=-1)**2
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return score / (x + y - score)
+
 def thread_wrapped_func(func):
     """Wrapped func for torch.multiprocessing.Process.
 

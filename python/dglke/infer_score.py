@@ -80,7 +80,6 @@ def main():
         config['rmap_file'] = os.path.join(self.data_path, self.rel_mfile)
 
     data_files = args.data_files
-    print(args.format)
     # parse input data first
     if args.format == 'h_r_t':
         if args.raw_data:
