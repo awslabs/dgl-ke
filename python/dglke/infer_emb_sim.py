@@ -21,7 +21,7 @@ import os
 import time
 import argparse
 
-from .utils import load_entity_data, load_raw_emb_data
+from .utils import load_entity_data, load_raw_emb_data, load_raw_emb_mapping
 from .models.infer import EmbSimInfor
 
 class ArgParser(argparse.ArgumentParser):
@@ -76,7 +76,7 @@ def main():
             head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
                                                map_f=args.mfile)
             tail, _, _ = load_raw_emb_data(file=data_files[1],
-                                        id_map=id2e_map)
+                                           e2id_map=e2id_map)
         else:
             head = load_entity_data(data_files[0])
             tail = load_entity_data(data_files[1])
@@ -87,7 +87,7 @@ def main():
             head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
                                                          map_f=args.mfile)
             tail, _, _ = load_raw_emb_data(file=data_files[1],
-                                           id_map=id2e_map)
+                                           e2id_map=e2id_map)
         else:
             head = load_entity_data(data_files[0])
             tail = load_entity_data(data_files[1])
@@ -99,6 +99,8 @@ def main():
             head = load_entity_data(data_files[0])
         tail = load_entity_data()
     elif args.format == '*':
+        if args.raw_data:
+            id2e_map = load_raw_emb_mapping(map_f=args.mfile)
         head = load_entity_data()
         tail = load_entity_data()
 

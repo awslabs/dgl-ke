@@ -157,7 +157,18 @@ def load_triplet_data(head_f=None, rel_f=None, tail_f=None):
 
     return head, rel, tail
 
-def load_raw_emb_data(file, map_f=None, id_map=None):
+def load_raw_emb_mapping(map_f):
+    assert map_f is not None
+    id2e_map = {}
+    with open(map_f, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        for row in reader:
+            id2e_map[int(row[0])] = row[1]
+
+    return id2e_map
+
+
+def load_raw_emb_data(file, map_f=None, e2id_map=None):
     if map_f is not None:
         e2id_map = {}
         id2e_map = {}
@@ -166,7 +177,9 @@ def load_raw_emb_data(file, map_f=None, id_map=None):
             for row in reader:
                 e2id_map[row[1]] = int(row[0])
                 id2e_map[int(row[0])] = row[1]
-    elif id_map is None:
+    elif e2id_map is not None:
+        id2e_map = [] # dummpy return value
+    else:
         assert False, 'There should be an ID mapping file provided'
 
     ids = []

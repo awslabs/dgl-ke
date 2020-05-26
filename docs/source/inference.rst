@@ -43,10 +43,10 @@ Input/Output related arguments:
 The following command shows how to do linkage score ranking using a pretrained DistMult model::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --score_func none --topK 5
+    dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --score_func none --topK 5
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
 
 The output is as::
 
@@ -60,10 +60,10 @@ The output is as::
 The following command shows how to do linkage score ranking while broadcasting at head using a pretrained TransE_l2 model::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --bcast head
+    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --bcast head
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --bcast head
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --bcast head
 
 The output is as::
 
@@ -83,10 +83,10 @@ The output is as::
 The following command shows how to do linkage score ranking using a pretrained TransE_l2 model and use raw ID space (turn on --raw_data)::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
+    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
 
 The output is as::
 
@@ -172,10 +172,10 @@ The output is as::
 The following command shows how to do relation similarity using cosine distance and use raw ID space (turn on --raw_data)::
 
     # Using PyTorch Backend
-    dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format e_* --data_files raw_rel.list --topK 5 --raw_data
+    dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'e_*' --data_files raw_rel.list --topK 5 --raw_data
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format e_* --data_files raw_rel.list --topK 5 --raw_data
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'e_*' --data_files raw_rel.list --topK 5 --raw_data
 
 The output is as::
 
