@@ -21,20 +21,23 @@ import os
 import time
 import argparse
 
+from .utils import load_entity_data, load_raw_emb_data
+from .models.infer import EmbSimInfor
+
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(ArgParser, self).__init__()
-        self.add_argument('--entity_mfile', type=str, default=None,
-                          help='Entity ID mapping file.')
+        self.add_argument('--mfile', type=str, default=None,
+                          help='ID mapping file.')
         self.add_argument('--emb_file', type=str, default=None,
                           help='Numpy file containing the embeddings. Can be omitted if model_path is provided')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
-                                'e_e_pw: two list of entities are provided, and we will calculate the similarity pair by pair \n'
-                                'e_e: two list of entities are provided, and we will calculate the similarity in an N x N manner\n' \
-                                'e_*: only one list of entities is provided and we will calculate similarity between entities in e ' \
-                                'and all entities in the KG in an N_e x N_* manner \n'
-                                '*: treat all entities as input and calculate similarity in an N_* x N_* manner')
+                                'e_e_pw: two list of objects are provided, and we will calculate the similarity pair by pair \n'
+                                'e_e: two list of objects are provided, and we will calculate the similarity in an N x N manner\n' \
+                                'e_*: only one list of objects is provided and we will calculate similarity between objects in e ' \
+                                'and all objects in the KG in an N_e x N_* manner \n'
+                                '*: treat all objects as input and calculate similarity in an N_* x N_* manner')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
                           help='A list of data file names. This is used to provide necessary files containing the requried data ' \
                                'according to the format, e.g., for e_e_pw, two files are required as left_data and right_data; ' \
@@ -50,11 +53,13 @@ class ArgParser(argparse.ArgumentParser):
                                'Otherwise, broadcast at left e')
         self.add_argument('--topK', type=int, default=10,
                           help='How many results are returned')
-        self.add_argument('--sim_func' type=str, default='cosine',
+        self.add_argument('--sim_func', type=str, default='cosine',
                           help='What kind of distance function is used in ranking and will be output: \n' \
-                                'cosine: use cosine distance\n'
-                                'l2: use l2 distance \n'
-                                'l1: use l1 distance')
+                                'cosine: use cosine distance\n' \
+                                'l2: use l2 distance \n' \
+                                'l1: use l1 distance \n' \
+                                'dot: use dot product as distance \n' \
+                                'ext_jaccard: use extended jaccard as distance \n')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
         self.add_argument('--gpu', type=int, default=-1,
@@ -68,10 +73,10 @@ def main():
     pair_wise = False
     if args.format == 'e_e_pw':
         if args.raw_data:
-            head, id2e_map = load_raw_entity_data(data_files[0],
-                                                  emap_f=config['emap_file'])
-            tail = load_raw_entity_data(data_files[1],
-                                        emap=id2e_map)
+            head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
+                                               map_f=args.mfile)
+            tail, _, _ = load_raw_emb_data(file=data_files[1],
+                                        id_map=id2e_map)
         else:
             head = load_entity_data(data_files[0])
             tail = load_entity_data(data_files[1])
@@ -79,17 +84,17 @@ def main():
         pair_wise = True
     elif args.format == 'e_e':
         if args.raw_data:
-            head, id2e_map = load_raw_entity_data(data_files[0],
-                                                  emap_f=config['emap_file'])
-            tail = load_raw_entity_data(data_files[1],
-                                        emap=id2e_map)
+            head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
+                                                         map_f=args.mfile)
+            tail, _, _ = load_raw_emb_data(file=data_files[1],
+                                           id_map=id2e_map)
         else:
             head = load_entity_data(data_files[0])
             tail = load_entity_data(data_files[1])
     elif args.format == 'e_*':
         if args.raw_data:
-            head, id2e_map = load_raw_entity_data(data_files[0],
-                                                  emap_f=config['emap_file'])
+            head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
+                                                         map_f=args.mfile)
         else:
             head = load_entity_data(data_files[0])
         tail = load_entity_data()
@@ -97,9 +102,9 @@ def main():
         head = load_entity_data()
         tail = load_entity_data()
 
-    model = EmbSimInfor(args.gpu, args.emb_file, 'entity' args.sim_func))
+    model = EmbSimInfor(args.gpu, args.emb_file, args.sim_func)
     model.load_emb()
-    result = model.topK(head, tail, bcast=args.bcast, pair_ws=pair_wise, topk=args.topK)
+    result = model.topK(head, tail, bcast=args.bcast, pair_ws=pair_wise, k=args.topK)
 
     with open(args.output, 'w+') as f:
         f.write('head\ttail\tscore\n')

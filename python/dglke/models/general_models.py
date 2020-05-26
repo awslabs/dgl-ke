@@ -40,6 +40,7 @@ if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import ExternalEmbedding
     from .mxnet.tensor_models import InferEmbedding
     from .mxnet.score_fun import *
+    DEFAULT_INFER_BATCHSIZE = 1024
 else:
     from .pytorch.tensor_models import logsigmoid
     from .pytorch.tensor_models import get_device
@@ -50,13 +51,14 @@ else:
     from .pytorch.tensor_models import ExternalEmbedding
     from .pytorch.tensor_models import InferEmbedding
     from .pytorch.score_fun import *
+    DEFAULT_INFER_BATCHSIZE = 2048
 
 EMB_INIT_EPS = 2.0
 
 class InferModel(object):
     def __init__(self, device, model_name, hidden_dim,
         double_entity_emb=False, double_relation_emb=False,
-        gamma=0., batch_size=16384):
+        gamma=0., batch_size=DEFAULT_INFER_BATCHSIZE):
         super(InferModel, self).__init__()
 
         self.device = device
@@ -119,7 +121,7 @@ class InferModel(object):
                                                    if (j + 1) * batch_size < num_tail \
                                                    else num_tail]
 
-                s_score.append(self.score_func.infer(sh_emb, rel_emb, st_emb))
+                s_score.append(F.copy_to(self.score_func.infer(sh_emb, rel_emb, st_emb), F.cpu()))
             score.append(F.cat(s_score, dim=2))
         score = F.cat(score, dim=0)
 

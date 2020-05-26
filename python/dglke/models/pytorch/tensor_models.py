@@ -38,6 +38,9 @@ from .. import *
 
 logsigmoid = functional.logsigmoid
 
+def get_dev(gpu):
+    return th.device('cpu') if gpu < 0 else th.device('cuda:' + str(gpu))
+
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
 
@@ -180,7 +183,7 @@ class InferEmbedding:
         self.emb = th.Tensor(np.load(file_name))
 
     def __call__(self, idx):
-        return self.emb[idx]
+        return self.emb[idx].to(self.device)
 
 class ExternalEmbedding:
     """Sparse Embedding for Knowledge Graph

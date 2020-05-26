@@ -25,7 +25,7 @@ import dgl.backend as F
 import dgl
 
 from models import InferModel
-from infer import ScoreInfer, EmbSimInfor
+from models.infer import ScoreInfer, EmbSimInfor
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
@@ -122,9 +122,9 @@ def check_topk_score(model_name):
         model = InferModel('cpu', model_name, hidden_dim, double_entity_emb=True)
         
     entity_emb, rel_emb = generate_rand_emb(model_name, num_entity, num_rels, hidden_dim, 'none')
-    model.entity_emb = InferEmbedding(-1)
+    model.entity_emb = InferEmbedding('cpu')
     model.entity_emb.emb = entity_emb
-    model.relation_emb = InferEmbedding(-1)
+    model.relation_emb = InferEmbedding('cpu')
     model.relation_emb.emb = rel_emb
     score_model.model = model
     score_func = model.score_func
@@ -411,8 +411,8 @@ def test_topk_emb(sfunc, sim_func):
     np.testing.assert_allclose(r1_tail, tail_ids)
 
     emb_ids = F.arange(0, num_emb)
-    result1 = sim_infer.topK(emb_ids, emb_ids, bcast='head')
-    result2 = sim_infer.topK(bcast='head')
+    result1 = sim_infer.topK(emb_ids, emb_ids, bcast=True)
+    result2 = sim_infer.topK(bcast=True)
     assert len(result1) == emb_ids.shape[0]
     assert len(result2) == emb_ids.shape[0]
 
@@ -444,42 +444,6 @@ def test_topk_emb(sfunc, sim_func):
         np.testing.assert_allclose(r1_head, head_ids)
         np.testing.assert_allclose(r1_tail, tail_ids)
         r2_head, r2_tail, r2_score = result2[i]
-        np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
-        np.testing.assert_allclose(r2_head, head_ids)
-        np.testing.assert_allclose(r2_tail, tail_ids)
-
-    emb_ids = F.arange(0, num_emb)
-    result1 = sim_infer.topK(emb_ids, emb_ids, bcast='tail')
-    result2 = sim_infer.topK(bcast='tail')
-    assert len(result1) == emb_ids.shape[0]
-    assert len(result2) == emb_ids.shape[0]
-
-    for j in range(emb_ids.shape[0]):
-        scores = []
-        head_ids = []
-        for i in range(emb_ids.shape[0]):
-            hemb = F.take(emb, emb_ids[i], 0)
-            temb = F.take(emb, emb_ids[j], 0)
-    
-            score = sim_func(hemb, temb)
-            scores.append(F.asnumpy(score))
-            head_ids.append(F.asnumpy(emb_ids[i]))
-        scores = np.asarray(scores)
-        scores = scores.reshape(scores.shape[0])
-        head_ids = np.asarray(head_ids)
-        idx = np.argsort(scores)
-        if sfunc == 'cosine' or sfunc == 'dot' or sfunc == 'ext_jaccard':
-            idx = idx[::-1]
-        idx = idx[:10]
-        head_ids = head_ids[idx]
-        tail_ids = np.full((10,), F.asnumpy(emb_ids[j]))
-        score_topk = scores[idx]
-
-        r1_head, r1_tail, r1_score = result1[j]
-        np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
-        np.testing.assert_allclose(r1_head, head_ids)
-        np.testing.assert_allclose(r1_tail, tail_ids)
-        r2_head, r2_tail, r2_score = result2[j]
         np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
         np.testing.assert_allclose(r2_head, head_ids)
         np.testing.assert_allclose(r2_tail, tail_ids)
@@ -525,12 +489,12 @@ def test_extended_jaccard_topk_emb():
     test_topk_emb('ext_jaccard', extended_jaccard_func)
 
 if __name__ == '__main__':
-    #test_topk_transe()
-    #test_topk_distmult()
-    #test_topk_complex()
-    #test_topk_rescal()
+    test_topk_transe()
+    test_topk_distmult()
+    test_topk_complex()
+    test_topk_rescal()
     #test_topk_transr()
-    #test_topk_rotate()
+    test_topk_rotate()
     test_cosine_topk_emb()
     test_l2_topk_emb()
     test_l1_topk_emb()

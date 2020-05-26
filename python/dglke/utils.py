@@ -74,7 +74,7 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
         with open(emap_f, 'r') as f:
             reader = csv.reader(f, delimiter='\t')
             for row in reader:
-                eip_map[row[1]] = int(row[0])
+                eid_map[row[1]] = int(row[0])
                 id2e_map[int(row[0])] = row[1]
 
     if rmap_f is not None:
@@ -83,7 +83,7 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
         with open(rmap_f, 'r') as f:
             reader = csv.reader(f, delimiter='\t')
             for row in reader:
-                rip_map[row[1]] = int(row[0])
+                rid_map[row[1]] = int(row[0])
                 id2r_map[int(row[0])] = row[1]
 
     if head_f is not None:
@@ -91,7 +91,7 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
         with open(head_f, 'r') as f:
             id = f.readline()
             while len(id) > 0:
-                head.append(eid_map[id])
+                head.append(eid_map[id[:-1]])
                 id = f.readline()
         head = np.asarray(head)
     else:
@@ -99,10 +99,10 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
 
     if rel_f is not None:
         rel = []
-        with open(ref_f, 'r') as f:
+        with open(rel_f, 'r') as f:
             id = f.readline()
             while len(id) > 0:
-                rel.append(rid_map[id])
+                rel.append(rid_map[id[:-1]])
                 id = f.readline()
         rel = np.asarray(rel)
     else:
@@ -113,7 +113,7 @@ def load_raw_triplet_data(head_f=None, rel_f=None, tail_f=None, emap_f=None, rma
         with open(tail_f, 'r') as f:
             id = f.readline()
             while len(id) > 0:
-                tail.append(eid_map[id])
+                tail.append(eid_map[id[:-1]])
                 id = f.readline()
         tail = np.asarray(tail)
     else:
@@ -157,15 +157,27 @@ def load_triplet_data(head_f=None, rel_f=None, tail_f=None):
 
     return head, rel, tail
 
-def load_raw_entity_data(file=None, map_f=None):
+def load_raw_emb_data(file, map_f=None, id_map=None):
     if map_f is not None:
-        o2id_map = {}
-        id2o_map = {}
+        e2id_map = {}
+        id2e_map = {}
         with open(map_f, 'r') as f:
             reader = csv.reader(f, delimiter='\t')
             for row in reader:
-                o2id_map[row[1]] = int(row[0])
-                id2o_map[int(row[0])] = row[1]
+                e2id_map[row[1]] = int(row[0])
+                id2e_map[int(row[0])] = row[1]
+    elif id_map is None:
+        assert False, 'There should be an ID mapping file provided'
+
+    ids = []
+    with open(file, 'r') as f:
+        line = f.readline()
+        while len(line) > 0:
+            ids.append(e2id_map[line[:-1]])
+            line = f.readline()
+        ids = np.asarray(ids)
+
+    return ids, id2e_map, e2id_map
 
 def load_entity_data(file=None):
     if file is None:
@@ -179,7 +191,7 @@ def load_entity_data(file=None):
             id = f.readline()
     entity = np.asarray(entity)
 
-    return entitiy
+    return entity
 
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):

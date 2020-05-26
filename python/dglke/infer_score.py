@@ -22,7 +22,7 @@ import time
 import argparse
 
 from .utils import load_model_config, load_raw_triplet_data, load_triplet_data
-from .infer import ScoreInfer
+from .models.infer import ScoreInfer
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -75,9 +75,13 @@ def main():
 
     config = load_model_config(os.path.join(args.model_path, 'config.json'))
     if args.entity_mfile != None:
-        config['emap_file'] = os.path.join(self.data_path, self.entity_mfile)
+        config['emap_file'] = os.path.join(args.data_path, args.entity_mfile)
+    else:
+        config['emap_file'] = os.path.join(args.data_path, config['emap_file'])
     if args.rel_mfile != None:
-        config['rmap_file'] = os.path.join(self.data_path, self.rel_mfile)
+        config['rmap_file'] = os.path.join(args.data_path, args.rel_mfile)
+    else:
+        config['rmap_file'] = os.path.join(args.data_path, config['rmap_file'])
 
     data_files = args.data_files
     # parse input data first

@@ -25,23 +25,27 @@ import numpy as np
 import dgl.backend as F
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
-from models import InferModel
+from .general_models import InferModel
 if backend.lower() == 'mxnet':
-    from models.mxnet.tensor_models import logsigmoid
-    from models.mxnet.tensor_models import none
-    from models.mxnet.tensor_models import cosine_dist
-    from models.mxnet.tensor_models import l2_dist
-    from models.mxnet.tensor_models import l1_dist
-    from models.mxnet.tensor_models import dot_dist
-    from models.mxnet.tensor_models import extended_jaccard_dist
+    from .mxnet.tensor_models import logsigmoid
+    from .mxnet.tensor_models import none
+    from .mxnet.tensor_models import get_dev
+    from .mxnet.tensor_models import cosine_dist
+    from .mxnet.tensor_models import l2_dist
+    from .mxnet.tensor_models import l1_dist
+    from .mxnet.tensor_models import dot_dist
+    from .mxnet.tensor_models import extended_jaccard_dist
+    DEFAULT_INFER_BATCHSIZE = 256
 else:
-    from models.pytorch.tensor_models import logsigmoid
-    from models.pytorch.tensor_models import none
-    from models.pytorch.tensor_models import cosine_dist
-    from models.pytorch.tensor_models import l2_dist
-    from models.pytorch.tensor_models import l1_dist
-    from models.pytorch.tensor_models import dot_dist
-    from models.pytorch.tensor_models import extended_jaccard_dist
+    from .pytorch.tensor_models import logsigmoid
+    from .pytorch.tensor_models import none
+    from .pytorch.tensor_models import get_dev
+    from .pytorch.tensor_models import cosine_dist
+    from .pytorch.tensor_models import l2_dist
+    from .pytorch.tensor_models import l1_dist
+    from .pytorch.tensor_models import dot_dist
+    from .pytorch.tensor_models import extended_jaccard_dist
+    DEFAULT_INFER_BATCHSIZE = 1024
 
 class ScoreInfer(object):
     """ Calculate score of triplet (h, r, t) based on pretained KG embeddings
@@ -95,15 +99,15 @@ class ScoreInfer(object):
         if head is None:
             head = F.arange(0, self.model.num_entity)
         else:
-            head = F.tensor(head, dtype='int64')
+            head = F.tensor(head)
         if rel is None:
             rel = F.arange(0, self.model.num_rel)
         else:
-            rel = F.tensor(rel, dtype='int64')
+            rel = F.tensor(rel)
         if tail is None:
             tail = F.arange(0, self.model.num_entity)
         else:
-            tail = F.tensor(tail, dtype='int64')
+            tail = F.tensor(tail)
 
         num_head = F.shape(head)[0]
         num_rel = F.shape(rel)[0]
@@ -210,8 +214,8 @@ class EmbSimInfor():
             dot: score = $x \cdot y$
             ext_jaccard: score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
     """
-    def __init__(self, device, emb_file, sfunc='cosine', batch_size=16384):
-        self.device = 'cpu' if device < 0 else device
+    def __init__(self, device, emb_file, sfunc='cosine', batch_size=DEFAULT_INFER_BATCHSIZE):
+        self.device = get_dev(device)
         self.emb_file = emb_file
         self.sfunc = sfunc
         if sfunc == 'cosine':
@@ -226,20 +230,40 @@ class EmbSimInfor():
             self.sim_func = extended_jaccard_dist
         self.batch_size = batch_size
 
-    def load_emb():
-        self.emb = np.load(self.emb_file)
+    def load_emb(self):
+        self.emb = F.tensor(np.load(self.emb_file))
             
-    def topK(self, head=None, tail=None, bcast=None, pair_ws=False, k=10):
+    def topK(self, head=None, tail=None, bcast=False, pair_ws=False, k=10):
         if head is None:
             head = F.arange(0, self.emb.shape[0])
+        else:
+            head = F.tensor(head)
         if tail is None:
             tail = F.arange(0, self.emb.shape[0])
+        else:
+            tail = F.tensor(tail)
 
         head_emb = self.emb[head]
         tail_emb = self.emb[tail]
         if pair_ws is True:
             result = []
-            score = self.sim_func(head_emb, tail_emb, pw=True)
+            batch_size = self.batch_size
+            # chunked cal score
+            score = []
+            num_head = head.shape[0]
+            num_tail = tail.shape[0]
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                sh_emb = F.copy_to(sh_emb, self.device)
+                st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                st_emb = F.copy_to(st_emb, self.device)
+                score.append(F.copy_to(self.sim_func(sh_emb, st_emb, pw=True), F.cpu()))
+            score = F.cat(score, dim=0)
+
             if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
                 sidx = F.argsort(score, dim=0, descending=True)
             else:
@@ -247,7 +271,6 @@ class EmbSimInfor():
 
             sidx = sidx[:k]
             score = score[sidx]
-
             result.append((F.asnumpy(head[sidx]),
                            F.asnumpy(tail[sidx]),
                            F.asnumpy(score)))
@@ -262,16 +285,18 @@ class EmbSimInfor():
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
                                             if (i + 1) * batch_size < num_head \
                                             else num_head]
+                sh_emb = F.copy_to(sh_emb, self.device)
                 s_score = []
                 for j in range((num_tail + batch_size - 1) // batch_size):
                     st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
                                                     if (j + 1) * batch_size < num_tail \
                                                     else num_tail]
-                    s_score.append(self.sim_func(sh_emb, st_emb))
+                    st_emb = F.copy_to(st_emb, self.device)
+                    s_score.append(F.copy_to(self.sim_func(sh_emb, st_emb), F.cpu()))
                 score.append(F.cat(s_score, dim=1))
             score = F.cat(score, dim=0)
 
-            if bcast is None:
+            if bcast is False:
                 result = []
                 idx = F.arange(0, num_head * num_tail)
                 score = F.reshape(score, (num_head * num_tail, ))
@@ -282,6 +307,7 @@ class EmbSimInfor():
                     sidx = F.argsort(score, dim=0, descending=False)
                 sidx = sidx[:k]
                 score = score[sidx]
+                sidx = sidx
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
                 idx = idx / num_tail
@@ -291,42 +317,24 @@ class EmbSimInfor():
                            F.asnumpy(tail[tail_idx]),
                            F.asnumpy(score)))
 
-            elif bcast == 'head':
+            else: # bcast at head
                 result = []
-                if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
-                    sidx = F.argsort(score, dim=1, descending=True)
-                else:
-                    sidx = F.argsort(score, dim=1, descending=False)
-
                 for i in range(num_head):
+                    i_score = score[i]
+                    if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
+                        sidx = F.argsort(i_score, dim=0, descending=True)
+                    else:
+                        sidx = F.argsort(i_score, dim=0, descending=False)
+
+                
                     idx = F.arange(0, num_tail)
-                    i_idx = sidx[i][:k]
-                    i_score = score[i][i_idx]
+                    i_idx = sidx[:k]
+                    i_score = i_score[i_idx]
                     idx = idx[i_idx]
 
                     result.append((np.full((k,), F.asnumpy(head[i])),
                                   F.asnumpy(tail[idx]),
                                   F.asnumpy(i_score)))
-            elif bcast == 'tail':
-                result = []
-                score = F.swapaxes(score, 0, 1)
-                if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
-                    sidx = F.argsort(score, dim=1, descending=True)
-                else:
-                    sidx = F.argsort(score, dim=1, descending=False)
-
-                for i in range(num_tail):
-                    idx = F.arange(0, num_head)
-                    # chunked cal score
-                    i_idx = sidx[i][:k]
-                    i_score = score[i][i_idx]
-                    idx = idx[i_idx]
-
-                    result.append((F.asnumpy(head[idx]),
-                                   np.full((k,), F.asnumpy(tail[i])),
-                                   F.asnumpy(i_score)))
-            else:
-                assert False, 'unknow broadcast type {}'.format(bcast)
 
         return result
 

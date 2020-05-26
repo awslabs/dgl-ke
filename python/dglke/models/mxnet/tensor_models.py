@@ -35,7 +35,9 @@ def logsigmoid(val):
     return -(max_elem + nd.log(z))
 
 none = lambda x : x
+get_dev = lambda gpu : mx.gpu(gpu) if gpu >= 0 else mx.cpu()
 get_device = lambda args : mx.gpu(args.gpu[0]) if args.gpu[0] >= 0 else mx.cpu()
+
 norm_l1 = lambda x: nd.sum(nd.abs(x))
 norm = lambda x, p: nd.sum(nd.abs(x) ** p)
 
