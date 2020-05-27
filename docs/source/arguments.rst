@@ -117,7 +117,6 @@ dglke_train
 dglke_eval
 ^^^^^^^^^^^^
 
-
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
 

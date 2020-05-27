@@ -6,6 +6,8 @@ Users can use DGL-KE to do inference tasks based on pretained embeddings (We rec
   * **Linkage score ranking** Given a list of (h, r, t) triplets, calculate the linkage score using the predefined score function for each triplet, sort the resulting scores and output the topk most confident triplets.
   * **Embedding similarity ranking** Given a list of (e, e) enitity pairs or (r, r) relation pairs, calculate the similarity of for each pair, sort the resulting similarity score and output the topk most similar pairs.
 
+The ranking result will be automatically stored in the output file (result.tsv by default) using the tsv format.
+
 The Linkage Score Ranking
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The task of linkage score ranking is given a list of candidate (h, r, t) triplets, calculating the edge score of each triplet based on the trained model and the pretrained embeddings and then returning the topk most relevent triplets along with their scores. An example return value of top5 linkage score likes this::

@@ -62,10 +62,11 @@ if [ "$2" == "cpu" ]; then
 
     # verify score sim
     printf '1\n2\n3\n4\n5\n' > head.list
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --bcast head
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --bcast rel
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_*_t --data_files head.list --topK 5 --bcast tail
+    printf '6\n7\n8\n9\n10\n' > tail.list
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast head
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast rel
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast tail
 
     # verify emb sim
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --bcast 
