@@ -1,7 +1,7 @@
 #!/bin/bash
 . /opt/conda/etc/profile.d/conda.sh
 KG_DIR="${PWD}/python/"
-KG_DIR_TEST='${PWD}/python/dglke'
+KG_DIR_TEST="${PWD}/python/dglke"
 
 function fail {
     echo FAIL: $@
@@ -42,6 +42,7 @@ pushd $KG_DIR> /dev/null
 python3 setup.py install
 
 pushd $KG_DIR_TEST> /dev/null
+echo $KG_DIR_TEST
 python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_infer.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_topk.py || fail "run test_score.py on $1"
