@@ -63,17 +63,17 @@ if [ "$2" == "cpu" ]; then
     # verify score sim
     printf '1\n2\n3\n4\n5\n' > head.list
     printf '6\n7\n8\n9\n10\n' > tail.list
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast head
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast rel
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast tail
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 || fail "run dglke_score DistMult"
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast head || fail "run dglke_score DistMult with bcast head"
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast rel || fail "run dglke_score DistMult with bcast rel"
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --bcast tail || fail "run dglke_score DistMult with bcast tail"
 
     # verify emb sim
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --bcast 
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l2
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l1
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func dot
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func ext_jaccard
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --bcast || fail "run dglke_emb_sim DistMult with cosine"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l2 || fail "run dglke_emb_sim DistMult with l2"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l1 || fail "run dglke_emb_sim DistMult with l1"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func dot || fail "run dglke_emb_sim DistMult with dot"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func ext_jaccard || fail "run dglke_emb_sim DistMult with extended jaccard"
 
 elif [ "$2" == "gpu" ]; then
     # verify GPU training DistMult
@@ -95,17 +95,17 @@ elif [ "$2" == "gpu" ]; then
 
     # verify score sim
     printf '1\n2\n3\n4\n5\n' > head.list
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --gpu 0
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --bcast head --gpu 0
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --bcast rel --gpu 0
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_*_t --data_files head.list --topK 5 --bcast tail --gpu 0
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --gpu 0 || fail "run dglke_score DistMult"
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --bcast head --gpu 0 || fail "run dglke_score DistMult with bcast head"
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --bcast rel --gpu 0 || fail "run dglke_score DistMult with bcast rel"
+    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_*_t --data_files head.list --topK 5 --bcast tail --gpu 0 || fail "run dglke_score DistMult with bcast tail"
 
     # verify emb sim
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --bcast --gpu 0
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l2 --gpu 0
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l1 --gpu 0
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func dot --gpu 0
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func ext_jaccard --gpu 0
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --bcast --gpu 0 || fail "run dglke_emb_sim DistMult with cosine"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l2 --gpu 0 || fail "run dglke_emb_sim DistMult with l2"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func l1 --gpu 0 || fail "run dglke_emb_sim DistMult with l1"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func dot --gpu 0 || fail "run dglke_emb_sim DistMult with dot"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'e_*' --data_files head.list --sim_func ext_jaccard --gpu 0 || fail "run dglke_emb_sim DistMult with extended jaccard"
 
     if [ "$1" == "pytorch" ]; then
         # verify mixed CPU GPU training with async_update
