@@ -304,3 +304,69 @@ dglke_partition
   - ``-k NUM_PARTS`` or ``--num-parts NUM_PARTS``
     The number of partitions.
 
+dglke_score
+^^^^^^^^^^^^^^^
+  - ``--data_path DATA_PATH``
+    The root path of all dataset including id mapping files. Default: 'data'
+
+  - ``--model_path MODEL_PATH``
+    The place where to load the model. Default 'ckpts'.
+
+  - ``--format FORMAT``
+    The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N_h x N_r x N_t manner.
+
+  - ``--data_files [DATA_FILES ...]`` 
+    A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``h_r_t``, three files are required as h_data, r_data and t_data, while for ``h_*_t``, two files are required as h_data and t_data.
+
+  - ``--raw_data``
+    A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation. Default: False.
+
+  - ``--bcast``
+    Whether to broadcast topK in a specific side. By default, an universal topK across all scores are returned. Users can specify ``head`` to broadcast at head that returns topK for each head; ``rel`` to broadcast at relation that returns topK for each relation; ``tail`` to broadcast at tail that returns topK for each tail. Default: None.
+
+  - ``--topk NUM_OF_K``
+    How many results are returned. Default:10.
+
+  - ``--score_func SCORE_FUNC_NAME or None``
+    What kind of score is used in ranking. Currently, we support two functions: ``none`` (score = $x$) and ``logsigmoid`` ($score = log(sigmoid(x))$). Default: none.
+
+  - ``--gpu GPU_ID``
+    GPU device to use in inference, by default it uses CPU. Default: -1.(CPU)
+
+  - ``--output FILE_PATH``
+    Where to store the result. Default: result.tsv
+
+  - ``--entity_mfile`` (Optional)
+    The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+
+  - ``--rel_mfile`` (Optional)
+    The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+
+dglke_emb_sim
+^^^^^^^^^^^^^^^
+  - ``--emb_file EMB_DATA_PATH``
+    The numpy file containing the embeddings.
+
+  - ``--format FORMAT``
+    The format of the input data, specified in ``e_e``. Ideally, user should provides two files, one for heads and one for tails. But we also allow users to use *** to represent *all* of the embeddings. For exmpale, ``e_*`` only requires users to provide a file containing heads and use the whole embedding set as tails; ``*_e`` only requires users to provide a file containing tails and use the whole embedding set as heads; even users can specify a single *** to treat the whole embedding set as both heads and tails. By default, the calculation will take an N_head x N_tail manner, but user can use ``e_e_pw`` to give two files with same length and the similarity is calcuated pair by pair.
+
+  - ``--data_files [DATA_FILES ...]``
+    A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``e_e``, two files are required as h_data and t_data, while for ``e_*``, one file is required as t_data, and for ``*`` this argument can be omited.
+
+  - ``--raw_data``
+    A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation. Default: False.
+
+  - ``--bcast``
+    Whether to broadcast topK or not (boolean flag). By default, an universal topK across all pairs are returned. Users can turn it on that topK for each head will be returned. Default: False.
+
+  - ``--topk NUM_OF_K``
+    How many results are returned. Default:10.
+
+  - ``--sim_func SIM_FUNC_NAME``
+    What kind of distance function is used in ranking and will be output. It support five functions: 1)cosine: use cosine distance; 2) l2: use l2 distance; 3) l1: use l1 distance; 4) dot: use dot product as distance; 5) ext_jaccard: use extended jaccard as distance.
+
+  - ``--gpu GPU_ID``
+    GPU device to use in inference, by default it uses CPU. Default: -1.(CPU)
+
+  - ``--mfile`` (Optional)
+    ID mapping file. 

@@ -334,7 +334,7 @@ def test_topk_rescal():
 def test_topk_rotate():
     check_topk_score('RotatE')
 
-def test_topk_emb(sfunc, sim_func):
+def run_topk_emb(sfunc, sim_func):
     hidden_dim = 32
     num_head = 80
     num_tail = 80
@@ -457,27 +457,27 @@ def test_cosine_topk_emb():
 
         return score / (x_norm2 * y_norm2)
 
-    test_topk_emb('cosine', cosine_func)
+    run_topk_emb('cosine', cosine_func)
 
 def test_l2_topk_emb():
     def l2_func(x, y):
         score = x - y
 
         return F.sum(score * score, dim=0) ** (1/2)
-    test_topk_emb('l2', l2_func)
+    run_topk_emb('l2', l2_func)
 
 def test_l1_topk_emb():
     def l1_func(x, y):
         score = x - y
 
         return norm(score, p=1)
-    test_topk_emb('l1', l1_func)
+    run_topk_emb('l1', l1_func)
 
 def test_dot_topk_emb():
     def dot_func(x, y):
         return F.sum(x * y, dim=0)
 
-    test_topk_emb('dot', dot_func)
+    run_topk_emb('dot', dot_func)
 
 def test_extended_jaccard_topk_emb():
     def extended_jaccard_func(x, y):
@@ -486,7 +486,7 @@ def test_extended_jaccard_topk_emb():
         y = F.sum(y * y, dim=0)
 
         return score / (x + y - score)
-    test_topk_emb('ext_jaccard', extended_jaccard_func)
+    run_topk_emb('ext_jaccard', extended_jaccard_func)
 
 if __name__ == '__main__':
     test_topk_transe()
