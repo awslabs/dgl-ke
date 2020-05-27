@@ -107,7 +107,7 @@ def check_topk_score(model_name):
     hidden_dim = 32
     gamma = 12.0
 
-    num_entity = 80
+    num_entity = 40
     num_rels = 4
     score_model = ScoreInfer(-1, 'config', 'path', 'none')
     if model_name == 'TransE' or \
@@ -336,14 +336,14 @@ def test_topk_rotate():
 
 def run_topk_emb(sfunc, sim_func):
     hidden_dim = 32
-    num_head = 80
-    num_tail = 80
-    num_emb = 160
+    num_head = 40
+    num_tail = 40
+    num_emb = 80
 
     emb = F.uniform((num_emb, hidden_dim), F.float32, F.cpu(), -1, 1)
     head = F.arange(0, num_head)
     tail = F.arange(num_head, num_head+num_tail)
-    sim_infer = EmbSimInfor(-1, None, sfunc, 64)
+    sim_infer = EmbSimInfor(-1, None, sfunc, 32)
     sim_infer.emb = emb
 
     result1 = sim_infer.topK(head, tail, pair_ws=True)
