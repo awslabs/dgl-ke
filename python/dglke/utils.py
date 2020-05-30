@@ -34,6 +34,7 @@ def get_compatible_batch_size(batch_size, neg_sample_size):
 def save_model(args, model):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
+    print('Save model to {}'.format(args.save_path))
     model.save_emb(args.save_path, args.dataset)
 
     # We need to save the model configurations as well.
