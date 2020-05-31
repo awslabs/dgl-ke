@@ -144,7 +144,7 @@ elif [ "$2" == "gpu" ]; then
         --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
 
     dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
-        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_wn18_0/ \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_test_0/ \
         --gpu 0 --dataset 'udd_test' --format 'udd_hrt' --data_path fake_data/udd/ \
         --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
 
@@ -155,7 +155,7 @@ elif [ "$2" == "gpu" ]; then
         --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
 
     dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
-        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_wn18_0/ --delimiter '|' \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_test_0/ --delimiter '|' \
         --gpu 0 --dataset 'udd_test' --format 'udd_hrt' --data_path fake_data/udd_1/ \
         --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
 
