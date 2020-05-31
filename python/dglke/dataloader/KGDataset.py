@@ -509,10 +509,12 @@ def get_dataset(data_path, data_name, format_str, files=None):
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):
         # user defined dataset
+        assert data_name != 'FB15k', 'You should provide the dataset name for raw_udd format.'
         format = format_str[8:]
         dataset = KGDatasetUDDRaw(data_path, data_name, files, format)
     elif format_str.startswith('udd'):
         # user defined dataset
+        assert data_name != 'FB15k', 'You should provide the dataset name for udd format.'
         format = format_str[4:]
         dataset = KGDatasetUDD(data_path, data_name, files, format)
     else:
