@@ -33,6 +33,8 @@ def main():
                                 'If the format is udd_{htr}, users need to provide'\
                                 'entity_file relation_file train_file [valid_file] [test_file].'\
                                 'In both cases, valid_file and test_file are optional.')
+    parser.add_argument('--delimiter', type=str, default='\t',
+                        help='Delimiter used in data files. Note all files should use the same delimiter.')
     parser.add_argument('--input_format', type=str, default='raw_udd_{htr}',
                         help='The format of the input dataset.')
     parser.add_argument('--output_format', type=str, default='udd_{htr}',
@@ -42,8 +44,11 @@ def main():
     args = parser.parse_args()
 
     # load dataset and samplers
-    dataset = get_dataset(args.data_path, None, args.input_format, args.data_files)
-
+    dataset = get_dataset(args.data_path,
+                          None,
+                          args.input_format,
+                          args.delimiter,
+                          args.data_files)
 
     assert args.input_format[0:7] == 'raw_udd'
     assert args.output_format[0:3] == 'udd'
@@ -53,11 +58,11 @@ def main():
             assert format == 'hrt' or format == 'htr', 'Unsupported format'
             if format == 'hrt':
                 for h, r, t in zip(triplets[0], triplets[1], triplets[2]):
-                    triple = ['{}\t{}\t{}\n'.format(h, r, t)]
+                    triple = ['{}{}{}{}{}\n'.format(h, args.delimiter, r, args.delimiter, t)]
                     f.writelines(triple)
             elif format == 'htr':
                 for h, r, t in zip(triplets[0], triplets[1], triplets[2]):
-                    triple = ['{}\t{}\t{}\n'.format(h, t, r)]
+                    triple = ['{}{}{}{}{}\n'.format(h, args.delimiter, t, args.delimiter, r)]
                     f.writelines(triple)
 
     write_triplets('train_output.txt', dataset.train, args.output_format[4:])

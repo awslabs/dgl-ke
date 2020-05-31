@@ -87,7 +87,11 @@ def main():
 
     init_time_start = time.time()
     # load dataset and samplers
-    dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+    dataset = get_dataset(args.data_path,
+                          args.dataset,
+                          args.format,
+                          args.delimiter,
+                          args.data_files)
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = dataset.n_entities

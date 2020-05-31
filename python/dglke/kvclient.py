@@ -36,7 +36,7 @@ from .utils import get_compatible_batch_size, CommonArgParser
 
 from .train import get_logger
 from .dataloader import TrainDataset, NewBidirectionalOneShotIterator
-from .dataloader import get_dataset, get_partition_dataset
+from .dataloader import get_partition_dataset
 
 WAIT_TIME = 10
 
