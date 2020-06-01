@@ -1,6 +1,7 @@
 #!/bin/bash
 . /opt/conda/etc/profile.d/conda.sh
 KG_DIR="${PWD}/python/"
+KG_DIR_TEST="${PWD}/python/dglke"
 
 function fail {
     echo FAIL: $@
@@ -28,7 +29,7 @@ else
 fi
 
 export DGLBACKEND=$1
-export PYTHONPATH=${PWD}/python:$PYTHONPATH
+export PYTHONPATH=${PWD}/python:.:$PYTHONPATH
 conda activate ${DGLBACKEND}-ci
 # test
 if [ "$2" == "cpu" ]; then
@@ -40,7 +41,11 @@ fi
 pushd $KG_DIR> /dev/null
 python3 setup.py install
 
-#python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
+pushd $KG_DIR_TEST> /dev/null
+echo $KG_DIR_TEST
+python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
+python3 -m pytest tests/test_dataset.py || fail "run test_dataset.py on $1"
+popd
 
 if [ "$2" == "cpu" ]; then
     rm -fr ckpts/

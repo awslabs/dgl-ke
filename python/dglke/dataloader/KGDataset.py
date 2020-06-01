@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-import os
+import os, sys
 import numpy as np
 
 def _download_and_extract(url, path, filename):
@@ -499,9 +499,14 @@ class KGDatasetUDD(KGDataset):
             for line in f:
                 triple = line.strip().split(self.delimiter)
                 h, r, t = triple[format[0]], triple[format[1]], triple[format[2]]
-                heads.append(int(h))
-                tails.append(int(t))
-                rels.append(int(r))
+                try:
+                    heads.append(int(h))
+                    tails.append(int(t))
+                    rels.append(int(r))
+                except ValueError:
+                    print("For User Defined Dataset, both node ids and relation ids in the " \
+                          "triplets should be int other than {}\t{}\t{}".format(h, r, t))
+                    raise
         heads = np.array(heads, dtype=np.int64)
         tails = np.array(tails, dtype=np.int64)
         rels = np.array(rels, dtype=np.int64)
