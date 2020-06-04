@@ -65,6 +65,8 @@ def cleanup(files):
 
 class TestUDDDataset(unittest.TestCase):
     def test_udd_noint_triplets(self):
+        """test one of (h, r, t) is not an integer
+        """
         extra_train = ['deadbeaf\t0\t1\n']
         files = gen_udd_files(extra_train=extra_train)
         with self.assertRaises(ValueError):
@@ -116,6 +118,8 @@ class TestUDDDataset(unittest.TestCase):
         cleanup(files)
 
     def test_udd_ofr_nids(self):
+        """test one of haed and tail entity ID is larger than number of entities
+        """
         extra_train = ['7\t0\t1\n']
         files = gen_udd_files(extra_train=extra_train)
         with self.assertRaises(AssertionError):
@@ -157,6 +161,8 @@ class TestUDDDataset(unittest.TestCase):
         cleanup(files)
 
     def test_udd_ofr_rids(self):
+        """test one of relation ID is larger than number of relations
+        """
         extra_train = ['0\t2\t1\n']
         files = gen_udd_files(extra_train=extra_train)
         with self.assertRaises(AssertionError):
@@ -188,6 +194,8 @@ class TestUDDDataset(unittest.TestCase):
         cleanup(files)
 
     def test_udd_error_nids(self):
+        """test one of head and tail entity ID < 0
+        """
         extra_train = ['-1\t0\t1\n']
         files = gen_udd_files(extra_train=extra_train)
         with self.assertRaises(AssertionError):
@@ -228,7 +236,9 @@ class TestUDDDataset(unittest.TestCase):
                                   files)
         cleanup(files)
 
-    def test_udd_error_nids(self):
+    def test_udd_error_rids(self):
+        """test one of relation ID < 0
+        """
         extra_train = ['0\t-1\t1\n']
         files = gen_udd_files(extra_train=extra_train)
         with self.assertRaises(AssertionError):
