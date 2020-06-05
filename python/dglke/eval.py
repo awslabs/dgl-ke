@@ -63,6 +63,8 @@ class ArgParser(argparse.ArgumentParser):
                                   'If the format is udd_{htr}, users need to provide'\
                                   'entity_file relation_file train_file [valid_file] [test_file].'\
                                   'In both cases, valid_file and test_file are optional.')
+        self.add_argument('--delimiter', type=str, default='\t',
+                          help='Delimiter used in data files. Note all files should use the same delimiter.')
         self.add_argument('--model_path', type=str, default='ckpts',
                           help='The path of the directory where models are saved.')
         self.add_argument('--batch_size_eval', type=int, default=8,
@@ -110,7 +112,11 @@ def main():
     assert os.path.exists(args.model_path), 'No existing model_path: {}'.format(args.model_path)
 
     # load dataset and samplers
-    dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+    dataset = get_dataset(args.data_path,
+                          args.dataset,
+                          args.format,
+                          args.delimiter,
+                          args.data_files)
     args.train = False
     args.valid = False
     args.test = True

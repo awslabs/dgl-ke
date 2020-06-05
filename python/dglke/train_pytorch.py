@@ -264,7 +264,11 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
     if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
         # Pull model from kvstore
         args.num_test_proc = args.num_client
-        dataset_full = dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+        dataset_full = dataset = get_dataset(args.data_path,
+                                             args.dataset,
+                                             args.format,
+                                             args.delimiter,
+                                             args.data_files)
         args.train = False
         args.valid = False
         args.test = True
