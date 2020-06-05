@@ -34,7 +34,7 @@ import torch.multiprocessing as mp
 from .train_pytorch import load_model, dist_train_test
 from .utils import get_compatible_batch_size, CommonArgParser
 
-from .train import get_logger
+from .train import prepare_save_path
 from .dataloader import TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset, get_partition_dataset
 
@@ -106,7 +106,7 @@ def get_machine_count(ip_config):
 
     return machine_count
 
-def start_client(args, logger):
+def start_client(args):
     """Start kvclient for training
     """
     init_time_start = time.time()
@@ -179,7 +179,7 @@ def start_client(args, logger):
 
     dataset = None
 
-    model = load_model(logger, args, n_entities, n_relations)
+    model = load_model(args, n_entities, n_relations)
     model.share_memory()
 
     print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
@@ -205,8 +205,8 @@ def start_client(args, logger):
 
 def main():
     args = ArgParser().parse_args()
-    logger = get_logger(args)
-    start_client(args, logger)   
+    prepare_save_path(args)
+    start_client(args)   
 
 if __name__ == '__main__':
     main()

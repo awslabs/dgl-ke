@@ -33,18 +33,18 @@ if "MXNET_PROFILER" in os.environ:
 else:
     mxprofiler = False
 
-def load_model(logger, args, n_entities, n_relations, ckpt=None):
+def load_model(args, n_entities, n_relations, ckpt=None):
     model = KEModel(args, args.model_name, n_entities, n_relations,
                     args.hidden_dim, args.gamma,
                     double_entity_emb=args.double_ent, double_relation_emb=args.double_rel)
     if ckpt is not None:
         assert False, "We do not support loading model emb for genernal Embedding"
 
-    logger.info('Load model {}'.format(args.model_name))
+    print('Load model {}'.format(args.model_name))
     return model
 
-def load_model_from_checkpoint(logger, args, n_entities, n_relations, ckpt_path):
-    model = load_model(logger, args, n_entities, n_relations)
+def load_model_from_checkpoint(args, n_entities, n_relations, ckpt_path):
+    model = load_model(args, n_entities, n_relations)
     model.load_emb(ckpt_path, args.dataset)
     return model
 

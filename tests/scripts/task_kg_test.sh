@@ -43,6 +43,7 @@ python3 setup.py install
 #python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
 
 if [ "$2" == "cpu" ]; then
+    rm -fr ckpts/
     # verify CPU training DistMult
     dglke_train --model DistMult --dataset FB15k --batch_size 128 \
         --neg_sample_size 16 --hidden_dim 100 --gamma 500.0 --lr 0.1 --max_step 100 \
@@ -54,6 +55,7 @@ if [ "$2" == "cpu" ]; then
         --gamma 500.0 --batch_size 16 --eval_percent 0.01 --model_path ckpts/DistMult_FB15k_0/ \
         --data_path /data/kg || fail "eval DistMult on $2"
 elif [ "$2" == "gpu" ]; then
+    rm -fr ckpts/
     # verify GPU training DistMult
     dglke_train --model DistMult --dataset FB15k --batch_size 128 \
         --neg_sample_size 16 --hidden_dim 100 --gamma 500.0 --lr 0.1 --max_step 100 \
@@ -71,6 +73,7 @@ elif [ "$2" == "gpu" ]; then
         --gamma 500.0 --batch_size 16 --gpu 0 --model_path ckpts/DistMult_FB15k_0/ \
         --eval_percent 0.01 --data_path /data/kg || fail "eval DistMult on $2"
 
+    rm -fr ckpts/
     if [ "$1" == "pytorch" ]; then
         # verify mixed CPU GPU training with async_update
         dglke_train --model DistMult --dataset FB15k --batch_size 128 \
