@@ -34,6 +34,7 @@ import torch.multiprocessing as mp
 from .train_pytorch import load_model, dist_train_test
 from .utils import get_compatible_batch_size, CommonArgParser
 
+from .train import prepare_save_path
 from .dataloader import TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset, get_partition_dataset
 
@@ -204,6 +205,7 @@ def start_client(args):
 
 def main():
     args = ArgParser().parse_args()
+    prepare_save_path(args)
     start_client(args)   
 
 if __name__ == '__main__':

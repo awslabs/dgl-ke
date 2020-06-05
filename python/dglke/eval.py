@@ -107,6 +107,8 @@ def main():
     if args.neg_deg_sample_eval:
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
+    assert os.path.exists(args.model_path), 'No existing model_path: {}'.format(args.model_path)
+
     # load dataset and samplers
     dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
     args.train = False

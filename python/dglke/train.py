@@ -56,8 +56,21 @@ class ArgParser(CommonArgParser):
                           help='Allow asynchronous update on node embedding for multi-GPU training.'\
                                   'This overlaps CPU and GPU computation to speed up.')
 
+def prepare_save_path(args):
+    if not os.path.exists(args.save_path):	
+        os.mkdir(args.save_path)	
+
+    folder = '{}_{}_'.format(args.model_name, args.dataset)	
+    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])	
+    folder += str(n)	
+    args.save_path = os.path.join(args.save_path, folder)	
+
+    if not os.path.exists(args.save_path):	
+        os.makedirs(args.save_path)
+
 def main():
     args = ArgParser().parse_args()
+    prepare_save_path(args)
 
     init_time_start = time.time()
     # load dataset and samplers
