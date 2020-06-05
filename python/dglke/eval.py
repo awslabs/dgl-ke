@@ -103,29 +103,13 @@ class ArgParser(argparse.ArgumentParser):
         args = super().parse_args()
         return args
 
-def get_logger(args):
-    if not os.path.exists(args.model_path):
-        raise Exception('No existing model_path: ' + args.model_path)
-
-    log_file = os.path.join(args.model_path, 'eval.log')
-
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
-        level=logging.INFO,
-        datefmt='%Y-%m-%d %H:%M:%S',
-        filename=log_file,
-        filemode='w'
-    )
-
-    logger = logging.getLogger(__name__)
-    print("Logs are being recorded at: {}".format(log_file))
-    return logger
-
 def main():
     args = ArgParser().parse_args()
     args.eval_filter = not args.no_eval_filter
     if args.neg_deg_sample_eval:
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
+
+    assert os.path.exists(args.model_path), 'No existing model_path: {}'.format(args.model_path)
 
     # load dataset and samplers
     dataset = get_dataset(args.data_path,
@@ -148,7 +132,6 @@ def main():
         assert args.num_proc % len(args.gpu) == 0, \
                 'The number of processes needs to be divisible by the number of GPUs'
 
-    logger = get_logger(args)
     # Here we want to use the regualr negative sampler because we need to ensure that
     # all positive edges are excluded.
     eval_dataset = EvalDataset(dataset, args)
@@ -198,7 +181,7 @@ def main():
     n_entities = dataset.n_entities
     n_relations = dataset.n_relations
     ckpt_path = args.model_path
-    model = load_model_from_checkpoint(logger, args, n_entities, n_relations, ckpt_path)
+    model = load_model_from_checkpoint(args, n_entities, n_relations, ckpt_path)
 
     if args.num_proc > 1:
         model.share_memory()
