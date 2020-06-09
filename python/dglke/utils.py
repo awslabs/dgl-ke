@@ -35,6 +35,7 @@ def get_compatible_batch_size(batch_size, neg_sample_size):
 def save_model(args, model, emap_file=None, rmap_file=None):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
+    print('Save model to {}'.format(args.save_path))
     model.save_emb(args.save_path, args.dataset)
 
     # We need to save the model configurations as well.
@@ -231,6 +232,8 @@ class CommonArgParser(argparse.ArgumentParser):
                                   'If the format is udd_{htr}, users need to provide'\
                                   'entity_file relation_file train_file [valid_file] [test_file].'\
                                   'In both cases, valid_file and test_file are optional.')
+        self.add_argument('--delimiter', type=str, default='\t',
+                          help='Delimiter used in data files. Note all files should use the same delimiter.')
         self.add_argument('--save_path', type=str, default='ckpts',
                           help='the path of the directory where models and logs are saved.')
         self.add_argument('--no_save_emb', action='store_true',

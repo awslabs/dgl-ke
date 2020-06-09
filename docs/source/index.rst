@@ -44,6 +44,7 @@ Get started with DGL-KE!
    self
    install
    hyper_param
+   arguments
    train_built_in
    train_user_data
    dist_train

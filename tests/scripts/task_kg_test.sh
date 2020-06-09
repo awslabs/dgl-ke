@@ -46,9 +46,11 @@ echo $KG_DIR_TEST
 python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_infer.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_topk.py || fail "run test_score.py on $1"
+python3 -m pytest tests/test_dataset.py || fail "run test_dataset.py on $1"
 popd
 
 if [ "$2" == "cpu" ]; then
+    rm -fr ckpts/
     # verify CPU training DistMult
     dglke_train --model DistMult --dataset FB15k --batch_size 128 \
         --neg_sample_size 16 --hidden_dim 100 --gamma 500.0 --lr 0.1 --max_step 100 \
@@ -74,8 +76,73 @@ if [ "$2" == "cpu" ]; then
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'l1' || fail "run dglke_emb_sim DistMult with l1"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'dot' || fail "run dglke_emb_sim DistMult with dot"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func 'ext_jaccard' --exec_mode 'batch_left' || fail "run dglke_emb_sim DistMult with extended jaccard"
+    rm head.list
+    rm tail.list
 
+    rm -fr ckpts/
+    # udd test
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --max_step 100 --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_test_0/ \
+        --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+    rm -fr ckpts/
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 --delimiter '|' \
+        --test -adv --max_step 100 --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd_1/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_test_0/ --delimiter '|' \
+        --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd_1/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+    rm -fr ckpts/
+    # udd raw test
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --max_step 100 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd/ --delimiter '|' \
+        --data_files train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_raw_udd_test_0/ \
+        --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd/ --delimiter '|' \
+        --data_files train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+    rm -fr ckpts/
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --max_step 100 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_1/ --delimiter ',' \
+        --data_files train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_raw_udd_test_0/ \
+        --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_1/ --delimiter ',' \
+        --data_files train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+    rm -fr ckpts/
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --max_step 100 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_2/ --delimiter ';' \
+        --data_files train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_raw_udd_test_0/ \
+        --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_2/ --delimiter ';' \
+        --data_files train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
 elif [ "$2" == "gpu" ]; then
+    rm -fr ckpts/
     # verify GPU training DistMult
     dglke_train --model DistMult --dataset FB15k --batch_size 128 \
         --neg_sample_size 16 --hidden_dim 100 --gamma 500.0 --lr 0.1 --max_step 100 \
@@ -106,6 +173,70 @@ elif [ "$2" == "gpu" ]; then
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func l1 --gpu 0 || fail "run dglke_emb_sim DistMult with l1"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func dot --gpu 0 || fail "run dglke_emb_sim DistMult with dot"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func ext_jaccard --gpu 0 --exec_mode 'batch_left' || fail "run dglke_emb_sim DistMult with extended jaccard"
+    rm head.list
+    
+    rm -fr ckpts/
+    # udd test
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 512 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --gpu 0 --max_step 100 --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_test_0/ \
+        --gpu 0 --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+    rm -fr ckpts/
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 512 --gamma 20.0 --lr 0.14 --batch_size_eval 1 --delimiter '|' \
+        --test -adv --gpu 0 --max_step 100 --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd_1/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_udd_test_0/ --delimiter '|' \
+        --gpu 0 --dataset 'udd_test' --format 'udd_hrt' --data_path ../tests/fake_data/udd_1/ \
+        --data_files entity.dict relation.dict train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+    rm -fr ckpts/
+    # udd raw test
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --gpu 0 --max_step 100 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd/ --delimiter '|' \
+        --data_files train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_raw_udd_test_0/ \
+        --gpu 0 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd/  --delimiter '|' \
+        --data_files train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+   rm -fr ckpts/
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --gpu 0 --max_step 100 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_1/ --delimiter ',' \
+        --data_files train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_raw_udd_test_0/ \
+        --gpu 0 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_1/  --delimiter ',' \
+        --data_files train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
+
+   rm -fr ckpts/
+    dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
+        --regularization_coef 1e-06 --hidden_dim 100 --gamma 20.0 --lr 0.14 --batch_size_eval 1 \
+        --test -adv --gpu 0 --max_step 100 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_2/ --delimiter ';' \
+        --data_files train.tsv valid.tsv test.tsv || fail "run DistMult on $2"
+
+    dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
+        --gamma 20.0 --batch_size 2 --model_path ckpts/DistMult_raw_udd_test_0/ \
+        --gpu 0 --dataset 'raw_udd_test' --format 'raw_udd_hrt' \
+        --data_path ../tests/fake_data/raw_udd_2/  --delimiter ';' \
+        --data_files train.tsv valid.tsv test.tsv || fail "eval DistMult on $2"
 
     if [ "$1" == "pytorch" ]; then
         # verify mixed CPU GPU training with async_update

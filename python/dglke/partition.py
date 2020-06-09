@@ -86,6 +86,8 @@ def main():
                                 'If the format is udd_{htr}, users need to provide'\
                                 'entity_file relation_file train_file [valid_file] [test_file].'\
                                 'In both cases, valid_file and test_file are optional.')
+    parser.add_argument('--delimiter', type=str, default='\t',
+                        help='Delimiter used in data files. Note all files should use the same delimiter.')
     parser.add_argument('--format', type=str, default='built_in',
                         help='The format of the dataset. For builtin knowledge graphs,'\
                                 'the foramt should be built_in. For users own knowledge graphs,'\
@@ -98,7 +100,11 @@ def main():
     print('load dataset..')
 
     # load dataset and samplers
-    dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+    dataset = get_dataset(args.data_path,
+                          args.dataset,
+                          args.format,
+                          args.delimiter,
+                          args.data_files)
 
     print('construct graph...')
 

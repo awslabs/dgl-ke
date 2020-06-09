@@ -56,38 +56,29 @@ class ArgParser(CommonArgParser):
                           help='Allow asynchronous update on node embedding for multi-GPU training.'\
                                   'This overlaps CPU and GPU computation to speed up.')
 
-def get_logger(args):
-    if not os.path.exists(args.save_path):
-        os.mkdir(args.save_path)
+def prepare_save_path(args):
+    if not os.path.exists(args.save_path):	
+        os.mkdir(args.save_path)	
 
-    folder = '{}_{}_'.format(args.model_name, args.dataset)
-    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
-    folder += str(n)
-    args.save_path = os.path.join(args.save_path, folder)
+    folder = '{}_{}_'.format(args.model_name, args.dataset)	
+    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])	
+    folder += str(n)	
+    args.save_path = os.path.join(args.save_path, folder)	
 
-    if not os.path.exists(args.save_path):
+    if not os.path.exists(args.save_path):	
         os.makedirs(args.save_path)
-    log_file = os.path.join(args.save_path, 'train.log')
-
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
-        level=logging.INFO,
-        datefmt='%Y-%m-%d %H:%M:%S',
-        filename=log_file,
-        filemode='w'
-    )
-
-    logger = logging.getLogger(__name__)
-    print("Logs are being recorded at: {}".format(log_file))
-    return logger
 
 def main():
     args = ArgParser().parse_args()
-    logger = get_logger(args)
+    prepare_save_path(args)
 
     init_time_start = time.time()
     # load dataset and samplers
-    dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+    dataset = get_dataset(args.data_path,
+                          args.dataset,
+                          args.format,
+                          args.delimiter,
+                          args.data_files)
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = dataset.n_entities
@@ -247,7 +238,7 @@ def main():
                                                             rank=0, ranks=1)
 
     # load model
-    model = load_model(logger, args, dataset.n_entities, dataset.n_relations)
+    model = load_model(args, dataset.n_entities, dataset.n_relations)
     if args.num_proc > 1 or args.async_update:
         model.share_memory()
 

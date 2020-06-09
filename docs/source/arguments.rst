@@ -20,6 +20,9 @@ dglke_train
   - ``--data_files [DATA_FILES ...]``
     A list of data file names. This is used if users want to train KGE on their own datasets. If the format is *raw_udd_{htr}*, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is *udd_{htr}*, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
 
+  - ``--delimiter DELIMITER``
+    Delimiter used in data files. Note all files should use the same delimiter.
+
   - ``--save_path SAVE_PATH``
     The path of the directory where models and logs are saved.
 
@@ -131,6 +134,9 @@ dglke_eval
   - ``--data_files [DATA_FILES ...]``
     A list of data file names. This is used if users want to train KGE on their own datasets. If the format is *raw_udd_{htr}*, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is *udd_{htr}*, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
 
+  - ``--delimiter DELIMITER``
+    Delimiter used in data files. Note all files should use the same delimiter.
+
   - ``--model_path MODEL_PATH``
     The place where models are saved.
 
@@ -176,7 +182,6 @@ dglke_eval
 
 dglke_dist_train
 ^^^^^^^^^^^^^^^^^
-
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
@@ -295,6 +300,9 @@ dglke_partition
 
   - ``--data_files [DATA_FILES ...]``
     A list of data file names. This is used if users want to train KGE on their own datasets. If the format is *raw_udd_{htr}*, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is *udd_{htr}*, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
+
+  - ``--delimiter DELIMITER``
+    Delimiter used in data files. Note all files should use the same delimiter.
 
   - ``--format FORMAT``
     The format of the dataset. For builtin knowledge graphs,the foramt should be *built_in*. For users own knowledge graphs,it needs to be *raw_udd_{htr}* or *udd_{htr}*.

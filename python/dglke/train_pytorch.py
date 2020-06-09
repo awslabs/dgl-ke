@@ -105,7 +105,7 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
 
     return my_client
 
-def load_model(logger, args, n_entities, n_relations, ckpt=None):
+def load_model(args, n_entities, n_relations, ckpt=None):
     model = KEModel(args, args.model_name, n_entities, n_relations,
                     args.hidden_dim, args.gamma,
                     double_entity_emb=args.double_ent, double_relation_emb=args.double_rel)
@@ -113,8 +113,8 @@ def load_model(logger, args, n_entities, n_relations, ckpt=None):
         assert False, "We do not support loading model emb for genernal Embedding"
     return model
 
-def load_model_from_checkpoint(logger, args, n_entities, n_relations, ckpt_path):
-    model = load_model(logger, args, n_entities, n_relations)
+def load_model_from_checkpoint(args, n_entities, n_relations, ckpt_path):
+    model = load_model(args, n_entities, n_relations)
     model.load_emb(ckpt_path, args.dataset)
     return model
 
@@ -264,7 +264,11 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
     if (client.get_machine_id() == 0) and (client.get_id() % args.num_client == 0): # pull full model from kvstore
         # Pull model from kvstore
         args.num_test_proc = args.num_client
-        dataset_full = dataset = get_dataset(args.data_path, args.dataset, args.format, args.data_files)
+        dataset_full = dataset = get_dataset(args.data_path,
+                                             args.dataset,
+                                             args.format,
+                                             args.delimiter,
+                                             args.data_files)
         args.train = False
         args.valid = False
         args.test = True
@@ -285,7 +289,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
             args.neg_sample_size_eval = dataset_full.n_entities
         args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
 
-        model_test = load_model(None, args, dataset_full.n_entities, dataset_full.n_relations)
+        model_test = load_model(args, dataset_full.n_entities, dataset_full.n_relations)
 
         print("Pull relation_emb ...")
         relation_id = F.arange(0, model_test.n_relations)
