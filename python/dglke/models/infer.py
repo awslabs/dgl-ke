@@ -346,7 +346,6 @@ class EmbSimInfer():
                     else:
                         sidx = F.argsort(i_score, dim=0, descending=False)
 
-                
                     idx = F.arange(0, num_tail)
                     i_idx = sidx[:k]
                     i_score = i_score[i_idx]
