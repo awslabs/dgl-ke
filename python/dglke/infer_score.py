@@ -62,7 +62,7 @@ class ArgParser(argparse.ArgumentParser):
                                'batch_rel: three lists of head, relation and tail ids are provided as H, R and T, and we calculate topK for each element in relation:' \
                                     'result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each t_k in T]) for each r_j in R, the result shape will be (sizeof(R), K)\n' \
                                'batch_tail: three lists of head, relation and tail ids are provided as H, R and T, and we calculate topK for each element in tail:' \
-                                    'result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each r_j in R]) for each t_k in T, the result shape will be (sizeof(T), K)\n)
+                                    'result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each r_j in R]) for each t_k in T, the result shape will be (sizeof(T), K)\n')
         self.add_argument('--topK', type=int, default=10,
                           help='How many results are returned')
         self.add_argument('--score_func', type=str, default='none',
