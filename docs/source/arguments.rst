@@ -6,7 +6,6 @@ dglke_train
 ^^^^^^^^^^^^
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
-
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -267,7 +266,7 @@ dglke_dist_train
     The temperature used for negative adversarial sampling.
 
   - ``-rc REGULARIZATION_COEF`` or ``--regularization_coef REGULARIZATION_COEF``
-   The coefficient for regularization.
+    The coefficient for regularization.
 
   - ``-rn REGULARIZATION_NORM`` or ``--regularization_norm REGULARIZATION_NORM``
     norm used in regularization.
@@ -312,7 +311,7 @@ dglke_score
     The place where to load the model. Default 'ckpts'.
 
   - ``--format FORMAT``
-    The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N_h x N_r x N_t manner.
+    The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *\** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N\_h x N\_r x N\_t manner.
 
   - ``--data_files [DATA_FILES ...]`` 
     A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``h_r_t``, three files are required as h_data, r_data and t_data, while for ``h_*_t``, two files are required as h_data and t_data.
@@ -320,8 +319,8 @@ dglke_score
   - ``--raw_data``
     A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation. Default: False.
 
-  - ``--bcast``
-    Whether to broadcast topK in a specific side. By default, an universal topK across all scores are returned. Users can specify ``head`` to broadcast at head that returns topK for each head; ``rel`` to broadcast at relation that returns topK for each relation; ``tail`` to broadcast at tail that returns topK for each tail. Default: None.
+  - ``--exec_mode``
+    How to calculate scores for triplets and calculate topK. Possible candidates include: ``triplet_wise``, ``all``, ``batch_head``, ``batch_rel``, ``batch_tail``.
 
   - ``--topk NUM_OF_K``
     How many results are returned. Default:10.
@@ -347,7 +346,7 @@ dglke_emb_sim
     The numpy file containing the embeddings.
 
   - ``--format FORMAT``
-    The format of the input data, specified in ``e_e``. Ideally, user should provides two files, one for heads and one for tails. But we also allow users to use *** to represent *all* of the embeddings. For exmpale, ``e_*`` only requires users to provide a file containing heads and use the whole embedding set as tails; ``*_e`` only requires users to provide a file containing tails and use the whole embedding set as heads; even users can specify a single *** to treat the whole embedding set as both heads and tails. By default, the calculation will take an N_head x N_tail manner, but user can use ``e_e_pw`` to give two files with same length and the similarity is calcuated pair by pair.
+    The format of the input data, specified in ``l_r``. Ideally, user should provides two files, one for left objects and one for right objects. But we also allow users to use *\** to represent *all* of the embeddings. For exmpale, ``l_*`` only requires users to provide a file containing left objects and use the whole embedding set as right; ``*_r`` only requires users to provide a file containing right objects and use the whole embedding set as left; even users can specify a single *\** to treat the whole embedding set as both left and right. 
 
   - ``--data_files [DATA_FILES ...]``
     A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``e_e``, two files are required as h_data and t_data, while for ``e_*``, one file is required as t_data, and for ``*`` this argument can be omited.
@@ -355,8 +354,8 @@ dglke_emb_sim
   - ``--raw_data``
     A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation. Default: False.
 
-  - ``--bcast``
-    Whether to broadcast topK or not (boolean flag). By default, an universal topK across all pairs are returned. Users can turn it on that topK for each head will be returned. Default: False.
+  - ``--exec_mode``
+    How to calculate scores for element pairs and calculate topK. Possible candidates include: ``pairwise``， ``all``, ``batch_left`` 
 
   - ``--topk NUM_OF_K``
     How many results are returned. Default:10.

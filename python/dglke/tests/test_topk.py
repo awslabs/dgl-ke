@@ -25,7 +25,7 @@ import dgl.backend as F
 import dgl
 
 from models import InferModel
-from models.infer import ScoreInfer, EmbSimInfor
+from models.infer import ScoreInfer, EmbSimInfer
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
@@ -132,8 +132,48 @@ def check_topk_score(model_name):
     head = F.arange(0, num_entity // 2)
     rel = F.arange(0, num_rels)
     tail = F.arange(num_entity // 2, num_entity)
-    result1 = score_model.topK(head, rel, tail, bcast=None, k=20)
-    result2 = score_model.topK(head=head, tail=tail, bcast=None, k=20)
+
+    # exec_model==triplet_wise
+    tw_rel = np.random.randint(0, num_rels, num_entity // 2)
+    tw_rel = F.tensor(tw_rel)
+    result1 = score_model.topK(head, tw_rel, tail, exec_mode='triplet_wise')
+    assert len(result1) == 1
+    scores = []
+    head_ids = []
+    rel_ids = []
+    tail_ids = []
+    for i in range(head.shape[0]):
+        hemb = F.take(entity_emb, head[i], 0)
+        remb = F.take(rel_emb, tw_rel[i], 0)
+        temb = F.unsqueeze(F.take(entity_emb, tail[i], 0), dim=0)
+        edge = FakeEdge(hemb, temb, remb)
+        score = F.asnumpy(score_func.edge_func(edge)['score'])
+        scores.append(score)
+        head_ids.append(F.asnumpy(head[i]))
+        rel_ids.append(F.asnumpy(tw_rel[i]))
+        tail_ids.append(F.asnumpy(tail[i]))
+    scores = np.asarray(scores)
+    scores = scores.reshape(scores.shape[0])
+    head_ids = np.asarray(head_ids)
+    rel_ids = np.asarray(rel_ids)
+    tail_ids = np.asarray(tail_ids)
+    idx = np.argsort(scores)
+    idx = idx[::-1]
+    idx = idx[:10]
+    head_ids = head_ids[idx]
+    rel_ids = rel_ids[idx]
+    tail_ids = tail_ids[idx]
+    score_topk = scores[idx]
+
+    r1_head, r1_rel, r1_tail, r1_score = result1[0]
+    np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(r1_head, head_ids)
+    np.testing.assert_allclose(r1_rel, rel_ids)
+    np.testing.assert_allclose(r1_tail, tail_ids)
+
+    # exec_mode==all
+    result1 = score_model.topK(head, rel, tail, k=20)
+    result2 = score_model.topK(head=head, tail=tail, k=20)
     assert len(result1) == 1
     assert len(result2) == 1
 
@@ -178,8 +218,8 @@ def check_topk_score(model_name):
     np.testing.assert_allclose(r1_tail, tail_ids)
     np.testing.assert_allclose(r2_tail, tail_ids)
 
-    result1 = score_model.topK(head, rel, tail, bcast='rel')
-    result2 = score_model.topK(head=head, tail=tail, bcast='rel')
+    result1 = score_model.topK(head, rel, tail, exec_mode='batch_rel')
+    result2 = score_model.topK(head=head, tail=tail, exec_mode='batch_rel')
     assert len(result1) == num_rels
     assert len(result2) == num_rels
     for j in range(rel.shape[0]):
@@ -226,8 +266,8 @@ def check_topk_score(model_name):
     head = F.arange(0, num_entity)
     rel = F.arange(0, num_rels)
     tail = F.arange(0, num_entity)
-    result1 = score_model.topK(head, rel, tail, bcast='head')
-    result2 = score_model.topK(bcast='head')
+    result1 = score_model.topK(head, rel, tail, exec_mode='batch_head')
+    result2 = score_model.topK(exec_mode='batch_head')
     assert len(result1) == num_entity
     assert len(result2) == num_entity
 
@@ -272,8 +312,8 @@ def check_topk_score(model_name):
         np.testing.assert_allclose(r1_tail, tail_ids)
         np.testing.assert_allclose(r2_tail, tail_ids)
 
-    result1 = score_model.topK(head, rel, tail, bcast='tail')
-    result2 = score_model.topK(bcast='tail')
+    result1 = score_model.topK(head, rel, tail, exec_mode='batch_tail')
+    result2 = score_model.topK(exec_mode='batch_tail')
     assert len(result1) == num_entity
     assert len(result2) == num_entity
     for k in range(tail.shape[0]):
@@ -343,7 +383,7 @@ def run_topk_emb(sfunc, sim_func):
     emb = F.uniform((num_emb, hidden_dim), F.float32, F.cpu(), -1, 1)
     head = F.arange(0, num_head)
     tail = F.arange(num_head, num_head+num_tail)
-    sim_infer = EmbSimInfor(-1, None, sfunc, 32)
+    sim_infer = EmbSimInfer(-1, None, sfunc, 32)
     sim_infer.emb = emb
 
     result1 = sim_infer.topK(head, tail, pair_ws=True)

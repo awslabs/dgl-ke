@@ -25,13 +25,20 @@ Four arguments are required to provide basic information for doning the linkage 
 
   * ``--data_path``, The path containing the id mapping files, include both the entity mapping file and the relation mapping file
   * ``--model_path``, The path containing the pretrained model, include the embedding files (.npy) and a config.json containing the configure information of the model.
-  * ``--format``, The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N_h x N_r x N_t manner.
+  * ``--format``, The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *\** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N\_h x N\_r x N\_t manner.
   * ``--data_files`` A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``h_r_t``, three files are required as h_data, r_data and t_data, while for ``h_*_t``, two files are required as h_data and t_data.
   * ``--raw_data``, A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation.
 
 Task related arguments:
 
-  * ``--bcast``, Whether to broadcast topK in a specific side. By default, an universal topK across all scores are returned. Users can specify ``head`` to broadcast at head that returns topK for each head; ``rel`` to broadcast at relation that returns topK for each relation; ``tail`` to broadcast at tail that returns topK for each tail.
+  * ``--exec_mode``, How to calculate scores for triplets and calculate topK. 
+
+    * ``triplet_wise``: head, relation and tail lists have the same length N, and we calculate the similarity triplet by triplet: result = topK([score(h_i, r_i, t_i) for i in N]), the result shape will be (K,).
+    * ``all``: three lists of head, relation and tail ids are provided as H, R and T, and we calculate all possible combinations of all triplets (h_i, r_j, t_k): result = topK([[[score(h_i, r_j, t_k) for each h_i in H] for each r_j in R] for each t_k in T]), the result shape will be (K,).
+    * ``batch_head``: three lists of head, relation and tail ids are provided as H, R and T, and we calculate topK for each element in head: result = topK([[score(h_i, r_j, t_k) for each r_j in R] for each t_k in T]) for each h_i in H, the result shape will be (sizeof(H), K).
+    * ``batch_rel``: three lists of head, relation and tail ids are provided as H, R and T, and we calculate topK for each element in relation: result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each t_k in T]) for each r_j in R, the result shape will be (sizeof(R), K).
+    * ``batch_tail``: three lists of head, relation and tail ids are provided as H, R and T, and we calculate topK for each element in tail: result = topK([[score(h_i, r_j, t_k) for each h_i in H] for each r_j in R]) for each t_k in T, the result shape will be (sizeof(T), K).
+
   * ``--topk``, How many results are returned.
   * ``--score_func``, What kind of score is used in ranking. Currently, we support two functions: ``none`` (score = $x$) and ``logsigmoid`` ($score = log(sigmoid(x))$).
   * ``--gpu``, GPU device to use in inference, by default it uses CPU.
@@ -59,13 +66,13 @@ The output is as::
     9    0    18   -2.86985
     8    0    20   -2.89651
 
-The following command shows how to do linkage score ranking while broadcasting at head using a pretrained TransE_l2 model::
+The following command shows how to do linkage score ranking while calculate topK for each element in head using a pretrained TransE_l2 model::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --bcast head
+    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --exec_mode 'batch_head'
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --bcast head
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5  --exec_mode 'batch_head'
 
 The output is as::
 
@@ -103,28 +110,38 @@ The Embedding Similarity Ranking
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The task of embedding similarity ranking is given a list of entity (e1, e2) pairs or relation (r1, r2) pairs, calculating the similarity between their corresponding embeddings and returning the topk most similar pairs. An example of return value of top5 similar entities likes this::
 
-    head  tail  score
-    0     0     0.99999
-    0     18470 0.91855
-    0     2105  0.89916
-    0     13605 0.83187
-    0     36762 0.76978
+    entity1  entity2  score
+    0        0        0.99999
+    0        18470    0.91855
+    0        2105     0.89916
+    0        13605    0.83187
+    0        36762    0.76978
 
 DGL-KE provides dglke_emb_sim command to calculate the embedding similarity ranking between entity pairs or relation pairs. Currently we support five different similarity functions: cosine, l2 distance, l1 distance, dot and extended jaccard.
 
 Four arguments are required to provide basic information for doning the embedding similarity ranking task:
 
   * ``--emb_file``, The numpy file containing the embeddings.
-  * ``--format``, The format of the input data, specified in ``e_e``. Ideally, user should provides two files, one for heads and one for tails. But we also allow users to use *** to represent *all* of the embeddings. For exmpale, ``e_*`` only requires users to provide a file containing heads and use the whole embedding set as tails; ``*_e`` only requires users to provide a file containing tails and use the whole embedding set as heads; even users can specify a single *** to treat the whole embedding set as both heads and tails. By default, the calculation will take an N_head x N_tail manner, but user can use ``e_e_pw`` to give two files with same length and the similarity is calcuated pair by pair.
+  * ``--format``, The format of the input data.
+
+    * ``l_r``: two list of objects are provided as left objects and right objects.
+    * ``l_*``: one list of objects is provided as left objects list and treat all objects in emb\_file as right objects.
+    * ``*_r``: one list of objects is provided as right objects list and treat all objects in emb\_file as left objects.
+    * ``*``: treat all objects in the emb_file as both left objects and right objects.
+
   * ``--data_files`` A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``e_e``, two files are required as h_data and t_data, while for ``e_*``, one file is required as t_data, and for ``*`` this argument can be omited.
   * ``--raw_data``, A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation.
 
 Task related arguments:
 
- * ``--bcast``, Whether to broadcast topK or not (boolean flag). By default, an universal topK across all pairs are returned. Users can turn it on that topK for each head will be returned.
- * ``--topk``, How many results are returned.
- * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions: 1)cosine: use cosine distance; 2) l2: use l2 distance; 3) l1: use l1 distance; 4) dot: use dot product as distance; 5) ext_jaccard: use extended jaccard as distance.
- * ``--gpu``, GPU device to use in inference, by default it uses CPU.
+  * ``--exec_mode``, How to calculate scores for element pairs and calculate topK.
+
+    * ``pairwise``: both left and right objects are provided with the same length N, and we will calculate the similarity pair by pair: result = topK([score(l_i, r_i)]) for i in N, the result shape will be (K,).
+    * ``all``: both left and right objects are provided as L and R, and we calculate all possible combinations of (l_i, r_j): result = topK([[score(l_i, rj) for l_i in L] for r_j in R]), the result shape will be (K,).
+    * ``batch_left``: both left and right objects are provided as L and R,, and we calculate topK for each element in L: result = topK([score(l_i, r_j) for r_j in R]) for l_j in L, the result shape will be (sizeof(L), K).
+  * ``--topk``, How many results are returned.
+  * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions: 1)cosine: use cosine distance; 2) l2: use l2 distance; 3) l1: use l1 distance; 4) dot: use dot product as distance; 5) ext_jaccard: use extended jaccard as distance.
+  * ``--gpu``, GPU device to use in inference, by default it uses CPU.
 
 Input/Output related arguments:
 
@@ -134,10 +151,10 @@ Input/Output related arguments:
 The following command shows how to do entity similarity using cosine distance::
 
     # Using PyTorch Backend
-    dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'e_e' --data_files head.list tail.list  --topK 5
+    dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'l_r' --data_files head.list tail.list  --topK 5
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'e_e' --data_files head.list tail.list --topK 5
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'l_r' --data_files head.list tail.list --topK 5
 
 The output is as::
 
@@ -148,13 +165,13 @@ The output is as::
     7       19      0.25631
     7       13      0.21372
 
-The following command shows how to do entity similarity using l2 distance with broadcast::
+The following command shows how to do entity similarity using l2 distance with calculating topK for each element in left::
 
     # Using PyTorch Backend
-    dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'e_*' --data_files head.list --sim_func l2 --topK 5 --bcast
+    dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'l_*' --data_files head.list --sim_func l2 --topK 5 --exec_mode 'batch_left'
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'e_*' --data_files head.list --sim_func l2 --topK 5 --bcast
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'l_*' --data_files head.list --sim_func l2 --topK 5 --exec_mode 'batch_left'
 
 The output is as::
 
@@ -174,10 +191,10 @@ The output is as::
 The following command shows how to do relation similarity using cosine distance and use raw ID space (turn on --raw_data)::
 
     # Using PyTorch Backend
-    dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'e_*' --data_files raw_rel.list --topK 5 --raw_data
+    dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'l_*' --data_files raw_rel.list --topK 5 --raw_data
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'e_*' --data_files raw_rel.list --topK 5 --raw_data
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'l_*' --data_files raw_rel.list --topK 5 --raw_data
 
 The output is as::
 

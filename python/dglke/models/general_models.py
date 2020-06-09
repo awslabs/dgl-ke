@@ -100,7 +100,7 @@ class InferModel(object):
         self.relation_emb.load(path, dataset+'_'+self.model_name+'_relation')
         self.score_func.load(path, dataset+'_'+self.model_name)
 
-    def score(self, head, rel, tail):
+    def score(self, head, rel, tail, triplet_wise=False):
         head_emb = self.entity_emb(head)
         rel_emb = self.relation_emb(rel)
         tail_emb = self.entity_emb(tail)
@@ -111,21 +111,57 @@ class InferModel(object):
 
         batch_size = self.batch_size
         score = []
-        for i in range((num_head + batch_size - 1) // batch_size):
-            sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
-                                               if (i + 1) * batch_size < num_head \
-                                               else num_head]
-            s_score = []
-            for j in range((num_tail + batch_size - 1) // batch_size):
-                st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
-                                                   if (j + 1) * batch_size < num_tail \
-                                                   else num_tail]
+        if triplet_wise:
+            class FakeEdge(object):
+                def __init__(self, head_emb, rel_emb, tail_emb):
+                    self._hobj = {}
+                    self._robj = {}
+                    self._tobj = {}
+                    self._hobj['emb'] = head_emb
+                    self._robj['emb'] = rel_emb
+                    self._tobj['emb'] = tail_emb
 
-                s_score.append(F.copy_to(self.score_func.infer(sh_emb, rel_emb, st_emb), F.cpu()))
-            score.append(F.cat(s_score, dim=2))
-        score = F.cat(score, dim=0)
+                @property
+                def src(self):
+                    return self._hobj
 
-        return F.reshape(score, (num_head * num_rel * num_tail,))
+                @property
+                def dst(self):
+                    return self._tobj
+
+                @property
+                def data(self):
+                    return self._robj
+
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                sr_emb = rel_emb[i * batch_size : (i + 1) * batch_size \
+                                                  if (i + 1) * batch_size < num_head \
+                                                  else num_head]
+                st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                edata = FakeEdge(sh_emb, sr_emb, st_emb)
+                score.append(F.copy_to(self.score_func.edge_func(edata)['score'], F.cpu()))
+            score = F.cat(score, dim=0)
+            return score
+        else:
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                s_score = []
+                for j in range((num_tail + batch_size - 1) // batch_size):
+                    st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
+                                                       if (j + 1) * batch_size < num_tail \
+                                                       else num_tail]
+
+                    s_score.append(F.copy_to(self.score_func.infer(sh_emb, rel_emb, st_emb), F.cpu()))
+                score.append(F.cat(s_score, dim=2))
+            score = F.cat(score, dim=0)
+            return F.reshape(score, (num_head * num_rel * num_tail,))
 
     @property
     def num_entity(self):

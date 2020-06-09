@@ -22,7 +22,7 @@ import time
 import argparse
 
 from .utils import load_entity_data, load_raw_emb_data, load_raw_emb_mapping
-from .models.infer import EmbSimInfor
+from .models.infer import EmbSimInfer
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -33,24 +33,28 @@ class ArgParser(argparse.ArgumentParser):
                           help='Numpy file containing the embeddings. Can be omitted if model_path is provided')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
-                                'e_e_pw: two list of objects are provided, and we will calculate the similarity pair by pair \n'
-                                'e_e: two list of objects are provided, and we will calculate the similarity in an N x N manner\n' \
-                                'e_*: only one list of objects is provided and we will calculate similarity between objects in e ' \
-                                'and all objects in the KG in an N_e x N_* manner \n'
-                                '*: treat all objects as input and calculate similarity in an N_* x N_* manner')
+                                'l_r: two list of objects are provided as left objects and right objects.\n' \
+                                'l_*: one list of objects is provided as left objects list and treat all objects in emb_file as right objects\n'
+                                '*_r: one list of objects is provided as right objects list and treat all objects in emb_file as left objects\n'
+                                '*: treat all objects in the emb_file as both left objects and right objects')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
                           help='A list of data file names. This is used to provide necessary files containing the requried data ' \
-                               'according to the format, e.g., for e_e_pw, two files are required as left_data and right_data; ' \
-                               'for e_*, only one file is required; for *, no file is required')
+                               'according to the format, e.g., for l_r, two files are required as left_data and right_data; ' \
+                               'for l_*, only one file is required; for *, no file is required')
         self.add_argument('--raw_data', default=False, action='store_true',
-                          help='whether the data profiled in data_files is in the raw object naming space or in mapped id space \n' \
+                          help='whether the data profiled in data_files is in the raw object naming space, e.g. string name of the entity' \
+                                'or in DGL-KE converted integer id space \n' \
                                 'If True, the data is in the original naming space and the inference program will do the id translation' \
                                 'according to id mapping files generated during the training progress. \n' \
                                 'If False, the data is just interger ids and it is assumed that user has already done the id translation')
-        self.add_argument('--bcast', default=False, action='store_true',
-                          help='Whether to broadcast topK at entity level. \n' \
-                               'If False, no broadcast is done \n' \
-                               'Otherwise, broadcast at left e')
+        self.add_argument('--exec_mode', type=str, default='all',
+                          help='How to calculate scores for element pairs and calculate topK: \n' \
+                               'pairwise: both left and right objects are provided with the same length N, and we will calculate the similarity pair by pair:'\
+                                    'result = topK([score(l_i, r_i)]) for i in N, the result shape will be (K,)'
+                               'all: both left and right objects are provided as L and R, and we calculate all possible combinations of (l_i, r_j):' \
+                                    'result = topK([[score(l_i, rj) for l_i in L] for r_j in R]), the result shape will be (K,)\n'
+                               'batch_left: both left and right objects are provided as L and R,, and we calculate topK for each element in L:' \
+                                    'result = topK([score(l_i, r_j) for r_j in R]) for l_j in L, the result shape will be (sizeof(L), K)\n')
         self.add_argument('--topK', type=int, default=10,
                           help='How many results are returned')
         self.add_argument('--sim_func', type=str, default='cosine',
@@ -70,19 +74,7 @@ def main():
     assert args.emb_file != None, 'emb_file should be provided for entity embeddings'
 
     data_files = args.data_files
-    pair_wise = False
-    if args.format == 'e_e_pw':
-        if args.raw_data:
-            head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
-                                               map_f=args.mfile)
-            tail, _, _ = load_raw_emb_data(file=data_files[1],
-                                           e2id_map=e2id_map)
-        else:
-            head = load_entity_data(data_files[0])
-            tail = load_entity_data(data_files[1])
-        args.bcast = False
-        pair_wise = True
-    elif args.format == 'e_e':
+    if args.format == 'l_r':
         if args.raw_data:
             head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
                                                          map_f=args.mfile)
@@ -91,22 +83,41 @@ def main():
         else:
             head = load_entity_data(data_files[0])
             tail = load_entity_data(data_files[1])
-    elif args.format == 'e_*':
+    elif args.format == 'l_*':
         if args.raw_data:
             head, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
                                                          map_f=args.mfile)
         else:
             head = load_entity_data(data_files[0])
         tail = load_entity_data()
+    elif args.format == '*_r':
+        if args.raw_data:
+            tail, id2e_map, e2id_map = load_raw_emb_data(file=data_files[0],
+                                                         map_f=args.mfile)
+        else:
+            tail = load_entity_data(data_files[0])
+        head = load_entity_data()
     elif args.format == '*':
         if args.raw_data:
             id2e_map = load_raw_emb_mapping(map_f=args.mfile)
         head = load_entity_data()
         tail = load_entity_data()
 
-    model = EmbSimInfor(args.gpu, args.emb_file, args.sim_func)
+    if args.exec_mode == 'pairwise':
+        pair_wise = True
+        bcast = False
+    elif args.exec_mode == 'batch_left':
+        pair_wise = False
+        bcast = True
+    elif args.exec_mode == 'all':
+        pair_wise = False
+        bcast = False
+    else:
+        assert False, 'Unknow execution model'
+
+    model = EmbSimInfer(args.gpu, args.emb_file, args.sim_func)
     model.load_emb()
-    result = model.topK(head, tail, bcast=args.bcast, pair_ws=pair_wise, k=args.topK)
+    result = model.topK(head, tail, bcast=bcast, pair_ws=pair_wise, k=args.topK)
 
     with open(args.output, 'w+') as f:
         f.write('head\ttail\tscore\n')

@@ -95,7 +95,7 @@ class ScoreInfer(object):
         model.load_emb(model_path, dataset)
         self.model = model
 
-    def topK(self, head=None, rel=None, tail=None, bcast=None, k=10):
+    def topK(self, head=None, rel=None, tail=None, exec_mode='all', k=10):
         if head is None:
             head = F.arange(0, self.model.num_entity)
         else:
@@ -113,7 +113,27 @@ class ScoreInfer(object):
         num_rel = F.shape(rel)[0]
         num_tail = F.shape(tail)[0]
 
-        if bcast is None:
+        if exec_mode == 'triplet_wise':
+            result = []
+            assert num_head == num_rel, \
+                'For triplet wise exection mode, head, relation and tail lists should have same length'
+            assert num_head == num_tail, \
+                'For triplet wise exection mode, head, relation and tail lists should have same length'
+
+            raw_score = self.model.score(head, rel, tail, triplet_wise=True)
+            score = self.score_func(raw_score)
+            idx = F.arange(0, num_head)
+
+            sidx = F.argsort(score, dim=0, descending=True)
+            sidx = sidx[:k]
+            score = score[sidx]
+            idx = idx[sidx]
+
+            result.append((F.asnumpy(head[idx]),
+                           F.asnumpy(rel[idx]),
+                           F.asnumpy(tail[idx]),
+                           F.asnumpy(score)))
+        elif exec_mode == 'all':
             result = []
             raw_score = self.model.score(head, rel, tail)
             score = self.score_func(raw_score)
@@ -134,7 +154,7 @@ class ScoreInfer(object):
                            F.asnumpy(rel[rel_idx]),
                            F.asnumpy(tail[tail_idx]),
                            F.asnumpy(score)))
-        elif bcast == 'head':
+        elif exec_mode == 'batch_head':
             result = []
             for i in range(num_head):
                 raw_score = self.model.score(F.unsqueeze(head[i], 0), rel, tail)
@@ -153,7 +173,7 @@ class ScoreInfer(object):
                                F.asnumpy(rel[rel_idx]),
                                F.asnumpy(tail[tail_idx]),
                                F.asnumpy(score)))
-        elif bcast == 'rel':
+        elif exec_mode == 'batch_rel':
             result = []
             for i in range(num_rel):
                 raw_score = self.model.score(head, F.unsqueeze(rel[i], 0), tail)
@@ -172,7 +192,7 @@ class ScoreInfer(object):
                                np.full((k,), F.asnumpy(rel[i])),
                                F.asnumpy(tail[tail_idx]),
                                F.asnumpy(score)))
-        elif bcast == 'tail':
+        elif exec_mode == 'batch_tail':
             result = []
             for i in range(num_tail):
                 raw_score = self.model.score(head, rel, F.unsqueeze(tail[i], 0))
@@ -191,11 +211,11 @@ class ScoreInfer(object):
                                np.full((k,), F.asnumpy(tail[i])),
                                F.asnumpy(score)))
         else:
-            assert False, 'unknow broadcast type {}'.format(bcast)
+            assert False, 'unknow execution mode type {}'.format(exec_mode)
 
         return result
 
-class EmbSimInfor():
+class EmbSimInfer():
     """ Calculate simularity of entity/relation embeddings based on pretained KG embeddings
 
     Parameters
