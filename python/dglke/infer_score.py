@@ -53,7 +53,7 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--exec_mode', type=str, default='all',
                           help='How to calculate scores for triplets and calculate topK: \n' \
                                'triplet_wise: head, relation and tail lists have the same length N, and we calculate the similarity triplet by triplet:' \
-                                   'result = topK([score(h_i, r_i, t_i) for i in N]), the result shape will be (K,)\n'
+                                   'result = topK([score(h_i, r_i, t_i) for i in N]), the result shape will be (K,)\n' \
                                'all: three lists of head, relation and tail ids are provided as H, R and T, and we calculate all possible combinations' \
                                     'of all triplets (h_i, r_j, t_k):' \
                                     'result = topK([[[score(h_i, r_j, t_k) for each h_i in H] for each r_j in R] for each t_k in T]), the result shape will be (K,)\n' \
