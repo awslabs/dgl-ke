@@ -75,7 +75,7 @@ if [ "$2" == "cpu" ]; then
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'l2' || fail "run dglke_emb_sim DistMult with l2"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'l1' || fail "run dglke_emb_sim DistMult with l1"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'dot' || fail "run dglke_emb_sim DistMult with dot"
-    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func 'ext_jaccard' --exec_mode 'batch_left' || fail "run dglke_emb_sim DistMult with extended jaccard"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func 'ext_jaccard' --exec_mode 'batch_left' --topK 3 || fail "run dglke_emb_sim DistMult with extended jaccard"
     rm head.list
     rm tail.list
 
