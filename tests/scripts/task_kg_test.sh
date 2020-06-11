@@ -162,10 +162,11 @@ elif [ "$2" == "gpu" ]; then
 
     # verify score sim
     printf '1\n2\n3\n4\n5\n' > head.list
-    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --gpu 0 || fail "run dglke_predict DistMult"
-    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --exec_mode 'batch_head' --gpu 0 || fail "run dglke_predict DistMult with batched head"
-    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --exec_mode 'batch_rel' --gpu 0 || fail "run dglke_predict DistMult with batched rel"
-    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_*_t --data_files head.list --topK 5 --exec_mode 'batch_tail' --gpu 0 || fail "run dglke_predict DistMult with batched tail"
+    printf '1\n2\n' > rel.list
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_r_* --data_files head.list rel.list --topK 5 --gpu 0 || fail "run dglke_predict DistMult"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_r_* --data_files head.list rel.list --topK 5 --exec_mode 'batch_head' --gpu 0 || fail "run dglke_predict DistMult with batched head"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_r_* --data_files head.list rel.list --topK 5 --exec_mode 'batch_rel' --gpu 0 || fail "run dglke_predict DistMult with batched rel"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_r_t --data_files head.list rel.list --topK 5 --exec_mode 'batch_tail' --gpu 0 || fail "run dglke_predict DistMult with batched tail"
 
     # verify emb sim
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --exec_mode 'batch_left' --gpu 0 || fail "run dglke_emb_sim DistMult with cosine"
