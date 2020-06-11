@@ -3,14 +3,14 @@ Inference Using Pretrained Embedding
 
 Users can use DGL-KE to do inference tasks based on pretained embeddings (We recommand using DGL-KE to generate these embedding). Here we support two kinds of inference tasks:
 
-  * **Linkage score ranking** Given a list of (h, r, t) triplets, calculate the linkage score using the predefined score function for each triplet, sort the resulting scores and output the topk most confident triplets.
-  * **Embedding similarity ranking** Given a list of (e, e) enitity pairs or (r, r) relation pairs, calculate the similarity of for each pair, sort the resulting similarity score and output the topk most similar pairs.
+  * **Predicting entities/relations in a triplet** Given entities and/or relations, predict which entities or relations are likely to connect with the existing entities for given relations. For example, given a head entity and a relation, predict which entities are likely to connect to the head entity via the given relation.
+  * **Finding similar embeddings** Given entity/relation embeddings, find the most similar entity/relation embeddings for some pre-defined similarity functions.
 
 The ranking result will be automatically stored in the output file (result.tsv by default) using the tsv format.
 
-The Linkage Score Ranking
+Predicting entities/relations in a triplet
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The task of linkage score ranking is given a list of candidate (h, r, t) triplets, calculating the edge score of each triplet based on the trained model and the pretrained embeddings and then returning the topk most relevent triplets along with their scores. An example return value of top5 linkage score likes this::
+The task of linkage score ranking is given a list of candidate (h, r, t) triplets, predicting which head entities are likely to connect to which tail entities via certain relation. An example return value of top5 linkage score likes this::
 
   src   relation dst   score (DistMult)
   407   5        8429  3.5953474
@@ -19,7 +19,7 @@ The task of linkage score ranking is given a list of candidate (h, r, t) triplet
   93    9        7035  3.4197974
   2441  5        4833  3.3639894
 
-DGL-KE provides dglke_score command to calculate linkage score ranking. Currently, we support six models in inference: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
+DGL-KE provides dglke_predict command to predicting entities/relations in a triplet. Currently, we support six models in inference: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
 
 Four arguments are required to provide basic information for doning the linkage score ranking task:
 
@@ -49,13 +49,13 @@ Input/Output related arguments:
   * ``--entity_mfile``, The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
   * ``--rel_mfile``, The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
 
-The following command shows how to do linkage score ranking using a pretrained DistMult model::
+The following command shows how to do entities/relations linkage prediction and ranking using a pretrained DistMult model::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
+    dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
 
 The output is as::
 
@@ -66,13 +66,13 @@ The output is as::
     9    0    18   -2.86985
     8    0    20   -2.89651
 
-The following command shows how to do linkage score ranking while calculate topK for each element in head using a pretrained TransE_l2 model::
+The following command shows how to do entities/relations linkage prediction and ranking while calculate topK for each element in head using a pretrained TransE_l2 model::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --exec_mode 'batch_head'
+    dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --exec_mode 'batch_head'
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5  --exec_mode 'batch_head'
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5  --exec_mode 'batch_head'
 
 The output is as::
 
@@ -89,13 +89,13 @@ The output is as::
     2    0    14   -5.94183
     ...
 
-The following command shows how to do linkage score ranking using a pretrained TransE_l2 model and use raw ID space (turn on --raw_data)::
+The following command shows how to do entities/relations linkage prediction and ranking using a pretrained TransE_l2 model and use raw ID space (turn on --raw_data)::
 
     # Using PyTorch Backend
-    dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
+    dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
 
 The output is as::
 
@@ -106,9 +106,9 @@ The output is as::
     02537319  _hyponym                      01490112  -9.44877
     00083809  _derivationally_related_form  05940414  -9.88155
 
-The Embedding Similarity Ranking
+Finding similar embeddings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The task of embedding similarity ranking is given a list of entity (e1, e2) pairs or relation (r1, r2) pairs, calculating the similarity between their corresponding embeddings and returning the topk most similar pairs. An example of return value of top5 similar entities likes this::
+The task of embedding similarity ranking is given a set of entities or relations, finding the most similar entity/relation embeddings for some pre-defined similarity functions. An example of return value of top5 similar entities likes this::
 
     entity1  entity2  score
     0        0        0.99999

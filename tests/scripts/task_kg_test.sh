@@ -65,10 +65,10 @@ if [ "$2" == "cpu" ]; then
     # verify score sim
     printf '1\n2\n3\n4\n5\n' > head.list
     printf '6\n7\n8\n9\n10\n' > tail.list
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 || fail "run dglke_score DistMult"
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_head || fail "run dglke_score DistMult with batched head"
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_rel || fail "run dglke_score DistMult with batched rel"
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_tail || fail "run dglke_score DistMult with batched tail"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 || fail "run dglke_predict DistMult"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_head || fail "run dglke_predict DistMult with batched head"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_rel || fail "run dglke_predict DistMult with batched rel"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_tail || fail "run dglke_predict DistMult with batched tail"
 
     # verify emb sim
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --exec_mode 'batch_left' || fail "run dglke_emb_sim DistMult with cosine"
@@ -162,10 +162,10 @@ elif [ "$2" == "gpu" ]; then
 
     # verify score sim
     printf '1\n2\n3\n4\n5\n' > head.list
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --gpu 0 || fail "run dglke_score DistMult"
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --exec_mode 'batch_head' --gpu 0 || fail "run dglke_score DistMult with batched head"
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --exec_mode 'batch_rel' --gpu 0 || fail "run dglke_score DistMult with batched rel"
-    dglke_score --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_*_t --data_files head.list --topK 5 --exec_mode 'batch_tail' --gpu 0 || fail "run dglke_score DistMult with batched tail"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --gpu 0 || fail "run dglke_predict DistMult"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --exec_mode 'batch_head' --gpu 0 || fail "run dglke_predict DistMult with batched head"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_* --data_files head.list --topK 5 --exec_mode 'batch_rel' --gpu 0 || fail "run dglke_predict DistMult with batched rel"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_*_t --data_files head.list --topK 5 --exec_mode 'batch_tail' --gpu 0 || fail "run dglke_predict DistMult with batched tail"
 
     # verify emb sim
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --exec_mode 'batch_left' --gpu 0 || fail "run dglke_emb_sim DistMult with cosine"

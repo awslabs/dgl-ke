@@ -23,37 +23,37 @@
 # multi_gpu.sh, multi_cpu.sh or dist_train.sh
 
 # Inference using TransE_l1 pretrained model
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast head
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast rel
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast tail
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast head
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast rel
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l1_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast tail
 
 # Inference using TransE_l2 pretrained model using logsigmoid
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --score_func logsigmoid
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast head --score_func logsigmoid
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast rel --score_func logsigmoid
-dglke_score --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast tail --score_func logsigmoid
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --score_func logsigmoid
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast head --score_func logsigmoid
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast rel --score_func logsigmoid
+dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 5 --bcast tail --score_func logsigmoid
 
 # Inference using DistMult pretrained model, using the whole tail set as tail
-dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --bcast head --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --bcast rel --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --bcast tail --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --bcast head --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --bcast rel --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format h_r_* --data_files head.list rel.list --topK 5 --bcast tail --gpu 0
 
 # Inference using ComplEx pretrained model, using the whole relation set as relation
-dglke_score --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --bcast head --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --bcast rel --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --bcast tail --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --bcast head --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --bcast rel --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/ComplEx_wn18_0/ --format h_*_t --data_files head.list tail.list --topK 15 --bcast tail --gpu 0
 
 # Inference using RESCAL pretrained model, using the whole head set as head
-dglke_score --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --bcast head --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --bcast rel --gpu 0
-dglke_score --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --bcast tail --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --bcast head --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --bcast rel --gpu 0
+dglke_predict --data_path data/wn18/ --model_path ckpts/RESCAL_wn18_0/ --format *_r_t --data_files rel.list tail.list --topK 15 --bcast tail --gpu 0
 
 # Inference using RotatE pretrained model
-dglke_score --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15
-dglke_score --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15 --bcast head
-dglke_score --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15 --bcast rel
-dglke_score --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15 --bcast tail
+dglke_predict --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15
+dglke_predict --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15 --bcast head
+dglke_predict --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15 --bcast rel
+dglke_predict --data_path data/wn18/ --model_path ckpts/RotatE_wn18_0/ --format h_r_t --data_files head.list rel.list tail.list --topK 15 --bcast tail
