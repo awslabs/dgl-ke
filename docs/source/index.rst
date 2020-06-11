@@ -48,3 +48,5 @@ Get started with DGL-KE!
    train_built_in
    train_user_data
    dist_train
+   inference
+   arguments

@@ -17,4 +17,4 @@
 # limitations under the License.
 #
 
-from .general_models import KEModel
+from .general_models import KEModel, InferModel

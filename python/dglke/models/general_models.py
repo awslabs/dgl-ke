@@ -38,7 +38,9 @@ if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import reshape
     from .mxnet.tensor_models import cuda
     from .mxnet.tensor_models import ExternalEmbedding
+    from .mxnet.tensor_models import InferEmbedding
     from .mxnet.score_fun import *
+    DEFAULT_INFER_BATCHSIZE = 1024
 else:
     from .pytorch.tensor_models import logsigmoid
     from .pytorch.tensor_models import get_device
@@ -47,7 +49,127 @@ else:
     from .pytorch.tensor_models import reshape
     from .pytorch.tensor_models import cuda
     from .pytorch.tensor_models import ExternalEmbedding
+    from .pytorch.tensor_models import InferEmbedding
     from .pytorch.score_fun import *
+    DEFAULT_INFER_BATCHSIZE = 2048
+
+EMB_INIT_EPS = 2.0
+
+class InferModel(object):
+    def __init__(self, device, model_name, hidden_dim,
+        double_entity_emb=False, double_relation_emb=False,
+        gamma=0., batch_size=DEFAULT_INFER_BATCHSIZE):
+        super(InferModel, self).__init__()
+
+        self.device = device
+        self.model_name = model_name
+        entity_dim = 2 * hidden_dim if double_entity_emb else hidden_dim
+        relation_dim = 2 * hidden_dim if double_relation_emb else hidden_dim
+
+        self.entity_emb = InferEmbedding(device)
+        self.relation_emb = InferEmbedding(device)
+        self.batch_size = batch_size
+
+        if model_name == 'TransE' or model_name == 'TransE_l2':
+            self.score_func = TransEScore(gamma, 'l2')
+        elif model_name == 'TransE_l1':
+            self.score_func = TransEScore(gamma, 'l1')
+        elif model_name == 'TransR':
+            assert False, 'Do not support inference of TransR model now.'
+        elif model_name == 'DistMult':
+            self.score_func = DistMultScore()
+        elif model_name == 'ComplEx':
+            self.score_func = ComplExScore()
+        elif model_name == 'RESCAL':
+            self.score_func = RESCALScore(relation_dim, entity_dim)
+        elif model_name == 'RotatE':
+            emb_init = (gamma + EMB_INIT_EPS) / hidden_dim
+            self.score_func = RotatEScore(gamma, emb_init)
+
+    def load_emb(self, path, dataset):
+        """Load the model.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the model.
+        dataset : str
+            Dataset name as prefix to the saved embeddings.
+        """
+        self.entity_emb.load(path, dataset+'_'+self.model_name+'_entity')
+        self.relation_emb.load(path, dataset+'_'+self.model_name+'_relation')
+        self.score_func.load(path, dataset+'_'+self.model_name)
+
+    def score(self, head, rel, tail, triplet_wise=False):
+        head_emb = self.entity_emb(head)
+        rel_emb = self.relation_emb(rel)
+        tail_emb = self.entity_emb(tail)
+
+        num_head = F.shape(head)[0]
+        num_rel = F.shape(rel)[0]
+        num_tail = F.shape(tail)[0]
+
+        batch_size = self.batch_size
+        score = []
+        if triplet_wise:
+            class FakeEdge(object):
+                def __init__(self, head_emb, rel_emb, tail_emb):
+                    self._hobj = {}
+                    self._robj = {}
+                    self._tobj = {}
+                    self._hobj['emb'] = head_emb
+                    self._robj['emb'] = rel_emb
+                    self._tobj['emb'] = tail_emb
+
+                @property
+                def src(self):
+                    return self._hobj
+
+                @property
+                def dst(self):
+                    return self._tobj
+
+                @property
+                def data(self):
+                    return self._robj
+
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                sr_emb = rel_emb[i * batch_size : (i + 1) * batch_size \
+                                                  if (i + 1) * batch_size < num_head \
+                                                  else num_head]
+                st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                edata = FakeEdge(sh_emb, sr_emb, st_emb)
+                score.append(F.copy_to(self.score_func.edge_func(edata)['score'], F.cpu()))
+            score = F.cat(score, dim=0)
+            return score
+        else:
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                s_score = []
+                for j in range((num_tail + batch_size - 1) // batch_size):
+                    st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
+                                                       if (j + 1) * batch_size < num_tail \
+                                                       else num_tail]
+
+                    s_score.append(F.copy_to(self.score_func.infer(sh_emb, rel_emb, st_emb), F.cpu()))
+                score.append(F.cat(s_score, dim=2))
+            score = F.cat(score, dim=0)
+            return F.reshape(score, (num_head * num_rel * num_tail,))
+
+    @property
+    def num_entity(self):
+        return self.entity_emb.emb.shape[0]
+
+    @property
+    def num_rel(self):
+        return self.relation_emb.emb.shape[0]
 
 class KEModel(object):
     """ DGL Knowledge Embedding Model.
@@ -82,7 +204,7 @@ class KEModel(object):
         self.n_relations = n_relations
         self.model_name = model_name
         self.hidden_dim = hidden_dim
-        self.eps = 2.0
+        self.eps = EMB_INIT_EPS
         self.emb_init = (gamma + self.eps) / hidden_dim
 
         entity_dim = 2 * hidden_dim if double_entity_emb else hidden_dim

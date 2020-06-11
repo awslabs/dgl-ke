@@ -34,7 +34,11 @@ def logsigmoid(val):
     z = nd.exp(-max_elem) + nd.exp(-val - max_elem)
     return -(max_elem + nd.log(z))
 
+none = lambda x : x
+get_dev = lambda gpu : mx.gpu(gpu) if gpu >= 0 else mx.cpu()
 get_device = lambda args : mx.gpu(args.gpu[0]) if args.gpu[0] >= 0 else mx.cpu()
+
+norm_l1 = lambda x: nd.sum(nd.abs(x))
 norm = lambda x, p: nd.sum(nd.abs(x) ** p)
 
 get_scalar = lambda x: x.detach().asscalar()
@@ -42,6 +46,69 @@ get_scalar = lambda x: x.detach().asscalar()
 reshape = lambda arr, x, y: arr.reshape(x, y)
 
 cuda = lambda arr, gpu: arr.as_in_context(mx.gpu(gpu))
+
+def l2_dist(x, y, pw=False):
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return nd.norm(x-y, ord=2, axis=-1)
+
+def l1_dist(x, y, pw=False):
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return nd.norm(x-y, ord=1, axis=-1)
+
+def dot_dist(x, y, pw=False):
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return nd.sum(x * y, axis=-1)
+
+def cosine_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+    
+    x = nd.norm(x, ord=2, axis=-1)
+    y = nd.norm(y, ord=2, axis=-1)
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+       
+    return score / (x * y)
+
+def extended_jaccard_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+
+    x = nd.norm(x, ord=2, axis=-1)**2
+    y = nd.norm(y, ord=2, axis=-1)**2
+    if pw is False:
+        x = x.expand_dims(axis=1)
+        y = y.expand_dims(axis=0)
+
+    return score / (x + y - score)
+
+class InferEmbedding:
+    def __init__(self, device):
+        self.device = device
+
+    def load(self, path, name):
+        """Load embeddings.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the embedding.
+        name : str
+            Embedding name.
+        """
+        file_name = os.path.join(path, name+'.npy')
+        self.emb = mx.nd.array(np.load(file_name))
+
+    def __call__(self, idx):
+        return self.emb[idx]
 
 class ExternalEmbedding:
     """Sparse Embedding for Knowledge Graph

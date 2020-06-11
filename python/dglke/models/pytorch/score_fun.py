@@ -58,6 +58,13 @@ class TransEScore(nn.Module):
         score = head + rel - tail
         return {'score': self.gamma - th.norm(score, p=self.dist_ord, dim=-1)}
 
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_emb = head_emb.unsqueeze(1)
+        rel_emb = rel_emb.unsqueeze(0)
+        score = (head_emb + rel_emb).unsqueeze(2) - tail_emb.unsqueeze(0).unsqueeze(0)
+
+        return self.gamma - th.norm(score, p=self.dist_ord, dim=-1)
+
     def prepare(self, g, gpu_id, trace=False):
         pass
 
@@ -117,6 +124,9 @@ class TransRScore(nn.Module):
         rel = edges.data['emb']
         score = head + rel - tail
         return {'score': self.gamma - th.norm(score, p=1, dim=-1)}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        pass
 
     def prepare(self, g, gpu_id, trace=False):
         head_ids, tail_ids = g.all_edges(order='eid')
@@ -224,6 +234,13 @@ class DistMultScore(nn.Module):
         # TODO: check if there exists minus sign and if gamma should be used here(jin)
         return {'score': th.sum(score, dim=-1)}
 
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_emb = head_emb.unsqueeze(1)
+        rel_emb = rel_emb.unsqueeze(0)
+        score = (head_emb * rel_emb).unsqueeze(2) * tail_emb.unsqueeze(0).unsqueeze(0)
+
+        return th.sum(score, dim=-1)
+
     def prepare(self, g, gpu_id, trace=False):
         pass
 
@@ -283,6 +300,18 @@ class ComplExScore(nn.Module):
                 - img_head * real_tail * img_rel
         # TODO: check if there exists minus sign and if gamma should be used here(jin)
         return {'score': th.sum(score, -1)}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        real_head, img_head = th.chunk(head_emb, 2, dim=-1)
+        real_tail, img_tail = th.chunk(tail_emb, 2, dim=-1)
+        real_rel, img_rel = th.chunk(rel_emb, 2, dim=-1)
+
+        score = (real_head.unsqueeze(1) * real_rel.unsqueeze(0)).unsqueeze(2) * real_tail.unsqueeze(0).unsqueeze(0) \
+                + (img_head.unsqueeze(1) * real_rel.unsqueeze(0)).unsqueeze(2) * img_tail.unsqueeze(0).unsqueeze(0) \
+                + (real_head.unsqueeze(1) * img_rel.unsqueeze(0)).unsqueeze(2) * img_tail.unsqueeze(0).unsqueeze(0) \
+                - (img_head.unsqueeze(1) * img_rel.unsqueeze(0)).unsqueeze(2) * real_tail.unsqueeze(0).unsqueeze(0)
+
+        return th.sum(score, dim=-1)
 
     def prepare(self, g, gpu_id, trace=False):
         pass
@@ -358,6 +387,13 @@ class RESCALScore(nn.Module):
         return {'score': th.sum(score, dim=-1)}
         # return {'score': self.gamma - th.norm(score, p=1, dim=-1)}
 
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_emb = head_emb.unsqueeze(1).unsqueeze(1)
+        rel_emb = rel_emb.view(-1, self.relation_dim, self.entity_dim)
+        score = head_emb * th.einsum('abc,dc->adb', rel_emb, tail_emb).unsqueeze(0)
+
+        return th.sum(score, dim=-1)
+
     def prepare(self, g, gpu_id, trace=False):
         pass
 
@@ -427,6 +463,21 @@ class RotatEScore(nn.Module):
         score = th.stack([re_score, im_score], dim=0)
         score = score.norm(dim=0)
         return {'score': self.gamma - score.sum(-1)}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        re_head, im_head = th.chunk(head_emb, 2, dim=-1)
+        re_tail, im_tail = th.chunk(tail_emb, 2, dim=-1)
+
+        phase_rel = rel_emb / (self.emb_init / np.pi)
+        re_rel, im_rel = th.cos(phase_rel), th.sin(phase_rel)
+        re_score = re_head.unsqueeze(1) * re_rel.unsqueeze(0) - im_head.unsqueeze(1) * im_rel.unsqueeze(0)
+        im_score = re_head.unsqueeze(1) * im_rel.unsqueeze(0) + im_head.unsqueeze(1) * re_rel.unsqueeze(0)
+
+        re_score = re_score.unsqueeze(2) - re_tail.unsqueeze(0).unsqueeze(0)
+        im_score = im_score.unsqueeze(2) - im_tail.unsqueeze(0).unsqueeze(0)
+        score = th.stack([re_score, im_score], dim=0)
+        score = score.norm(dim=0)
+        return self.gamma - score.sum(-1)
 
     def update(self, gpu_id=-1):
         pass

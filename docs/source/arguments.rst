@@ -6,7 +6,6 @@ dglke_train
 ^^^^^^^^^^^^
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
-
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -119,7 +118,6 @@ dglke_train
 
 dglke_eval
 ^^^^^^^^^^^^
-
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
@@ -273,7 +271,7 @@ dglke_dist_train
     The temperature used for negative adversarial sampling.
 
   - ``-rc REGULARIZATION_COEF`` or ``--regularization_coef REGULARIZATION_COEF``
-   The coefficient for regularization.
+    The coefficient for regularization.
 
   - ``-rn REGULARIZATION_NORM`` or ``--regularization_norm REGULARIZATION_NORM``
     norm used in regularization.
@@ -312,3 +310,69 @@ dglke_partition
   - ``-k NUM_PARTS`` or ``--num-parts NUM_PARTS``
     The number of partitions.
 
+dglke_predict
+^^^^^^^^^^^^^^^
+  - ``--data_path DATA_PATH``
+    The root path of all dataset including id mapping files. Default: 'data'
+
+  - ``--model_path MODEL_PATH``
+    The place where to load the model. Default 'ckpts'.
+
+  - ``--format FORMAT``
+    The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *\** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N\_h x N\_r x N\_t manner.
+
+  - ``--data_files [DATA_FILES ...]`` 
+    A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``h_r_t``, three files are required as h_data, r_data and t_data, while for ``h_*_t``, two files are required as h_data and t_data.
+
+  - ``--raw_data``
+    A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation. Default: False.
+
+  - ``--exec_mode``
+    How to calculate scores for triplets and calculate topK. Possible candidates include: ``triplet_wise``, ``all``, ``batch_head``, ``batch_rel``, ``batch_tail``.
+
+  - ``--topk NUM_OF_K``
+    How many results are returned. Default:10.
+
+  - ``--score_func SCORE_FUNC_NAME or None``
+    What kind of score is used in ranking. Currently, we support two functions: ``none`` (score = $x$) and ``logsigmoid`` ($score = log(sigmoid(x))$). Default: none.
+
+  - ``--gpu GPU_ID``
+    GPU device to use in inference, by default it uses CPU. Default: -1.(CPU)
+
+  - ``--output FILE_PATH``
+    Where to store the result. Default: result.tsv
+
+  - ``--entity_mfile`` (Optional)
+    The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+
+  - ``--rel_mfile`` (Optional)
+    The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+
+dglke_emb_sim
+^^^^^^^^^^^^^^^
+  - ``--emb_file EMB_DATA_PATH``
+    The numpy file containing the embeddings.
+
+  - ``--format FORMAT``
+    The format of the input data, specified in ``l_r``. Ideally, user should provides two files, one for left objects and one for right objects. But we also allow users to use *\** to represent *all* of the embeddings. For exmpale, ``l_*`` only requires users to provide a file containing left objects and use the whole embedding set as right; ``*_r`` only requires users to provide a file containing right objects and use the whole embedding set as left; even users can specify a single *\** to treat the whole embedding set as both left and right. 
+
+  - ``--data_files [DATA_FILES ...]``
+    A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``e_e``, two files are required as h_data and t_data, while for ``e_*``, one file is required as t_data, and for ``*`` this argument can be omited.
+
+  - ``--raw_data``
+    A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is in the original naming space and the inference program will do the id translation according to id mapping files. If False, the data is just intergers and it is assumed that user has already done the id translation. Default: False.
+
+  - ``--exec_mode``
+    How to calculate scores for element pairs and calculate topK. Possible candidates include: ``pairwise``， ``all``, ``batch_left`` 
+
+  - ``--topk NUM_OF_K``
+    How many results are returned. Default:10.
+
+  - ``--sim_func SIM_FUNC_NAME``
+    What kind of distance function is used in ranking and will be output. It support five functions: ``cosine`` (score = $\\frac{x \\cdot y}{||x||_2||y||_2}$), ``l2`` (score = $||x - y||_2$), ``l1`` (score = $||x - y||_1$), ``dot`` (score = $x \\cdot y$)) and ``ext_jaccard`` (score = $\\frac{x \\cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \\cdot y}$).
+
+  - ``--gpu GPU_ID``
+    GPU device to use in inference, by default it uses CPU. Default: -1.(CPU)
+
+  - ``--mfile`` (Optional)
+    ID mapping file. 

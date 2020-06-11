@@ -242,6 +242,8 @@ def main():
     if args.num_proc > 1 or args.async_update:
         model.share_memory()
 
+    emap_file = dataset.emap_fname
+    rmap_file = dataset.rmap_fname
     # We need to free all memory referenced by dataset.
     eval_dataset = None
     dataset = None
@@ -276,7 +278,7 @@ def main():
     print('training takes {} seconds'.format(time.time() - start))
 
     if not args.no_save_emb:
-        save_model(args, model)
+        save_model(args, model, emap_file, rmap_file)
 
     # test
     if args.test:

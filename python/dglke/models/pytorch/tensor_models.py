@@ -38,13 +38,60 @@ from .. import *
 
 logsigmoid = functional.logsigmoid
 
+def get_dev(gpu):
+    return th.device('cpu') if gpu < 0 else th.device('cuda:' + str(gpu))
+
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
 
+none = lambda x : x
 norm = lambda x, p: x.norm(p=p)**p
 get_scalar = lambda x: x.detach().item()
 reshape = lambda arr, x, y: arr.view(x, y)
 cuda = lambda arr, gpu: arr.cuda(gpu)
+
+def l2_dist(x, y, pw=False):
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return th.norm(x-y, p=2, dim=-1)
+
+def l1_dist(x, y, pw=False):
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return th.norm(x-y, p=1, dim=-1)
+
+def dot_dist(x, y, pw=False):
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return th.sum(x * y, dim=-1)
+
+def cosine_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+    
+    x = x.norm(p=2, dim=-1)
+    y = y.norm(p=2, dim=-1)
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+       
+    return score / (x * y)
+
+def extended_jaccard_dist(x, y, pw=False):
+    score = dot_dist(x, y, pw)
+
+    x = x.norm(p=2, dim=-1)**2
+    y = y.norm(p=2, dim=-1)**2
+    if pw is False:
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+
+    return score / (x + y - score)
 
 def thread_wrapped_func(func):
     """Wrapped func for torch.multiprocessing.Process.
@@ -117,6 +164,26 @@ def async_update(args, emb, queue):
             if tmp.device != device:
                 tmp = tmp.to(device)
             emb.emb.index_add_(0, grad_indices, tmp)
+
+class InferEmbedding:
+    def __init__(self, device):
+        self.device = device
+
+    def load(self, path, name):
+        """Load embeddings.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the embedding.
+        name : str
+            Embedding name.
+        """
+        file_name = os.path.join(path, name+'.npy')
+        self.emb = th.Tensor(np.load(file_name))
+
+    def __call__(self, idx):
+        return self.emb[idx].to(self.device)
 
 class ExternalEmbedding:
     """Sparse Embedding for Knowledge Graph

@@ -44,6 +44,8 @@ python3 setup.py install
 pushd $KG_DIR_TEST> /dev/null
 echo $KG_DIR_TEST
 python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
+python3 -m pytest tests/test_infer.py || fail "run test_score.py on $1"
+python3 -m pytest tests/test_topk.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_dataset.py || fail "run test_dataset.py on $1"
 popd
 
@@ -59,6 +61,23 @@ if [ "$2" == "cpu" ]; then
     dglke_eval --model_name DistMult --dataset FB15k --hidden_dim 100 \
         --gamma 500.0 --batch_size 16 --eval_percent 0.01 --model_path ckpts/DistMult_FB15k_0/ \
         --data_path /data/kg || fail "eval DistMult on $2"
+
+    # verify score sim
+    printf '1\n2\n3\n4\n5\n' > head.list
+    printf '6\n7\n8\n9\n10\n' > tail.list
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 || fail "run dglke_predict DistMult"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_head || fail "run dglke_predict DistMult with batched head"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_rel || fail "run dglke_predict DistMult with batched rel"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_*_t --data_files head.list tail.list --topK 5 --exec_mode batch_tail || fail "run dglke_predict DistMult with batched tail"
+
+    # verify emb sim
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --exec_mode 'batch_left' || fail "run dglke_emb_sim DistMult with cosine"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'l2' || fail "run dglke_emb_sim DistMult with l2"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'l1' || fail "run dglke_emb_sim DistMult with l1"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func 'dot' || fail "run dglke_emb_sim DistMult with dot"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func 'ext_jaccard' --exec_mode 'batch_left' --topK 3 || fail "run dglke_emb_sim DistMult with extended jaccard"
+    rm head.list
+    rm tail.list
 
     rm -fr ckpts/
     # udd test
@@ -141,6 +160,22 @@ elif [ "$2" == "gpu" ]; then
         --gamma 500.0 --batch_size 16 --gpu 0 --model_path ckpts/DistMult_FB15k_0/ \
         --eval_percent 0.01 --data_path /data/kg || fail "eval DistMult on $2"
 
+    # verify score sim
+    printf '1\n2\n3\n4\n5\n' > head.list
+    printf '1\n2\n' > rel.list
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_r_* --data_files head.list rel.list --topK 5 --gpu 0 || fail "run dglke_predict DistMult"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_r_* --data_files head.list rel.list --topK 5 --exec_mode 'batch_head' --gpu 0 || fail "run dglke_predict DistMult with batched head"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format h_r_* --data_files head.list rel.list --topK 5 --exec_mode 'batch_rel' --gpu 0 || fail "run dglke_predict DistMult with batched rel"
+    dglke_predict --data_path data/FB15k/ --model_path ckpts/DistMult_FB15k_0/ --format *_r_t --data_files head.list rel.list --topK 5 --exec_mode 'batch_tail' --gpu 0 || fail "run dglke_predict DistMult with batched tail"
+
+    # verify emb sim
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --exec_mode 'batch_left' --gpu 0 || fail "run dglke_emb_sim DistMult with cosine"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func l2 --gpu 0 || fail "run dglke_emb_sim DistMult with l2"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func l1 --gpu 0 || fail "run dglke_emb_sim DistMult with l1"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func dot --gpu 0 || fail "run dglke_emb_sim DistMult with dot"
+    dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func ext_jaccard --gpu 0 --exec_mode 'batch_left' --topK 3|| fail "run dglke_emb_sim DistMult with extended jaccard"
+    rm head.list
+    
     rm -fr ckpts/
     # udd test
     dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
