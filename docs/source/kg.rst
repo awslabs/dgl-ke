@@ -117,21 +117,9 @@ more information on how to use the examples, please refer to the
 `code <https://github.com/cyrusmvahid/GNNTrainingMaterial/blob/master/March2020/supportingexamples/examples.py>`__
 that draws the examples.
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
-
-Figure1: World of Mary
-
-.. raw:: html
-
-   </figcaption>
-   </figure>
+.. image:: ../images/kg_example.png
+  :width: 400
+  :alt: Figure1: World of Mary
 
 What is the task of Knowledge Graph Embedding?
 ==============================================
