@@ -733,7 +733,7 @@ Example:
    2 - 3i &
    1 - 5i
    \end{bmatrix}
-   \text{ and }
+   \text{ and } \\
    \langle u,v \rangle = u^*v = \begin{bmatrix}
    2 - 3i &
    1 - 5i
