@@ -728,7 +728,7 @@ Example:
    1 + i \\
    2 + 2i
    \end{bmatrix}
-   \text{ are in } \mathbb{C}^2\text{ and }\mathbb{C}^3\text{ respectively.}
+   \text{ are in } \mathbb{C}^2\text{ and }\mathbb{C}^3\text{ respectively.} \\
    \text{ then }u^*= \begin{bmatrix}
    2 - 3i &
    1 - 5i
@@ -872,8 +872,8 @@ Computing :math:`i` to a sequence of powers and replacing the values in
 .. math::
 
 
-   i^2=-1,\ i^3=i^2i=-i,\ i^4=ii^3=-1^2=1,\ i^5=i^4i=i,\ i^6=i^5i=i^2=-1,\ i^7=i^6i=-i,\ i^8=i^7i=-i^2=1,\ \dots\\
-   e^{(ix)} = 1 + \frac{ix}{1!} +\frac{i^2x^2}{2!} + \frac{i^3x^3}{3!} + \frac{i^4x^4}{4!} + \frac{i^5x^5}{5!} + \frac{i^6x^6}{6!} + \frac{i^7x^7}{3!} + \frac{i^8x^8}{8!} + \dots\\
+   i^2=-1,\ i^3=i^2i=-i,\ i^4=ii^3=-1^2=1,\ i^5=i^4i=i,\ i^6=i^5i=i^2=-1,\ \dots\\
+   e^{(ix)} = 1 + \frac{ix}{1!} +\frac{i^2x^2}{2!} + \frac{i^3x^3}{3!} + \frac{i^4x^4}{4!} + \frac{i^5x^5}{5!} + \frac{i^6x^6}{6!} + \dots\\
 
 rearranging the series and factoring :math:`i` in terms that include it:
 
