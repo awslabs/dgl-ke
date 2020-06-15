@@ -1,41 +1,65 @@
 Introduction to Knowledge Graph Embedding
 =========================================
 
-Knowledge Graphs (KG) have emerged as a compelling way to integrate
-siloed data sources and model relationships embedded in key entities of
-interest for applications such as search and product recommendations.
-Insights extracted from KGs in the form of knowledge graph embeddings
-(KGE) are now used to enhance machine learning and uncover patterns such
-as the nearest neighbors in social networks. Existing approaches to
-extract these embeddings are however hard to use and rarely scale to
-graphs with millions of nodes. AWS recently launched DGL-KE, that
-simplifies this process by abstracting this task to one command line
-script. This toolkit is built with Deep Graph Library (DGL), an open
-source library to implement graph neural networks (GNN). DGL-KE scales
-to graphs with millions of nodes and billions of edges, and offers a
-speedup of 2-5x over competing approaches.
+Knowledge Graphs (KGs) have emerged as an effective way to integrate
+disparate data sources and model underlying relationships for applications
+such as search. At Amazon, we use KGs to represent the hierarchical
+relationships among products; the relationships between creators and content
+on Amazon Music and Prime Video; and information for Alexa's question-answering
+service. Information extracted from KGs in the form of embeddings is used to
+improve search, recommend products, and infer missing information.
 
-DGL-KE is a powerful that very effective at generating graph embeddings.
-To use this tool effectively, however, it is important to understand the
-underlying architecture and where it performs best. This blog details
-out the underlying models used to generate embeddings that are
-fundamental to understand DGL-KE's functional capabilities.
+What is a graph
+===============
+A graph is a structure used to represent things and their relations.
+It is made of two sets - the set of nodes (also called vertices) and
+the set of edges (also called arcs). Each edge itself connects a pair
+of nodes indicating that there is a relation between them. This relation
+can either be undirected, e.g., capturing symmetric relations between nodes,
+or directed, capturing asymmetric relations. For example, if a graph is used
+to model the friendship relations of people in a social network, then the edges
+will be undirected as they are used to indicate that two people are friends;
+however, if the graph is used to model how people follow each other on Twitter,
+the edges will be directed. Depending on the edges' directionality, a graph can
+be directed or undirected.
+
+Graphs can be either homogeneous or heterogeneous. In a homogeneous graph, all
+the nodes represent instances of the same type and all the edges represent relations
+of the same type. For instance, a social network is a graph consisting of people
+and their connections, all representing the same entity type. In contrast,
+in a heterogeneous graph, the nodes and edges can be of different types. For instance,
+the graph for encoding the information in a marketplace will have buyer, seller,
+and product nodes that are connected via wants-to-buy, has-bought, is-customer-of,
+and is-selling edges.
+
+Finally, another class of graphs that is especially important for knowledge graphs are
+multigraphs. These are graphs that can have multiple (directed) edges between the same
+pair of nodes and can also contain loops. These multiple edges are typically of different
+types and as such most multigraphs are heterogeneous. Note that graphs that do not
+allow these multiple edges and self-loops are called simple graphs.
 
 What is a Knowledge Graph
 =========================
 
-“A knowledge graph (i) mainly describes real-world entities and their
-interrelations, organized in a graph, (ii) defines possible classes and
-relations of entities in a schema, (iii) allows for potentially
-interrelating arbitrary entities with each other and (iv) covers various
-topical domains.” [Paulheim- 1] Knowledge Graphs are often modeled as
-directed multigraphs. As a quick reminder let us define multi-graph and
-directed graphs: - In a directed graph edges are called arcs and they
-can direct information from their tail to their head nodes but not in
-the opposite direction. - A multigraph is a graph that can include loops
-as well as multiple relationships between the same nodes. for more
-information on Graphs you can check this
-`link <https://github.com/cyrusmvahid/GNNTrainingMaterial/blob/master/March2020/01-gentle_into_2_graphs.ipynb>`__.
+In the earlier marketplace graph example, the labels assigned to the different node types
+(buyer, seller, product) and the different relation types (wants-to-buy, has-bought,
+is-customer-of, is-selling) convey precise information (often called semantics)
+about what the nodes and relations represent for that particular domain. Once this graph
+is populated, it will encode the knowledge that we have about that marketplace as it
+relates to types of nodes and relations included. Such a graph is an example of a knowledge graph.
+
+A knowledge graph (KG) is a directed heterogeneous multigraph whose node and relation
+types have domain-specific semantics. KGs allow us to encode the knowledge into a form
+that is human interpretable and amenable to automated analysis and inference. KGs are
+becoming a popular approach to represent diverse types of information in the form of
+different types of entities connected via different types of relations.
+
+When working with KGs, we adopt a different terminology than the traditional vertices
+and edges used in graphs. The vertices of the knowledge graph are often called entities
+and the directed edges are often called triplets and are represented as a (h, r, t) tuple,
+where h is the head entity, t is the tail entity, and r is the relation associating
+the head with the tail entities. Note that the term relation here refers to the type
+of the relation (e.g., one of wants-to-buy, has-bought, is-customer-of, and is-selling).
 
 Let us examine a directed multigraph in an example, which includes a
 cast of characters and the world in which they live.
@@ -130,18 +154,20 @@ connections that are often one of the types below.
 -  **Definition:** A relation :math:`r` is ***symmetric*** if
    :math:`\forall {x,y}: (x,r,y)\implies (y,r,x)`
 -  **Example:**
-   :math:`\text{x=Mary and y=Tom and r="is a sibling of"}; (x,r,y) = \text{Mary is a sibling of Tom} \implies (y,r,x)=\text{Tom is a sibling of Mary}`
+   :math:`\text{x=Mary and y=Tom and r="is a sibling of"}; \\ (x,r,y) = \text{Mary is a sibling of Tom} \implies (y,r,x)=\text{Tom is a sibling of Mary}`
 
 -  ***antisymmetric***
 -  **Definition:** A relation r is ***antisymmetric*** if
    :math:`\forall {x,y}: (x,r,y)\implies \lnot (y,r,x)`
 -  **Example:**
-   :math:`\text{x=Quebec and y=Canada and r="is located in"}; (x,r,y) = \text{Quebec is located in Canada} \implies (y,\lnot r,x)=\text{Canada is not located in Quebec}`
+   :math:`\text{x=Quebec and y=Canada and r="is located in"}; \\ (x,r,y) = \text{Quebec is located in Canada} \implies (y,\lnot r,x)=\text{Canada is not located in Quebec}`
+
 -  ***inversion***
 -  **Definition:** A relation :math:`r_1` is ***inverse*** to relation
    :math:`r_2` if :math:`\forall x,y: r_2(x,y)\implies r_1(y,x)`.
 -  **Example:**
    :math:`x=Mary,\ y=Tom,\ r_1=\text{"is a sister of}"\ and r_2=\text{"is a brother of"} \\ (x,r_1,y)=\text{Mary is a sister of Tom} \implies (y,r_2,x) = \text{Tom is a brother of Mary}`
+
 -  ***composition***
 -  **Definition**: relation :math:`r_1` is composed of relation
    :math:`r_2` and relation :math:`r_3` if
