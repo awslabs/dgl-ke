@@ -173,7 +173,7 @@ connections that are often one of the types below.
    :math:`r_2` and relation :math:`r_3` if
    :math:`\forall x,y,z: (x,r_2,y) \land (y,r_3,z) \implies (x,r_1, z)`
 -  **Example:**
-   :math:`\text{x=Tom, y=Quebec, z=Canada},\ r_2=\text{"is born in"}, r_3=\text{"is located in"}, r_1=\text{"is from"}\\(x,r_2,y)=\text{Tom is born in Quebec} \land (y,r_3,z) = \text{Quebec is located in Canada} \implies (x,r_1,z)=\text{Tom is from Canada}`
+   :math:`\text{x=Tom, y=Quebec, z=Canada},\ r_2=\text{"is born in"}, r_3=\text{"is located in"}, r_1=\text{"is from"}\\(x,r_2,y)=\text{Tom is born in Quebec} \land (y,r_3,z) = \text{Quebec is located in Canada} \\ \implies (x,r_1,z)=\text{Tom is from Canada}`
 
 *ref: RotateE[2]*
 
@@ -559,7 +559,8 @@ A basic refresher on linear algebra
    b_{21} & b_{22} & \dots  & b_{2k} \\
    \vdots & \vdots & \ddots & \dots  \\
    b_{n1} & b_{n2} & \dots  & b_{nk} \\
-   \end{bmatrix}_{n\times k}\ then\
+   \end{bmatrix}_{n\times k}\        \\
+   then\
    C=[c_{mk}]_{m\times k}\ such\ that\  c_{mk}=\sum_{p=1}^{k}a_{mp}b_{pk}\, thus: \\
    C_{m\times k} = \begin{bmatrix}
    a_{11}b_{11} + \dots + a_{1n}b_{n1} & a_{11}b_{12} + \dots + a_{1n}b_{n2} & \dots  & a_{11}b_{1k} + \dots + a_{1n}b_{nk} \\
