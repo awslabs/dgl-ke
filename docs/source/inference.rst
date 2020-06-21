@@ -10,14 +10,14 @@ The ranking result will be automatically stored in the output file (result.tsv b
 
 Predicting entities/relations in a triplet
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The task of linkage score ranking is given a list of candidate (h, r, t) triplets, predicting which head entities are likely to connect to which tail entities via certain relation. An example return value of top5 linkage score likes this::
+The task of Predicting entities/relations is given a list of candidate (h, r, t) triplets, predicting which head entities are likely to connect to which tail entities via certain relation. An example return value of top5 linkage score likes this::
 
-  src   relation dst   score (DistMult)
-  407   5        8429  3.5953474
-  3645  3        7121  3.585188
-  93    10       7035  3.4557137
-  93    9        7035  3.4197974
-  2441  5        4833  3.3639894
+  src   rel  dst   score (DistMult)
+  407   5    8429  3.5953474
+  3645  3    7121  3.585188
+  93    10   7035  3.4557137
+  93    9    7035  3.4197974
+  2441  5    4833  3.3639894
 
 DGL-KE provides dglke_predict command to predicting entities/relations in a triplet. Currently, we support six models in inference: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
 
@@ -110,7 +110,7 @@ Finding similar embeddings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The task of embedding similarity ranking is given a set of entities or relations, finding the most similar entity/relation embeddings for some pre-defined similarity functions. An example of return value of top5 similar entities likes this::
 
-    entity1  entity2  score
+    left     right    score
     0        0        0.99999
     0        18470    0.91855
     0        2105     0.89916
@@ -158,7 +158,7 @@ The following command shows how to do entity similarity using cosine distance::
 
 The output is as::
 
-    head    tail    score
+    left    right   score
     6       15      0.55512
     1       12      0.33153
     7       20      0.27706
@@ -175,7 +175,7 @@ The following command shows how to do entity similarity using l2 distance with c
 
 The output is as::
 
-    head    tail    score
+    left    right   score
     0       0       0.0
     0       18470   3.1008
     0       24408   3.1466
@@ -198,7 +198,7 @@ The following command shows how to do relation similarity using cosine distance 
 
 The output is as::
 
-    head                          tail                            score
+    left                          right                           score
     _hyponym                      _hyponym                        0.99999
     _derivationally_related_form  _derivationally_related_form    0.99999
     _hyponym                      _also_see                       0.58408
