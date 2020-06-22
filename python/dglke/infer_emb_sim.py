@@ -30,7 +30,7 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--mfile', type=str, default=None,
                           help='ID mapping file.')
         self.add_argument('--emb_file', type=str, default=None,
-                          help='Numpy file containing the embeddings. Can be omitted if model_path is provided')
+                          help='Numpy file containing the embeddings.')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
                                 'l_r: two list of objects are provided as left objects and right objects.\n' \
