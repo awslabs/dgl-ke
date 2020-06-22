@@ -120,7 +120,7 @@ def main():
     result = model.topK(head, tail, bcast=bcast, pair_ws=pair_wise, k=args.topK)
 
     with open(args.output, 'w+') as f:
-        f.write('head\ttail\tscore\n')
+        f.write('left\tright\tscore\n')
         for res in result:
             hl, tl, sl = res
             hl = hl.tolist()
