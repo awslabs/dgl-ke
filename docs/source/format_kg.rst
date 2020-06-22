@@ -14,7 +14,7 @@ The following table gives the overview of the input data for different toolkit. 
 +==================+==========+============+=====================+================+
 |                  | Triplets | ID Mapping |     Embeddings      |                |
 +------------------+----------+------------+---------------------+----------------+
-| dglke_train      |    Y     |     N      |         N           |       N        |
+| dglke_train      |    Y     |     Y      |         N           |       N        |
 +------------------+----------+------------+---------------------+----------------+
 | dglke_eval       |    Y     |     N      |         Y           |       N        |
 +------------------+----------+------------+---------------------+----------------+
@@ -96,7 +96,7 @@ test.txt::
 Format of User Defined Knowledge Graph
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-User Defined Knowledge Graph uses the KGE ID Space which means both the entities and relations have already been remapped. The entity IDs and relation IDs are both **start from 0 and be continous**. The knowledge graph can be stored in a single file (only providing the trainset) or in three files (trainset, validset and testset) along with two ID mapping files (one for entity ID mapping and another for relation ID mapping). The knowledge graph is stored as triplets in files. The order of head, relation and tail can be arbitry, e.g. [h, r, t]. A delimiter should be used to seperate the head, relation and tail. The recommended delimiter includes ``\t``, ``|``, ``,`` and ``;``. The ID mapping information is stored as pairs in mapping files with pair[0] as the integer ID and pair[1] as the original raw ID. 
+User Defined Knowledge Graph uses the KGE ID Space which means both the entities and relations have already been remapped. The entity IDs and relation IDs are both **start from 0 and be continous**. The knowledge graph can be stored in a single file (only providing the trainset) or in three files (trainset, validset and testset) along with two ID mapping files (one for entity ID mapping and another for relation ID mapping). The knowledge graph is stored as triplets in files. The order of head, relation and tail can be arbitry, e.g. [h, r, t]. A delimiter should be used to seperate the head, relation and tail. The recommended delimiter includes ``\t``, ``|``, ``,`` and ``;``. The ID mapping information should be stored as pairs in mapping files with pair[0] as the integer ID and pair[1] as the original raw ID. The ``dglke_train`` and ``dglke_dist_train`` will do some integrity check of the IDs according to the mapping files.
 
 Following gives an example of User Defined Knowledge Graph files:
 
