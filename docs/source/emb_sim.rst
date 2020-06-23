@@ -11,15 +11,15 @@ This task is to find the most similar entity/relation embeddings for some pre-de
 
 Currently we support five different similarity functions: cosine, l2 distance, l1 distance, dot product and extended jaccard.
 
-Four arguments are required to provide basic information for doning the embedding similarity ranking task:
+Four arguments are required to provide basic information for finding similar embeddings:
 
-  * ``--emb_file``, The numpy file containing the embeddings.
-  * ``--format``, The format of the input data.
+  * ``--emb_file``, The numpy file that contains the embeddings of all entities/relations in a knowledge graph.
+  * ``--format``, The format of the input objects (entities/relations).
 
     * ``l_r``: two list of objects are provided as left objects and right objects.
-    * ``l_*``: one list of objects is provided as left objects list and treat all objects in emb\_file as right objects.
+    * ``l_*``: one list of objects is provided as left objects and all objects in emb\_file are right objects. This is to find most similar objects to the ones on the left.
     * ``*_r``: one list of objects is provided as right objects list and treat all objects in emb\_file as left objects.
-    * ``*``: treat all objects in the emb_file as both left objects and right objects.
+    * ``*``: treat all objects in the emb\_file as both left objects and right objects.
 
   * ``--data_files`` A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``l_r``, two files are required as left_data and right_data, while for ``l_*``, one file is required as left_data, and for ``*`` this argument will be omited.
   * ``--raw_data``, A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is using the Raw ID and the inference program will do the ID translation according to ID mapping files. If False, the data is using the KGE ID and it is assumed that user has already done the ID translation. Default: False.
