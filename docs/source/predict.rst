@@ -36,8 +36,8 @@ Task related arguments:
 Input/Output related arguments:
 
   * ``--output``, Where to store the result, by default it is stored in result.tsv
-  * ``--entity_mfile``, The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
-  * ``--rel_mfile``, The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+  * ``--entity_mfile``, The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``, otherwise we will search the mapping file under ``--data_path``.
+  * ``--rel_mfile``, The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``,  otherwise we will search the mapping file under ``--data_path``.
 
 The following command shows how to do entities/relations linkage prediction and ranking using a pretrained DistMult model::
 
