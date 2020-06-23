@@ -26,11 +26,11 @@ Four arguments are required to provide basic information for finding similar emb
 
 Task related arguments:
 
-  * ``--exec_mode``, How to calculate scores for element pairs and calculate topK. Default: 'all'
+  * ``--exec_mode``, Indicate how to calculate scores for element pairs and calculate topK. Default: 'all'
 
-    * ``pairwise``: both left and right objects are provided with the same length N, and we will calculate the similarity pair by pair: result = topK([score(l_i, r_i)]) for i in N, the result shape will be (K,).
-    * ``all``: both left and right objects are provided as L and R, and we calculate all possible combinations of (l_i, r_j): result = topK([[score(l_i, rj) for l_i in L] for r_j in R]), the result shape will be (K,).
-    * ``batch_left``: both left and right objects are provided as L and R,, and we calculate topK for each element in L: result = topK([score(l_i, r_j) for r_j in R]) for l_j in L, the result shape will be (sizeof(L), K).
+    * ``pairwise``: The same number (N) of left and right objects are provided. It calculates the similarity pair by pair: result = topK([score(l_i, r_i) for i in N]) and output the K most similar pairs.
+    * ``all``: both left objects and right objects are provided as L and R. It calculates similarity scores of all possible combinations of (l_i, r_j): result = topK([[score(l_i, rj) for l_i in L] for r_j in R]), and outputs the K most similar pairs.
+    * ``batch_left``: left objects and right objects are provided as L and R. It finds the K most similar objects from the right objects for each object in L: result = topK([score(l_i, r_j) for r_j in R]) for l_j in L. It outputs (len(L) * K) most similar pairs.
 
   * ``--topk``, How many results are returned. Default: 10.
   * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions: 1)cosine: use cosine distance; 2) l2: use l2 distance; 3) l1: use l1 distance; 4) dot: use dot product as distance; 5) ext_jaccard: use extended jaccard as distance. Default: cosine.
