@@ -1,6 +1,6 @@
 dglke_emb_sim: finding similar embeddings
 -------------------------------------------
-The task of embedding similarity ranking is given a set of entities or relations, finding the most similar entity/relation embeddings for some pre-defined similarity functions. An example of return value of top5 similar entities likes this::
+This task is to find the most similar entity/relation embeddings for some pre-defined similarity functions given a set of entities or relations. An example of the output for top5 similar entities are as follows::
 
     left     right    score
     0        0        0.99999
@@ -9,7 +9,7 @@ The task of embedding similarity ranking is given a set of entities or relations
     0        13605    0.83187
     0        36762    0.76978
 
-DGL-KE provides dglke_emb_sim command to calculate the embedding similarity ranking between entity pairs or relation pairs. Currently we support five different similarity functions: cosine, l2 distance, l1 distance, dot and extended jaccard.
+Currently we support five different similarity functions: cosine, l2 distance, l1 distance, dot product and extended jaccard.
 
 Four arguments are required to provide basic information for doning the embedding similarity ranking task:
 
