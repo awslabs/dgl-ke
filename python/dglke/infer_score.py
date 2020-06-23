@@ -121,7 +121,7 @@ def main():
         if args.raw_data:
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
                                                                         rel_f=None,
-                                                                        tail_f=data_files[2],
+                                                                        tail_f=data_files[1],
                                                                         emap_f=config['emap_file'],
                                                                         rmap_f=config['rmap_file'])
         else:
@@ -132,8 +132,8 @@ def main():
     elif args.format == '*_r_t':
         if args.raw_data:
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
-                                                                        rel_f=data_files[1],
-                                                                        tail_f=data_files[2],
+                                                                        rel_f=data_files[0],
+                                                                        tail_f=data_files[1],
                                                                         emap_f=config['emap_file'],
                                                                         rmap_f=config['rmap_file'])
         else:
