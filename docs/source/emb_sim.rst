@@ -19,10 +19,10 @@ Four arguments are required to provide basic information for finding similar emb
     * ``l_r``: two list of objects are provided as left objects and right objects.
     * ``l_*``: one list of objects is provided as left objects and all objects in emb\_file are right objects. This is to find most similar objects to the ones on the left.
     * ``*_r``: one list of objects is provided as right objects list and treat all objects in emb\_file as left objects.
-    * ``*``: treat all objects in the emb\_file as both left objects and right objects.
+    * ``*``: all objects in the emb\_file are both left objects and right objects. The option finds the most similar objects in the graph.
 
-  * ``--data_files`` A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``l_r``, two files are required as left_data and right_data, while for ``l_*``, one file is required as left_data, and for ``*`` this argument will be omited.
-  * ``--raw_data``, A flag tells whether the data profiled in data_files is in the raw object naming space or in mapped id space. If True, the data is using the Raw ID and the inference program will do the ID translation according to ID mapping files. If False, the data is using the KGE ID and it is assumed that user has already done the ID translation. Default: False.
+  * ``--data_files`` A list of data file names. It provides necessary files containing the requried data according to the format, e.g., for ``l_r``, two files are required as left_data and right_data, while for ``l_*``, one file is required as left_data, and for ``*`` this argument will be omited.
+  * ``--raw_data``, A flag indicates whether the data in data_files are raw IDs or KGE IDs. If True, the data are the Raw IDs and the command will map the raw IDs to KGE Ids automatically. If False, the data are KGE IDs. Default: False.
 
 Task related arguments:
 
