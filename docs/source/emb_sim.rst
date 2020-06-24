@@ -33,13 +33,13 @@ Task related arguments:
     * ``batch_left``: left objects and right objects are provided as L and R. It finds the K most similar objects from the right objects for each object in L: result = topK([score(l_i, r_j) for r_j in R]) for l_j in L. It outputs (len(L) * K) most similar pairs.
 
   * ``--topk``, How many results are returned. Default: 10.
-  * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions. Default: cosine
+  * ``--sim_func``, What kind of similarity function is used in ranking and will be output. It support five functions. Default: cosine
   
-    * **cosine**: use cosine distance; score = $\frac{x \cdot y}{||x||_2||y||_2}$
-    * **l2**: use l2 distance; score = $||x - y||_2$
-    * **l1**: use l1 distance; score = $||x - y||_1$
-    * **dot**: use dot product as distance; score = $x \cdot y$
-    * **ext_jaccard**: use extended jaccard as distance. score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
+    * **cosine**: use cosine similarity; score = $\frac{x \cdot y}{||x||_2||y||_2}$
+    * **l2**: use l2 similarity; score = $-||x - y||_2$
+    * **l1**: use l1 similarity; score = $-||x - y||_1$
+    * **dot**: use dot product similarity; score = $x \cdot y$
+    * **ext_jaccard**: use extended jaccard similarity. score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
 
   * ``--gpu``, GPU device to use in inference. Default: -1 (CPU).
 

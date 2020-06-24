@@ -404,8 +404,7 @@ def run_topk_emb(sfunc, sim_func):
     head_ids = np.asarray(head_ids)
     tail_ids = np.asarray(tail_ids)
     idx = np.argsort(scores)
-    if sfunc == 'cosine' or sfunc == 'dot' or sfunc == 'ext_jaccard':
-        idx = idx[::-1]
+    idx = idx[::-1]
     idx = idx[:10]
     head_ids = head_ids[idx]
     tail_ids = tail_ids[idx]
@@ -438,8 +437,7 @@ def run_topk_emb(sfunc, sim_func):
     head_ids = np.asarray(head_ids)
     tail_ids = np.asarray(tail_ids)
     idx = np.argsort(scores)
-    if sfunc == 'cosine' or sfunc == 'dot' or sfunc == 'ext_jaccard':
-        idx = idx[::-1]
+    idx = idx[::-1]
     idx = idx[:10]
     head_ids = head_ids[idx]
     tail_ids = tail_ids[idx]
@@ -472,8 +470,7 @@ def run_topk_emb(sfunc, sim_func):
         scores = scores.reshape(scores.shape[0])
         tail_ids = np.asarray(tail_ids)
         idx = np.argsort(scores)
-        if sfunc == 'cosine' or sfunc == 'dot' or sfunc == 'ext_jaccard':
-            idx = idx[::-1]
+        idx = idx[::-1]
         idx = idx[:10]
         head_ids = np.full((10,), F.asnumpy(emb_ids[i]))
         tail_ids = tail_ids[idx]
@@ -503,14 +500,14 @@ def test_l2_topk_emb():
     def l2_func(x, y):
         score = x - y
 
-        return F.sum(score * score, dim=0) ** (1/2)
+        return -F.sum(score * score, dim=0) ** (1/2)
     run_topk_emb('l2', l2_func)
 
 def test_l1_topk_emb():
     def l1_func(x, y):
         score = x - y
 
-        return norm(score, p=1)
+        return -norm(score, p=1)
     run_topk_emb('l1', l1_func)
 
 def test_dot_topk_emb():

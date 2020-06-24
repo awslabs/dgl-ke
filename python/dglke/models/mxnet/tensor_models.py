@@ -52,14 +52,14 @@ def l2_dist(x, y, pw=False):
         x = x.expand_dims(axis=1)
         y = y.expand_dims(axis=0)
 
-    return nd.norm(x-y, ord=2, axis=-1)
+    return -nd.norm(x-y, ord=2, axis=-1)
 
 def l1_dist(x, y, pw=False):
     if pw is False:
         x = x.expand_dims(axis=1)
         y = y.expand_dims(axis=0)
 
-    return nd.norm(x-y, ord=1, axis=-1)
+    return -nd.norm(x-y, ord=1, axis=-1)
 
 def dot_dist(x, y, pw=False):
     if pw is False:

@@ -369,7 +369,7 @@ dglke_emb_sim
     How many results are returned. Default:10.
 
   - ``--sim_func SIM_FUNC_NAME``
-    What kind of distance function is used in ranking and will be output. It support five functions: ``cosine`` (score = $\\frac{x \\cdot y}{||x||_2||y||_2}$), ``l2`` (score = $||x - y||_2$), ``l1`` (score = $||x - y||_1$), ``dot`` (score = $x \\cdot y$)) and ``ext_jaccard`` (score = $\\frac{x \\cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \\cdot y}$).
+    What kind of distance function is used in ranking and will be output. It support five functions: ``cosine`` (score = $\\frac{x \\cdot y}{||x||_2||y||_2}$), ``l2`` (score = $-||x - y||_2$), ``l1`` (score = $-||x - y||_1$), ``dot`` (score = $x \\cdot y$)) and ``ext_jaccard`` (score = $\\frac{x \\cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \\cdot y}$).
 
   - ``--gpu GPU_ID``
     GPU device to use in inference, by default it uses CPU. Default: -1.(CPU)
