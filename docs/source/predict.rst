@@ -1,18 +1,22 @@
 dglke_predict: predicting entities/relations in a triplet
 -------------------------------------------
-The task of predicting entities/relations is given a list of candidate (h, r, t) triplets, predicting which head entities are likely to connect to which tail entities via certain relation. **The triplets can either exist or not (namely missing) in the knowledge graph.** An example return value of top5 linkage score likes this::
+The task is to predict missing entities or relations in a triplet. Blow shows an example that predicts top 5 most likely destination entities for every given source node and relation::
 
-  src   rel  dst   score (DistMult)
+   src  rel  dst   score
     1    0    12   -5.11393
     1    0    18   -6.10925
     1    0    13   -6.66778
+    1    0    17   -6.81532
+    1    0    19   -6.83329
     2    0    17   -5.09325
     2    0    18   -5.42972
     2    0    20   -5.61894
+    2    0    12   -5.75848
+    2    0    14   -5.94183
 
-DGL-KE provides dglke_predict command to predicting entities/relations in a triplet. Currently, we support six models in inference: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
+Currently, it supports six models: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
 
-Four arguments are required to provide basic information for doing the linkage score ranking task:
+Four arguments are required to provide basic information for predicting missing entities or relations:
 
   * ``--data_path``, The path containing the id mapping files, including both the entity ID mapping file and the relation ID mapping file. Default: ./data.
   * ``--model_path``, The path containing the pretrained model, including the embedding files (.npy) and a config.json containing the configure information of the model.
