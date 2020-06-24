@@ -44,24 +44,7 @@ Input/Output related arguments:
   * ``--entity_mfile``, The entity ID mapping file. If not provided, we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``, otherwise we will search the mapping file under ``--data_path``.
   * ``--rel_mfile``, The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``,  otherwise we will search the mapping file under ``--data_path``.
 
-The following command shows how to do entities/relations linkage prediction and ranking using a pretrained DistMult model::
-
-    # Using PyTorch Backend
-    dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
-
-    # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
-
-The output is as::
-
-    src  rel  dst  score
-    6    0    15   -2.39380
-    8    0    14   -2.65297
-    2    0    14   -2.67331
-    9    0    18   -2.86985
-    8    0    20   -2.89651
-
-The following command shows how to do entities/relations linkage prediction and ranking while calculate topK for each element in head using a pretrained TransE_l2 model (--exec_mode ‘batch_head’)::
+The following command predicts the K most likely relations and tail entities for each head entity in the list using a pretrained TransE_l2 model (--exec_mode ‘batch_head’). In this example, the candidate relations and the candidate tail entities are given by the user.::
 
     # Using PyTorch Backend
     dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --exec_mode 'batch_head'
@@ -84,7 +67,24 @@ The output is as::
     2    0    14   -5.94183
     ...
 
-The following command shows how to do entities/relations linkage prediction and ranking using a pretrained TransE_l2 model and use Raw ID (turn on --raw_data)::
+The following command finds the most likely combinations of head entities, relations and tail entities from the input lists using a pretrained DistMult model::
+
+    # Using PyTorch Backend
+    dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
+
+    # Using MXNet Backend
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
+
+The output is as::
+
+    src  rel  dst  score
+    6    0    15   -2.39380
+    8    0    14   -2.65297
+    2    0    14   -2.67331
+    9    0    18   -2.86985
+    8    0    20   -2.89651
+
+The following command finds the most likely combinations of head entities, relations and tail entities from the input lists using a pretrained TransE_l2 model and uses Raw ID (turn on --raw_data)::
 
     # Using PyTorch Backend
     dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
