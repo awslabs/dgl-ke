@@ -1,13 +1,18 @@
 dglke_predict: predicting entities/relations in a triplet
 -------------------------------------------
-The task is mainly used to predict missing entities or relations in a triplet. An example return value of top5 linkage score likes this::
+The task is to predict missing entities or relations in a triplet. Blow shows an example that predicts top 5 most likely destination entities for every given source node and relation::
 
-  src   rel  dst   score (DistMult)
-  407   5    8429  3.5953474
-  3645  3    7121  3.585188
-  93    10   7035  3.4557137
-  93    9    7035  3.4197974
-  2441  5    4833  3.3639894
+   src  rel  dst   score
+    1    0    12   -5.11393
+    1    0    18   -6.10925
+    1    0    13   -6.66778
+    1    0    17   -6.81532
+    1    0    19   -6.83329
+    2    0    17   -5.09325
+    2    0    18   -5.42972
+    2    0    20   -5.61894
+    2    0    12   -5.75848
+    2    0    14   -5.94183
 
 Currently, it supports six models: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
 
