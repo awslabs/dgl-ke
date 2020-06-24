@@ -72,9 +72,9 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
         self.add_argument('--entity_mfile', type=str, default=None,
-                          help='Entity ID mapping file.')
+                          help='Entity ID mapping file name. mfile_path = os.path.join(data_path, entity_mfile)')
         self.add_argument('--rel_mfile', type=str, default=None,
-                          help='Relation ID mapping file.')
+                          help='Relation ID mapping file name. mfile_path = os.path.join(data_path, rel_mfile)')
         self.add_argument('--gpu', type=int, default=-1,
                           help='GPU device to use in inference, -1 means CPU')
 
