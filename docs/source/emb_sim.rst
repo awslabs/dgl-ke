@@ -22,7 +22,7 @@ Four arguments are required to provide basic information for finding similar emb
     * ``*``: all objects in the emb\_file are both left objects and right objects. The option finds the most similar objects in the graph.
 
   * ``--data_files`` A list of data file names. It provides necessary files containing the requried data according to the format, e.g., for ``l_r``, two files are required as left_data and right_data, while for ``l_*``, one file is required as left_data, and for ``*`` this argument will be omited.
-  * ``--raw_data``, A flag indicates whether the data in data_files are raw IDs or KGE IDs. If True, the data are the Raw IDs and the command will map the raw IDs to KGE Ids automatically. If False, the data are KGE IDs. Default: False.
+  * ``--raw_data``, A flag indicates whether the data in data_files are raw IDs or KGE IDs. If True, the data are the Raw IDs and the command will map the raw IDs to KGE Ids automatically using the ID mapping file provided through ``--mfile``. If False, the data are KGE IDs. Default: False.
 
 Task related arguments:
 
@@ -33,7 +33,14 @@ Task related arguments:
     * ``batch_left``: left objects and right objects are provided as L and R. It finds the K most similar objects from the right objects for each object in L: result = topK([score(l_i, r_j) for r_j in R]) for l_j in L. It outputs (len(L) * K) most similar pairs.
 
   * ``--topk``, How many results are returned. Default: 10.
-  * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions: 1)cosine: use cosine distance; 2) l2: use l2 distance; 3) l1: use l1 distance; 4) dot: use dot product as distance; 5) ext_jaccard: use extended jaccard as distance. Default: cosine.
+  * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions. Default: cosine
+  
+    * **cosine**: use cosine distance; score = $\frac{x \cdot y}{||x||_2||y||_2}$
+    * **l2**: use l2 distance; score = $||x - y||_2$
+    * **l1**: use l1 distance; score = $||x - y||_1$
+    * **dot**: use dot product as distance; score = $x \cdot y$
+    * **ext_jaccard**: use extended jaccard as distance. score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
+
   * ``--gpu``, GPU device to use in inference. Default: -1 (CPU).
 
 Input/Output related arguments:

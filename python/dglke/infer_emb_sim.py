@@ -61,7 +61,7 @@ class ArgParser(argparse.ArgumentParser):
                           help='What kind of distance function is used in ranking and will be output: \n' \
                                 'cosine: use cosine distance, score = $\frac{x \cdot y}{||x||_2||y||_2}$' \
                                 'l2: use l2 distance, score = $||x - y||_2$ \n' \
-                                'l1: use l1 distance, score = $||x - y||_1 \n' \
+                                'l1: use l1 distance, score = $||x - y||_1$ \n' \
                                 'dot: use dot product as distance, score = $x \cdot y$ \n' \
                                 'ext_jaccard: use extended jaccard as distance, score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$ \n')
         self.add_argument('--output', type=str, default='result.tsv',
