@@ -33,22 +33,22 @@ Task related arguments:
     * ``batch_left``: left objects and right objects are provided as L and R. It finds the K most similar objects from the right objects for each object in L: result = topK([score(l_i, r_j) for r_j in R]) for l_j in L. It outputs (len(L) * K) most similar pairs.
 
   * ``--topk``, How many results are returned. Default: 10.
-  * ``--sim_func``, What kind of distance function is used in ranking and will be output. It support five functions. Default: cosine
+  * ``--sim_func``, the function to define the distance between a pair of objects. It support five functions. Default: cosine
   
-    * **cosine**: use cosine distance; score = $\frac{x \cdot y}{||x||_2||y||_2}$
-    * **l2**: use l2 distance; score = $||x - y||_2$
-    * **l1**: use l1 distance; score = $||x - y||_1$
-    * **dot**: use dot product as distance; score = $x \cdot y$
-    * **ext_jaccard**: use extended jaccard as distance. score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
+    * **cosine**: use cosine distance; $\frac{x \cdot y}{||x||_2||y||_2}$
+    * **l2**: use l2 distance; $||x - y||_2$
+    * **l1**: use l1 distance; $||x - y||_1$
+    * **dot**: use dot product; $x \cdot y$
+    * **ext_jaccard**: use extended jaccard. $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
 
   * ``--gpu``, GPU device to use in inference. Default: -1 (CPU).
 
 Input/Output related arguments:
 
-  * ``--output``, Where to store the result, by default it is stored in result.tsv.
+  * ``--output``, the output file that stores the result. By default it is stored in result.tsv.
   * ``--mfile``, The ID mapping file.
 
-The following command shows how to do entity similarity using cosine distance::
+The following command finds similar entities based on cosine distance::
 
     # Using PyTorch Backend
     dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'l_r' --data_files head.list tail.list  --topK 5
@@ -65,7 +65,7 @@ The output is as::
     7       19      0.25631
     7       13      0.21372
 
-The following command shows how to do entity similarity using l2 distance with calculating topK for each element in left (--exec_mode batch_left)::
+The following command finds topK most similar entities for each element on the left using l2 distance (--exec_mode batch_left)::
 
     # Using PyTorch Backend
     dglke_emb_sim --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_entity.npy --format 'l_*' --data_files head.list --sim_func l2 --topK 5 --exec_mode 'batch_left'
@@ -88,7 +88,7 @@ The output is as::
     1       38633   5.3221
     ...
 
-The following command shows how to do relation similarity using cosine distance and use Raw ID (turn on --raw_data)::
+The following command finds similar relations using cosine distance and use Raw ID (turn on --raw_data)::
 
     # Using PyTorch Backend
     dglke_emb_sim --mfile data/wn18/relations.dict --emb_file ckpts/TransE_l2_wn18_0/wn18_TransE_l2_relation.npy  --format 'l_*' --data_files raw_rel.list --topK 5 --raw_data
