@@ -30,7 +30,7 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--mfile', type=str, default=None,
                           help='ID mapping file.')
         self.add_argument('--emb_file', type=str, default=None,
-                          help='Numpy file containing the embeddings. Can be omitted if model_path is provided')
+                          help='Numpy file containing the embeddings.')
         self.add_argument('--format', type=str,
                           help='The format of input data'\
                                 'l_r: two list of objects are provided as left objects and right objects.\n' \
@@ -58,12 +58,12 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--topK', type=int, default=10,
                           help='How many results are returned')
         self.add_argument('--sim_func', type=str, default='cosine',
-                          help='What kind of distance function is used in ranking and will be output: \n' \
-                                'cosine: use cosine distance, score = $\frac{x \cdot y}{||x||_2||y||_2}$' \
-                                'l2: use l2 distance, score = $||x - y||_2$ \n' \
-                                'l1: use l1 distance, score = $||x - y||_1 \n' \
-                                'dot: use dot product as distance, score = $x \cdot y$ \n' \
-                                'ext_jaccard: use extended jaccard as distance, score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$ \n')
+                          help='What kind of similarity function is used in ranking and will be output: \n' \
+                                'cosine: use cosine similarity, score = $\frac{x \cdot y}{||x||_2||y||_2}$' \
+                                'l2: use l2 similarity, score = -$||x - y||_2$ \n' \
+                                'l1: use l1 similarity, score = -$||x - y||_1$ \n' \
+                                'dot: use dot product similarity, score = $x \cdot y$ \n' \
+                                'ext_jaccard: use extended jaccard similarity, score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$ \n')
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
         self.add_argument('--gpu', type=int, default=-1,

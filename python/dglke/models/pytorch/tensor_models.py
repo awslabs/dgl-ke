@@ -55,14 +55,14 @@ def l2_dist(x, y, pw=False):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
 
-    return th.norm(x-y, p=2, dim=-1)
+    return -th.norm(x-y, p=2, dim=-1)
 
 def l1_dist(x, y, pw=False):
     if pw is False:
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
 
-    return th.norm(x-y, p=1, dim=-1)
+    return -th.norm(x-y, p=1, dim=-1)
 
 def dot_dist(x, y, pw=False):
     if pw is False:

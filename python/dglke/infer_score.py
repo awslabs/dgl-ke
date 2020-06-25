@@ -27,8 +27,6 @@ from .models.infer import ScoreInfer
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(ArgParser, self).__init__()
-        self.add_argument('--data_path', type=str, default='data',
-                          help='root path of all dataset including id mapping files')
         self.add_argument('--model_path', type=str, default='ckpts',
                           help='the place where to load the model')
         self.add_argument('--format', type=str,
@@ -72,9 +70,9 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--output', type=str, default='result.tsv',
                           help='Where to store the result, should be a single file')
         self.add_argument('--entity_mfile', type=str, default=None,
-                          help='Entity ID mapping file.')
+                          help='Entity ID mapping file name. Required if Raw ID is used.')
         self.add_argument('--rel_mfile', type=str, default=None,
-                          help='Relation ID mapping file.')
+                          help='Relation ID mapping file name. Required if Raw ID is used.')
         self.add_argument('--gpu', type=int, default=-1,
                           help='GPU device to use in inference, -1 means CPU')
 
@@ -82,24 +80,24 @@ def main():
     args = ArgParser().parse_args()
 
     config = load_model_config(os.path.join(args.model_path, 'config.json'))
-    if args.entity_mfile != None:
-        config['emap_file'] = os.path.join(args.data_path, args.entity_mfile)
-    else:
-        config['emap_file'] = os.path.join(args.data_path, config['emap_file'])
-    if args.rel_mfile != None:
-        config['rmap_file'] = os.path.join(args.data_path, args.rel_mfile)
-    else:
-        config['rmap_file'] = os.path.join(args.data_path, config['rmap_file'])
+    emap_file = args.entity_mfile
+    rmap_file = args.rel_mfile
 
     data_files = args.data_files
     # parse input data first
     if args.format == 'h_r_t':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 3, 'When using h_r_t, head.list, rel.list and tail.list ' \
+                'should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
                                                                         rel_f=data_files[1],
                                                                         tail_f=data_files[2],
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=data_files[0],
                                                 rel_f=data_files[1],
@@ -107,11 +105,17 @@ def main():
 
     elif args.format == 'h_r_*':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 2, 'When using h_r_*, head.list and rel.list ' \
+                'should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
                                                                         rel_f=data_files[1],
                                                                         tail_f=None,
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=data_files[0],
                                                 rel_f=data_files[1],
@@ -119,11 +123,17 @@ def main():
 
     elif args.format == 'h_*_t':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 2, 'When using h_*_t, head.list and tail.list ' \
+                'should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
                                                                         rel_f=None,
-                                                                        tail_f=data_files[2],
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        tail_f=data_files[1],
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=data_files[0],
                                                 rel_f=None,
@@ -131,11 +141,17 @@ def main():
 
     elif args.format == '*_r_t':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 2, 'When using *_r_t rel.list and tail.list ' \
+                'should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
-                                                                        rel_f=data_files[1],
-                                                                        tail_f=data_files[2],
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        rel_f=data_files[0],
+                                                                        tail_f=data_files[1],
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=None,
                                                 rel_f=data_files[0],
@@ -143,11 +159,16 @@ def main():
 
     elif args.format == 'h_*_*':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 1, 'When using h_*_*, only head.list should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=data_files[0],
                                                                         rel_f=None,
                                                                         tail_f=None,
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=data_files[0],
                                                 rel_f=None,
@@ -155,11 +176,16 @@ def main():
 
     elif args.format == '*_r_*':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 1, 'When using *_r_*, only rel.list should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
-                                                                        rel_f=data_files[1],
+                                                                        rel_f=data_files[0],
                                                                         tail_f=None,
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=None,
                                                 rel_f=data_files[0],
@@ -167,11 +193,16 @@ def main():
 
     elif args.format == '*_*_t':
         if args.raw_data:
+            assert emap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'entity_mfile should be provided.'
+            assert rmap_file is not None, 'When using RAW ID through --raw_data, ' \
+                'rel_mfile should be provided.'
+            assert len(data_files) == 1, 'When using *_*_t, only tail.list should be provided.'
             head, rel, tail, id2e_map, id2r_map = load_raw_triplet_data(head_f=None,
                                                                         rel_f=None,
-                                                                        tail_f=data_files[2],
-                                                                        emap_f=config['emap_file'],
-                                                                        rmap_f=config['rmap_file'])
+                                                                        tail_f=data_files[0],
+                                                                        emap_f=emap_file,
+                                                                        rmap_f=rmap_file)
         else:
             head, rel, tail = load_triplet_data(head_f=None,
                                                 rel_f=None,

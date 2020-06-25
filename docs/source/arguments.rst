@@ -312,9 +312,6 @@ dglke_partition
 
 dglke_predict
 ^^^^^^^^^^^^^^^
-  - ``--data_path DATA_PATH``
-    The root path of all dataset including id mapping files. Default: 'data'
-
   - ``--model_path MODEL_PATH``
     The place where to load the model. Default 'ckpts'.
 
@@ -343,10 +340,10 @@ dglke_predict
     Where to store the result. Default: result.tsv
 
   - ``--entity_mfile`` (Optional)
-    The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+    The entity ID mapping file. Required if Raw ID is used.
 
   - ``--rel_mfile`` (Optional)
-    The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+    The relation ID mapping file. Required if Raw ID is used.
 
 dglke_emb_sim
 ^^^^^^^^^^^^^^^
@@ -369,7 +366,7 @@ dglke_emb_sim
     How many results are returned. Default:10.
 
   - ``--sim_func SIM_FUNC_NAME``
-    What kind of distance function is used in ranking and will be output. It support five functions: ``cosine`` (score = $\\frac{x \\cdot y}{||x||_2||y||_2}$), ``l2`` (score = $||x - y||_2$), ``l1`` (score = $||x - y||_1$), ``dot`` (score = $x \\cdot y$)) and ``ext_jaccard`` (score = $\\frac{x \\cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \\cdot y}$).
+    What kind of distance function is used in ranking and will be output. It support five functions: ``cosine`` (score = $\\frac{x \\cdot y}{||x||_2||y||_2}$), ``l2`` (score = $-||x - y||_2$), ``l1`` (score = $-||x - y||_1$), ``dot`` (score = $x \\cdot y$)) and ``ext_jaccard`` (score = $\\frac{x \\cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \\cdot y}$).
 
   - ``--gpu GPU_ID``
     GPU device to use in inference, by default it uses CPU. Default: -1.(CPU)

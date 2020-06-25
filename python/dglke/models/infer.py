@@ -229,8 +229,8 @@ class EmbSimInfer():
     sfunc : str
         What kind of score is used,
             cosine: score = $\frac{x \cdot y}{||x||_2||y||_2}$
-            l2: score = $||x - y||_2$
-            l1: score = $||x - y||_1$
+            l2: score = $-||x - y||_2$
+            l1: score = $-||x - y||_1$
             dot: score = $x \cdot y$
             ext_jaccard: score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
     """
@@ -284,11 +284,7 @@ class EmbSimInfer():
                 score.append(F.copy_to(self.sim_func(sh_emb, st_emb, pw=True), F.cpu()))
             score = F.cat(score, dim=0)
 
-            if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
-                sidx = F.argsort(score, dim=0, descending=True)
-            else:
-                sidx = F.argsort(score, dim=0, descending=False)
-
+            sidx = F.argsort(score, dim=0, descending=True)
             sidx = sidx[:k]
             score = score[sidx]
             result.append((F.asnumpy(head[sidx]),
@@ -321,10 +317,7 @@ class EmbSimInfer():
                 idx = F.arange(0, num_head * num_tail)
                 score = F.reshape(score, (num_head * num_tail, ))
 
-                if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
-                    sidx = F.argsort(score, dim=0, descending=True)
-                else:
-                    sidx = F.argsort(score, dim=0, descending=False)
+                sidx = F.argsort(score, dim=0, descending=True)
                 sidx = sidx[:k]
                 score = score[sidx]
                 sidx = sidx
@@ -341,11 +334,8 @@ class EmbSimInfer():
                 result = []
                 for i in range(num_head):
                     i_score = score[i]
-                    if self.sfunc == 'cosine' or self.sfunc == 'dot' or self.sfunc == 'ext_jaccard':
-                        sidx = F.argsort(i_score, dim=0, descending=True)
-                    else:
-                        sidx = F.argsort(i_score, dim=0, descending=False)
 
+                    sidx = F.argsort(i_score, dim=0, descending=True)
                     idx = F.arange(0, num_tail)
                     i_idx = sidx[:k]
                     i_score = i_score[i_idx]
