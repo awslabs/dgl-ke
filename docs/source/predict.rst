@@ -18,7 +18,6 @@ Currently, it supports six models: TransE_l1, TransE_l2, RESCAL, DistMult, Compl
 
 Four arguments are required to provide basic information for predicting missing entities or relations:
 
-  * ``--data_path``, The path containing the id mapping files, including both the entity ID mapping file and the relation ID mapping file. Default: ./data.
   * ``--model_path``, The path containing the pretrained model, including the embedding files (.npy) and a config.json containing the configure information of the model.
   * ``--format``, The format of the input data, specified in ``h_r_t``. Ideally, user should provides three files, one for head entities, one for relations and one for tail entities. But we also allow users to use *\** to represent *all* of the entities or relations. For example, ``h_r_*`` requires users to provide files containing head entities and relation entities and use the whole entity set as tail entities; ``*_*_t`` requires users to provide a single file containing tail entities and use the whole entity set as head entities and the whole relation set as relations. The supported formats include ``h_r_t``, ``h_r_*``, ``h_*_t``, ``*_r_t``, ``h_*_*``, ``*_r_*``, ``*_*_t``. By default, the calculation will take an N\_h x N\_r x N\_t manner.
   * ``--data_files`` A list of data file names. This is used to provide necessary files containing the requried data according to the format, e.g., for ``h_r_t``, three files are required as h_data, r_data and t_data, while for ``h_*_t``, two files are required as h_data and t_data.
@@ -41,16 +40,16 @@ Task related arguments:
 Input/Output related arguments:
 
   * ``--output``, Where to store the result, by default it is stored in result.tsv
-  * ``--entity_mfile``, The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``, otherwise we will search the mapping file under ``--data_path``.
-  * ``--rel_mfile``, The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``,  otherwise we will search the mapping file under ``--data_path``.
+  * ``--entity_mfile``, The entity ID mapping file. Required if Raw ID is used.
+  * ``--rel_mfile``, The relation ID mapping file. Required if Raw ID is used.
 
 The following command shows how to do entities/relations linkage prediction and ranking using a pretrained DistMult model::
 
     # Using PyTorch Backend
-    dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
+    dglke_predict --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --model_path ckpts/DistMult_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func none --topK 5
 
 The output is as::
 
@@ -64,10 +63,10 @@ The output is as::
 The following command shows how to do entities/relations linkage prediction and ranking while calculate topK for each element in head using a pretrained TransE_l2 model (--exec_mode ‘batch_head’)::
 
     # Using PyTorch Backend
-    dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --exec_mode 'batch_head'
+    dglke_predict --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5 --exec_mode 'batch_head'
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5  --exec_mode 'batch_head'
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files head.list rel.list tail.list --score_func logsigmoid --topK 5  --exec_mode 'batch_head'
 
 The output is as::
 
@@ -87,10 +86,10 @@ The output is as::
 The following command shows how to do entities/relations linkage prediction and ranking using a pretrained TransE_l2 model and use Raw ID (turn on --raw_data)::
 
     # Using PyTorch Backend
-    dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
+    dglke_predict --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data --entity_mfile data/wn18/entities.dict --rel_mfile data/wn18/relations.dict
 
     # Using MXNet Backend
-    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --data_path data/wn18/ --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data
+    MXNET_ENGINE_TYPE=NaiveEngine DGLBACKEND=mxnet dglke_predict --model_path ckpts/TransE_l2_wn18_0/ --format 'h_r_t' --data_files raw_head.list raw_rel.list raw_tail.list --topK 5 --raw_data --entity_mfile data/wn18/entities.dict --rel_mfile data/wn18/relations.dict
 
 The output is as::
 

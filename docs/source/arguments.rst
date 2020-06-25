@@ -312,9 +312,6 @@ dglke_partition
 
 dglke_predict
 ^^^^^^^^^^^^^^^
-  - ``--data_path DATA_PATH``
-    The root path of all dataset including id mapping files. Default: 'data'
-
   - ``--model_path MODEL_PATH``
     The place where to load the model. Default 'ckpts'.
 
@@ -343,10 +340,10 @@ dglke_predict
     Where to store the result. Default: result.tsv
 
   - ``--entity_mfile`` (Optional)
-    The entity ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+    The entity ID mapping file. Required if Raw ID is used.
 
   - ``--rel_mfile`` (Optional)
-    The relation ID mapping file. If not provided we will use the mapping file in ``--data_path`` according to the config.json under ``--model_path``.
+    The relation ID mapping file. Required if Raw ID is used.
 
 dglke_emb_sim
 ^^^^^^^^^^^^^^^
