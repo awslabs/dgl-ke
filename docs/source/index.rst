@@ -45,5 +45,4 @@ Get started with DGL-KE!
    install
    kg
    commands
-   dist_train
    benchmarks

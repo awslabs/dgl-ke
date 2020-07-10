@@ -6,9 +6,13 @@ with the embeddings easily.
 
 .. toctree::
    :hidden:
+   :titlesonly:
 
    format_kg
    format_out
+   train
+   dist_train
+   eval
    predict
    emb_sim
 

@@ -1,23 +1,121 @@
-DGL-KE Command Line
-----------------------------------
+Training in a single machine
+============================
 
-DGL-KE provides four commands to users:
+``dglke_train`` trains KG embeddings on CPUs or GPUs in a single machine and saves the trained node embeddings and relation embeddings on disks.
 
-``dglke_train`` trains KG embeddings on CPUs or GPUs in a single machine and saves the trained node embeddings and relation embeddings into the file. 
+Arguments
+^^^^^^^^^
 
-``dglke_eval`` reads the pre-trained embeddings and evaluates the embeddings with a link prediction task on the test set. This is a common task used for evaluating the quality of pre-trained KG embeddings.
+  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
+    The models provided by DGL-KE.
 
-``dglke_partition`` partitions the given knowledge graph into ``N`` parts by the METIS partition algorithm. Different partitions will be stored on different machines in distributed training. You can find more details about the METIS partition algorithm in this `link`__.
+  - ``--data_path DATA_PATH``
+    The path of the directory where DGL-KE loads knowledge graph data.
 
-.. __: http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
+  - ``--dataset DATA_SET``
+    The name of the knowledge graph stored under data_path. If it is one of the builtin knowledge grpahs such as ``FB15k``, ``FB15k-237``, ``wn18``, ``wn18rr``, and ``Freebase``, DGL-KE will automatically download the knowledge graph and keep it under data_path.
 
-``dglke_dist_train`` launches a set of processes in the cluster for distributed training.
+  - ``--format FORMAT``
+    The format of the dataset. For builtin knowledge graphs,the foramt should be *built_in*. For users own knowledge graphs,it needs to be *raw_udd_{htr}* or *udd_{htr}*.
 
+  - ``--data_files [DATA_FILES ...]``
+    A list of data file names. This is used if users want to train KGE on their own datasets. If the format is *raw_udd_{htr}*, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is *udd_{htr}*, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
 
-This page provides tutorial for using DGL-KE on different settings. Users can find the full comamnd line arguments in this `page`__, or users can use ``--help`` option to check out all the arguments information of dglke command line.
+  - ``--delimiter DELIMITER``
+    Delimiter used in data files. Note all files should use the same delimiter.
 
-.. __: https://aws-dglke.readthedocs.io/en/latest/arguments.html
+  - ``--save_path SAVE_PATH``
+    The path of the directory where models and logs are saved.
 
+  - ``--no_save_emb``         
+    Disable saving the embeddings under save_path.
+
+  - ``--max_step MAX_STEP``   
+    The maximal number of steps to train the model. A step trains the model with a batch of data.
+
+  - ``--batch_size BATCH_SIZE``
+    The batch size for training.
+
+  - ``--batch_size_eval BATCH_SIZE_EVAL``
+    The batch size used for validation and test.
+
+  - ``--neg_sample_size NEG_SAMPLE_SIZE``
+    The number of negative samples we use for each positive sample in the training.
+
+  - ``--neg_deg_sample``
+    Construct negative samples proportional to vertex degree in the training. When this option is turned on, the number of negative samples per positive edge will be doubled. Half of the negative samples are generated uniformly whilethe other half are generated proportional to vertex degree.
+
+  - ``--neg_deg_sample_eval``
+    Construct negative samples proportional to vertex degree in the evaluation.
+
+  - ``--neg_sample_size_eval NEG_SAMPLE_SIZE_EVAL``
+    The number of negative samples we use to evaluate a positive sample.
+
+  - ``--eval_percent EVAL_PERCENT``
+    Randomly sample some percentage of edges for evaluation.
+
+  - ``--no_eval_filter`` 
+    Disable filter positive edges from randomly constructed negative edges for evaluation.
+
+  - ``-log LOG_INTERVAL``
+    Print runtime of different components every *x* steps.
+
+  - ``--eval_interval EVAL_INTERVAL``
+    Print evaluation results on the validation dataset every *x* stepsif validation is turned on.
+
+  - ``--test``
+    Evaluate the model on the test set after the model is trained.
+
+  - ``--num_proc NUM_PROC`` 
+    The number of processes to train the model in parallel.In multi-GPU training, the number of processes by default is set to match the number of GPUs. If set explicitly, the number of processes needs to be divisible by the number of GPUs.
+
+  - ``--num_thread NUM_THREAD``
+    The number of CPU threads to train the model in each process. This argument is used for multi-processing training.
+
+  - ``--force_sync_interval FORCE_SYNC_INTERVAL``
+    We force a synchronization between processes every *x* steps formultiprocessing training. This potentially stablizes the training processto get a better performance. For multiprocessing training, it is set to 1000 by default.
+
+  - ``--hidden_dim HIDDEN_DIM``
+    The embedding size of relation and entity.
+
+  - ``--lr LR``          
+    The learning rate. DGL-KE uses Adagrad to optimize the model parameters.
+
+  - ``-g GAMMA`` or ``--gamma GAMMA``
+    The margin value in the score function. It is used by *TransX* and *RotatE*.
+
+  - ``-de`` or ``--double_ent``
+    Double entitiy dim for complex number It is used by *RotatE*.
+
+  - ``-dr`` or ``--double_rel``
+    Double relation dim for complex number.
+
+  - ``-adv`` or ``--neg_adversarial_sampling``
+    Indicate whether to use negative adversarial sampling.It will weight negative samples with higher scores more.
+
+  - ``-a ADVERSARIAL_TEMPERATURE`` or ``--adversarial_temperature ADVERSARIAL_TEMPERATURE``
+    The temperature used for negative adversarial sampling.
+
+  - ``-rc REGULARIZATION_COEF`` or ``--regularization_coef REGULARIZATION_COEF``
+    The coefficient for regularization.
+
+  - ``-rn REGULARIZATION_NORM`` or ``--regularization_norm REGULARIZATION_NORM``
+    norm used in regularization.
+
+  - ``--gpu [GPU ...]``
+    A list of gpu ids, e.g. 0 1 2 4
+
+  - ``--mix_cpu_gpu``         
+    Training a knowledge graph embedding model with both CPUs and GPUs.The embeddings are stored in CPU memory and the training is performed in GPUs.This is usually used for training a large knowledge graph embeddings.
+
+  - ``--valid``               
+    Evaluate the model on the validation set in the training.
+
+  - ``--rel_part``         
+    Enable relation partitioning for multi-GPU training.
+
+  - ``--async_update``
+    Allow asynchronous update on node embedding for multi-GPU training. This overlaps CPU and GPU computation to speed up.
 
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -42,55 +140,6 @@ After training, you will see the following messages::
     Test average HITS@3 : 0.7524081190431853
     Test average HITS@10 : 0.8479202993008413
     -----------------------------------------
-
-``--num_proc`` indicates that we will launch ``8`` processes in parallel for the training task, and ``--num_thread`` indicates that each process will use ``1`` thread. Typically, ``num_proc * num_thread`` is ``<=`` the ``number_of_cores`` of the current machine. For example, when the number of processes is the same as the number of CPU cores, the user should use just ``1`` thread in each process for the best. performance.
-
-``--model_name`` is used to specify our model, including ``TransE_l2``, ``TransE_l1``, ``DistMult``, ``ComplEx``, ``TransR``, ``RESCAL``, and ``RotatE``. More models will be added in the future.
-
-``--dataset`` is used to choose a built-in KG dataset, including ``FB15k``, ``FB15k-237``, ``wn18``, ``wn18rr``, and ``Freebase``. See more details about the built-in KG dataset on this `page`__.
-
-.. __: ./train_built_in.html
-
-DGL-KE uses *mini-batch SGD* training. The ``--batch_size`` and ``--neg_batch_size`` are the hyper-parameters used for training. The ``--batch_size_eval`` is the hyper-parameter used for the test.
-
-``--hidden_dim`` indicates the dimension size of the KG embeddings. ``--gamma`` is a hyper-parameter used to initialize embeddings. ``--regularization_coef`` is the hyper-parameter used for regularization.
-
-``--lr`` is learning rate used for our optimization algorithm. ``--max_step`` defines the maximal learning steps. Note that, the total number of steps in our training task is ``max_step * num_proc``. With multi-processing, we need to adjust the number of ``--max_step`` in each process. Usually, we only need the total number of steps performed by all processes equal to the number of steps performed in the single-process training.
-
-``-adv`` indicates whether to use negative adversarial sampling, which will weight negative samples with higher scores more.
-
-``--log_interval`` indicates that on every ``100`` steps we print the training loss on the screen like this::
-
-  [proc 7][Train](2900/3000) average pos_loss: 0.2691971030831337
-  [proc 7][Train](2900/3000) average neg_loss: 0.3952002424001694
-  [proc 7][Train](2900/3000) average loss: 0.33219867378473283
-  [proc 7][Train](2900/3000) average regularization: 0.001801597059238702
-  [proc 7][Train] 100 steps take 8.903 seconds
-  [proc 7]sample: 0.264, forward: 6.140, backward: 1.942, update: 0.555
-  [proc 4][Train](2900/3000) average pos_loss: 0.2709790524840355
-  [proc 4][Train](2900/3000) average neg_loss: 0.397322960793972
-  [proc 4][Train](2900/3000) average loss: 0.3341510048508644
-  [proc 4][Train](2900/3000) average regularization: 0.0018006288178730756
-  [proc 4][Train] 100 steps take 8.906 seconds
-  [proc 4]sample: 0.254, forward: 6.087, backward: 1.989, update: 0.575
-  [proc 4][Train](3000/3000) average pos_loss: 0.27121892631053923
-  [proc 5][Train](3000/3000) average pos_loss: 0.2708482551574707
-  [proc 4][Train](3000/3000) average neg_loss: 0.396016526222229
-  [proc 5][Train](3000/3000) average neg_loss: 0.39040900617837904
-  [proc 4][Train](3000/3000) average loss: 0.3336177259683609
-  [proc 5][Train](3000/3000) average loss: 0.3306286296248436
-  [proc 4][Train](3000/3000) average regularization: 0.0018079591123387217
-  [proc 5][Train](3000/3000) average regularization: 0.0018065990647301079
-  [proc 0][Train](3000/3000) average pos_loss: 0.2704304122924805
-  [proc 1][Train](3000/3000) average pos_loss: 0.27033439934253695
-  [proc 4][Train] 100 steps take 8.856 seconds
-
-As we can see, every 100 steps will take almost ``8.9`` seconds on each process. We can compare this result with GPU training in the following sections.
-
-``--test`` indicates that we will do an evaluation at the end.
-
-After training, we can see a new directory ``ckpts/TransE_l2_FB15k_0``, which stores our training logs and trained KG embeddings. Users can set ``--no_save_emb`` to stop saving embedding to the file. 
-
 
 Training on Powerful Workstation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -259,8 +308,8 @@ Note that ``--async_update`` can increase system performance but it could also s
     --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 1 2 3 --async_update --max_step 6000 --force_sync_interval 1000
 
 
-Evaluation on Pre-Trained Embeddings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Save embeddings
+^^^^^^^^^^^^^^^
 
 By default, ``dglke_train`` saves the embeddings in the ``ckpts`` folder. Each runs creates a new folder in ``ckpts`` to store the training results. The new folder is named after ``xxxx_yyyy_zz``\ , where ``xxxx`` is the model name, ``yyyy`` is the dataset name, ``zz`` is a sequence number that ensures a unique name for each run. 
 
@@ -268,16 +317,3 @@ The saved embeddings are stored as numpy ndarrays. The node embedding is saved a
 The relation embedding is saved as ``XXX_YYY_relation.npy``. ``XXX`` is the dataset name and ``YYY`` is the model name.
 
 A user can disable saving embeddings with ``--no_save_emb``. This might be useful for some cases, such as hyperparameter tuning.
-
-``dglke_eval`` reads the pre-trained embeddings and evaluates the embeddings with a link prediction task on the test set. This is a common task used for evaluating the quality of pre-trained KG embeddings. The following command evaluates the pre-trained KG embedding on multi-cores::
-
-    dglke_eval --model_name TransE_l2 --dataset FB15k --hidden_dim 400 --gamma 19.9 --batch_size_eval 16 \
-    --num_thread 1 --num_proc 8 --model_path ~/my_task/ckpts/TransE_l2_FB15k_0/
-
-We can also use GPUs in our evaluation tasks::
-
-    dglke_eval --model_name TransE_l2 --dataset FB15k --hidden_dim 400 --gamma 19.9 --batch_size_eval 16 \
-    --gpu 0 1 2 3 4 5 6 7 --model_path ~/my_task/ckpts/TransE_l2_FB15k_0/
-
-
-
