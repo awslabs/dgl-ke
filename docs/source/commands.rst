@@ -13,6 +13,7 @@ with the embeddings easily.
    train
    dist_train
    train_user_data
+   partition
    eval
    predict
    emb_sim
