@@ -1,6 +1,6 @@
-dglke_emb_sim: finding similar embeddings
--------------------------------------------
-This task is to find the most similar entity/relation embeddings for some pre-defined similarity functions given a set of entities or relations. An example of the output for top5 similar entities are as follows::
+dglke_emb_sim
+-------------
+`dglke_emb_sim` finds the most similar entity/relation embeddings for some pre-defined similarity functions given a set of entities or relations. An example of the output for top5 similar entities are as follows::
 
     left     right    score
     0        0        0.99999

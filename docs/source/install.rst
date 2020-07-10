@@ -1,11 +1,11 @@
 Installation Guide
-----------------------------------
+==================
 
 
 This topic explains how to install DGL-KE. We recommend installing DGL-KE by using ``pip`` and from the source.
 
 System requirements
-^^^^^^^^^^^^^^^^^^^^^^^
+-------------------
 
 DGL-KE works with the following operating systems:
 
@@ -20,7 +20,7 @@ DGL-KE supports multiple tensor libraries as backends, e.g., PyTorch and MXNet. 
 
 
 Install DGL
-^^^^^^^^^^^^^^^^^^^^^^^^
+-----------
 
 DGL-KE is implemented on the top of DGL. You can install DGL using pip::
 
@@ -39,7 +39,7 @@ or you can install DGL from source::
 
 
 Install DGL-KE 
-^^^^^^^^^^^^^^^^
+--------------
 
 After installing DGL, you can install DGL-KE. The fastest way to install DGL-KE is by using pip::
 
@@ -53,7 +53,7 @@ or you can install DGL-KE from source::
 
 
 Have a Quick Test
-^^^^^^^^^^^^^^^^^^
+-----------------
 
 Once you install DGL-KE successfully, you can test it by the following command::
 

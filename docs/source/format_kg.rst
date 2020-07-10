@@ -1,5 +1,5 @@
-Format of Input Data Used by DGL-KE
------------------------------------
+Format of Input Data
+--------------------
 
 DGL-KE toolkits provide commands for training, evaluation and inference. Different commands require different kinds of input data, including:
 

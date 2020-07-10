@@ -1,6 +1,6 @@
-dglke_predict: predicting entities/relations in a triplet
--------------------------------------------
-The task is to predict missing entities or relations in a triplet. Blow shows an example that predicts top 5 most likely destination entities for every given source node and relation::
+dglke_predict
+-------------
+`dglke_predict` predicts missing entities or relations in a triplet. Blow shows an example that predicts top 5 most likely destination entities for every given source node and relation::
 
    src  rel  dst   score
     1    0    12   -5.11393

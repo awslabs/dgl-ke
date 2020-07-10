@@ -10,7 +10,7 @@ service. Information extracted from KGs in the form of embeddings is used to
 improve search, recommend products, and infer missing information.
 
 What is a graph
-===============
+---------------
 A graph is a structure used to represent things and their relations.
 It is made of two sets - the set of nodes (also called vertices) and
 the set of edges (also called arcs). Each edge itself connects a pair
@@ -39,7 +39,7 @@ types and as such most multigraphs are heterogeneous. Note that graphs that do n
 allow these multiple edges and self-loops are called simple graphs.
 
 What is a Knowledge Graph
-=========================
+-------------------------
 
 In the earlier marketplace graph example, the labels assigned to the different node types
 (buyer, seller, product) and the different relation types (wants-to-buy, has-bought,
@@ -122,7 +122,7 @@ that draws the examples.
   :alt: Figure1: World of Mary
 
 What is the task of Knowledge Graph Embedding?
-==============================================
+----------------------------------------------
 
 Knowledge graph embedding is the task of completing the knowledge graphs
 by probabilistically inferring the missing arcs from the existing graph
@@ -132,7 +132,7 @@ model and computationally expensive. For this rest of this blog, we
 examine fundamentals of KGE.
 
 Common connectivity patterns:
-=============================
+-----------------------------
 
 Different connectivity or relational pattern are commonly observed in
 KGs. A Knowledge Graph Embedding model intends to predict missing
@@ -166,7 +166,7 @@ connections that are often one of the types below.
 *ref: RotateE[2]*
 
 Score Function
-==============
+--------------
 
 There are different flavours of KGE that have been developed over the
 course of the past few years. What most of them have in common is a
@@ -947,7 +947,7 @@ tail elements and is defined as:
    d_r(h, t)=\|h\circ r-t\|
 
 Training KE
-===========
+-----------
 
 Negative Sampling
 -----------------
@@ -1000,15 +1000,8 @@ is give by:
 | RotateE     | :math:`h,t \in \mathbb{C}^d`   | :math:`r\in\mathbb{C}^d`                                  | :math:`\|h\circ r-t\|`         | :math:`O(d)`     | :math:`\checkmark`   | :math:`\checkmark`   | :math:`\checkmark`   | :math:`\checkmark`   |
 +-------------+--------------------------------+-----------------------------------------------------------+--------------------------------+------------------+----------------------+----------------------+----------------------+----------------------+
 
-What's Next?
-============
-
-Now that we have investigated the methods that are implemented in
-DGL-KE, we shall explore how DGL-KE optimized computation of these
-methods and distributes them on multiple devices in a new post.
-
 References
-==========
+----------
 
 1. http://semantic-web-journal.net/system/files/swj1167.pdf
 2. Zhiqing Sun, Zhi-Hong Deng, Jian-Yun Nie, and Jian Tang. RotatE:
