@@ -12,6 +12,7 @@ with the embeddings easily.
    format_out
    train
    dist_train
+   train_user_data
    eval
    predict
    emb_sim
