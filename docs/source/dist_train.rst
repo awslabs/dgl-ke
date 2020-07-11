@@ -70,7 +70,7 @@ The command line provides the following arguments:
     Evaluate the model on the test set after the model is trained.
 
   - ``--num_proc NUM_PROC`` 
-    The number of processes to train the model in parallel.In multi-GPU training, the number of processes by default is set to match the number of GPUs. If set explicitly, the number of processes needs to be divisible by the number of GPUs.
+    The number of processes to train the model in parallel.
 
   - ``--num_thread NUM_THREAD``
     The number of CPU threads to train the model in each process. This argument is used for multi-processing training.
