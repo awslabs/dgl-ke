@@ -13,7 +13,6 @@ with the embeddings easily.
    format_out
    train
    dist_train
-   train_user_data
    partition
    eval
    predict

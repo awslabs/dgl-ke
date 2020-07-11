@@ -1,17 +1,16 @@
 Distributed Training on Large Data
 ------------------------------------
 
-In the previous sections, we saw that using multiple GPUs within a machine can accelerate training. The speedup, however, is limited by the number of GPUs installed in that machine. The ever-growing size of knowledge graphs requires computation capable of scaling to graphs with millions of nodes and billions of edges.
-
 ``dglke_dist_train`` trains knowledge graph embeddings on a cluster of machines. DGL-KE adopts the *parameter-server* architecture for distributed training. 
 
 .. image:: ../images/dist_train.png
     :width: 400
 
-In this architecture, the entity embeddings and relation embeddings are stored in DGL-KVStore, and the trainer processes can pull the latest model from KVStore and push the calculated gradient to the KVStore. All the processes will train the KG embeddings in an *async* way.
+In this architecture, the entity embeddings and relation embeddings are stored in DGL KVStore. The trainer processes pull the latest model from KVStore and push the calculated gradient to the KVStore to update the model. All the processes trains the KG embeddings with asynchronous SGD.
 
 Arguments
 ^^^^^^^^^
+The command line provides the following arguments:
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
@@ -35,7 +34,7 @@ Arguments
     Disable saving the embeddings under save_path.
 
   - ``--max_step MAX_STEP``   
-    The maximal number of steps to train the model. A step trains the model with a batch of data.
+    The maximal number of steps to train the model in a single process. A step trains the model with a batch of data. In the case of multiprocessing training, the total number of training steps is ``MAX_STEP`` * ``NUM_PROC``.
 
   - ``--batch_size BATCH_SIZE``
     The batch size for training.
