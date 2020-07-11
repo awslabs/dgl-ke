@@ -1,6 +1,6 @@
-dglke_emb_sim: finding similar embeddings
--------------------------------------------
-This task is to find the most similar entity/relation embeddings for some pre-defined similarity functions given a set of entities or relations. An example of the output for top5 similar entities are as follows::
+Find similar embeddings
+=======================
+`dglke_emb_sim` finds the most similar entity/relation embeddings for some pre-defined similarity functions given a set of entities or relations. An example of the output for top5 similar entities are as follows::
 
     left     right    score
     0        0        0.99999
@@ -10,6 +10,9 @@ This task is to find the most similar entity/relation embeddings for some pre-de
     0        36762    0.76978
 
 Currently we support five different similarity functions: cosine, l2 distance, l1 distance, dot product and extended jaccard.
+
+Arguments
+---------
 
 Four arguments are required to provide basic information for finding similar embeddings:
 
@@ -47,6 +50,9 @@ Input/Output related arguments:
 
   * ``--output``, the output file that stores the result. By default it is stored in result.tsv.
   * ``--mfile``, The ID mapping file.
+
+Examples
+--------
 
 The following command finds similar entities based on cosine distance::
 

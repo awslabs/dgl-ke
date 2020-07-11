@@ -1,4 +1,4 @@
-Train Built-in Knowledage Graphs
+Benchmarks on Built-in Knowledage Graphs
 ---------------------------------------
 
 DGL-KE provides five built-in knowledge graphs:
@@ -20,10 +20,7 @@ DGL-KE provides five built-in knowledge graphs:
 
 Users can specify one of the datasets with ``--dataset`` option in their tasks.
 
-Benchmark result
-^^^^^^^^^^^^^^^^
-
-DGL-KE also provides benchmark results on ``FB15k``, ``wn18``, as well as ``Freebase``. Users can go to the corresponded folder to check out the scripts and results. All the benchmark results are done by AWS EC2. For multi-cpu and distributed training, the target instance is ``r5dn.24xlarge``, which has 48 CPU cores and 768 GB memory. Also, ``r5dn.xlarge`` has 100Gbit network throughput, which is powerful for distributed training. For GPU training, our target instance is ``p3.16xlarge``, which has 64 CPU cores and 8 Nvidia v100 GPUs. For users, you can choose your own instance by your demand and tune the hyper-parameters for the best performance.
+DGL-KE provides benchmark results on ``FB15k``, ``wn18``, as well as ``Freebase``. Users can go to the corresponded folder to check out the scripts and results. All the benchmark results are done by AWS EC2. For multi-cpu and distributed training, the target instance is ``r5dn.24xlarge``, which has 48 CPU cores and 768 GB memory. Also, ``r5dn.xlarge`` has 100Gbit network throughput, which is powerful for distributed training. For GPU training, our target instance is ``p3.16xlarge``, which has 64 CPU cores and 8 Nvidia v100 GPUs. For users, you can choose your own instance by your demand and tune the hyper-parameters for the best performance.
 
 All the scripts can be found on this `page.`__
 

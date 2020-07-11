@@ -1,36 +1,125 @@
 Distributed Training on Large Data
 ------------------------------------
 
-In the previous sections, we saw that using multiple GPUs within a machine can accelerate training. The speedup, however, is limited by the number of GPUs installed in that machine. The ever-growing size of knowledge graphs requires computation capable of scaling to graphs with millions of nodes and billions of edges.
-
-DGL-KE supports distributed training that allows users to train their tasks in the cluster. In this tutorial, we will demonstrate how to set up a 4-machines cluster and how to use DGL-KE to train KG embeddings on this cluster.
-
-Architecture of Distributed Training
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-DGL-KE adopts the *parameter-server* architecture for distributed training. 
+``dglke_dist_train`` trains knowledge graph embeddings on a cluster of machines. DGL-KE adopts the *parameter-server* architecture for distributed training. 
 
 .. image:: ../images/dist_train.png
     :width: 400
 
-In this architecture, the entity embeddings and relation embeddings are stored in DGL-KVStore, and the trainer processes can pull the latest model from KVStore and push the calculated gradient to the KVStore. All the processes will train the KG embeddings in an *async* way.
+In this architecture, the entity embeddings and relation embeddings are stored in DGL KVStore. The trainer processes pull the latest model from KVStore and push the calculated gradient to the KVStore to update the model. All the processes trains the KG embeddings with asynchronous SGD.
 
-METIS Partition Algorithm
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Arguments
+^^^^^^^^^
+The command line provides the following arguments:
 
-In distributed training, all the training processes will communicate with KVStore through the network. This could bring a large amount of networking traffic and overhead. DGL-KE uses the `METIS graph partition`__ algorithm to solve this problem. For a cluster of ``P`` machines, we split the graph into ``P`` partitions using the METIS partition algorithm as shown in the following Figure.
+  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
+    The models provided by DGL-KE.
 
-.. __: http://glaros.dtc.umn.edu/gkhome/metis/metis/overview
+  - ``--data_path DATA_PATH``
+    The path of the directory where DGL-KE loads knowledge graph data.
+
+  - ``--dataset DATA_SET``
+    The name of the knowledge graph stored under data_path. If it is one ofthe builtin knowledge grpahs such as FB15k, DGL-KE will automatically download the knowledge graph and keep it under data_path.
+
+  - ``--format FORMAT``
+    The format of the dataset. For builtin knowledge graphs,the foramt should be *built_in*. For users own knowledge graphs,it needs to be *raw_udd_{htr}* or *udd_{htr}*.
+
+  - ``--data_files [DATA_FILES ...]``
+    A list of data file names. This is used if users want to train KGE on their own datasets. If the format is *raw_udd_{htr}*, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is *udd_{htr}*, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
+
+  - ``--save_path SAVE_PATH``
+    The path of the directory where models and logs are saved.
+
+  - ``--no_save_emb``         
+    Disable saving the embeddings under save_path.
+
+  - ``--max_step MAX_STEP``   
+    The maximal number of steps to train the model in a single process. A step trains the model with a batch of data. In the case of multiprocessing training, the total number of training steps is ``MAX_STEP`` * ``NUM_PROC``.
+
+  - ``--batch_size BATCH_SIZE``
+    The batch size for training.
+
+  - ``--batch_size_eval BATCH_SIZE_EVAL``
+    The batch size used for validation and test.
+
+  - ``--neg_sample_size NEG_SAMPLE_SIZE``
+    The number of negative samples we use for each positive sample in the training.
+
+  - ``--neg_deg_sample``
+    Construct negative samples proportional to vertex degree in the training. When this option is turned on, the number of negative samples per positive edge will be doubled. Half of the negative samples are generated uniformly whilethe other half are generated proportional to vertex degree.
+
+  - ``--neg_deg_sample_eval``
+    Construct negative samples proportional to vertex degree in the evaluation.
+
+  - ``--neg_sample_size_eval NEG_SAMPLE_SIZE_EVAL``
+    The number of negative samples we use to evaluate a positive sample.
+
+  - ``--eval_percent EVAL_PERCENT``
+    Randomly sample some percentage of edges for evaluation.
+
+  - ``--no_eval_filter`` 
+    Disable filter positive edges from randomly constructed negative edges for evaluation.
+
+  - ``-log LOG_INTERVAL``
+    Print runtime of different components every *x* steps.
+
+  - ``--eval_interval EVAL_INTERVAL``
+    Print evaluation results on the validation dataset every *x* stepsif validation is turned on.
+
+  - ``--test``
+    Evaluate the model on the test set after the model is trained.
+
+  - ``--num_proc NUM_PROC`` 
+    The number of processes to train the model in parallel.
+
+  - ``--num_thread NUM_THREAD``
+    The number of CPU threads to train the model in each process. This argument is used for multi-processing training.
+
+  - ``--force_sync_interval FORCE_SYNC_INTERVAL``
+    We force a synchronization between processes every *x* steps formultiprocessing training. This potentially stablizes the training processto get a better performance. For multiprocessing training, it is set to 1000 by default.
+
+  - ``--hidden_dim HIDDEN_DIM``
+    The embedding size of relation and entity.
+
+  - ``--lr LR``          
+    The learning rate. DGL-KE uses Adagrad to optimize the model parameters.
+
+  - ``-g GAMMA`` or ``--gamma GAMMA``
+    The margin value in the score function. It is used by *TransX* and *RotatE*.
+
+  - ``-de`` or ``--double_ent``
+    Double entitiy dim for complex number It is used by *RotatE*.
+
+  - ``-dr`` or ``--double_rel``
+    Double relation dim for complex number.
+
+  - ``-adv`` or ``--neg_adversarial_sampling``
+    Indicate whether to use negative adversarial sampling.It will weight negative samples with higher scores more.
+
+  - ``-a ADVERSARIAL_TEMPERATURE`` or ``--adversarial_temperature ADVERSARIAL_TEMPERATURE``
+    The temperature used for negative adversarial sampling.
+
+  - ``-rc REGULARIZATION_COEF`` or ``--regularization_coef REGULARIZATION_COEF``
+    The coefficient for regularization.
+
+  - ``-rn REGULARIZATION_NORM`` or ``--regularization_norm REGULARIZATION_NORM``
+    norm used in regularization.
+
+  - ``--path PATH``
+    Path of distributed workspace.
+
+  - ``--ssh_key SSH_KEY``     
+    ssh private key.
+
+  - ``--ip_config IP_CONFIG``
+    Path of IP configuration file.
+
+  - ``--num_client_proc NUM_CLIENT_PROC``
+    Number of worker processes on each machine.
 
 
-.. image:: ../images/metis.png
-    :width: 400
-
-The majority of the triplets are in the diagonal blocks. We co-locate the embeddings of the entities with the triplets in the diagonal block by specifying a proper data partitioning in the distributed KVStore. When a trainer process samples triplets in the local partition, most of the entity embeddings accessed by the batch fall in the local partition and, thus, there is little network communication to access entity embeddings from other machines.
-
-
-Distributed Training by DGL-KE
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The Steps for Distributed Training
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Distributed training on DGL-KE usually involves three steps:
 

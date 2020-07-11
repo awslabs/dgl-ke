@@ -1,6 +1,6 @@
-dglke_predict: predicting entities/relations in a triplet
--------------------------------------------
-The task is to predict missing entities or relations in a triplet. Blow shows an example that predicts top 5 most likely destination entities for every given source node and relation::
+Predict entities/relations in triplets
+======================================
+`dglke_predict` predicts missing entities or relations in a triplet. Blow shows an example that predicts top 5 most likely destination entities for every given source node and relation::
 
    src  rel  dst   score
     1    0    12   -5.11393
@@ -15,6 +15,9 @@ The task is to predict missing entities or relations in a triplet. Blow shows an
     2    0    14   -5.94183
 
 Currently, it supports six models: TransE_l1, TransE_l2, RESCAL, DistMult, ComplEx, and RotatE.
+
+Arguments
+---------
 
 Four arguments are required to provide basic information for predicting missing entities or relations:
 
@@ -42,6 +45,9 @@ Input/Output related arguments:
   * ``--output``, the output file to store the result. By default it is stored in result.tsv
   * ``--entity_mfile``, The entity ID mapping file. Required if Raw ID is used.
   * ``--rel_mfile``, The relation ID mapping file. Required if Raw ID is used.
+
+Examples
+--------
 
 The following command predicts the K most likely relations and tail entities for each head entity in the list using a pretrained TransE_l2 model (--exec_mode ‘batch_head’). In this example, the candidate relations and the candidate tail entities are given by the user.::
 

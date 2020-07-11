@@ -39,14 +39,10 @@ Get started with DGL-KE!
 
 .. toctree::
    :glob:
-   :maxdepth: 1
+   :maxdepth: 2
+   :titlesonly:
 
-   self
    install
-   hyper_param
-   arguments
-   train_built_in
-   train_user_data
-   dist_train
-   inference
-   arguments
+   kg
+   commands
+   benchmarks
