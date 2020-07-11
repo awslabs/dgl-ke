@@ -5,6 +5,7 @@ Training in a single machine
 
 Arguments
 ^^^^^^^^^
+The command line provides the following arguments:
 
   - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
     The models provided by DGL-KE.
@@ -16,10 +17,10 @@ Arguments
     The name of the knowledge graph stored under data_path. If it is one of the builtin knowledge grpahs such as ``FB15k``, ``FB15k-237``, ``wn18``, ``wn18rr``, and ``Freebase``, DGL-KE will automatically download the knowledge graph and keep it under data_path.
 
   - ``--format FORMAT``
-    The format of the dataset. For builtin knowledge graphs,the foramt should be *built_in*. For users own knowledge graphs,it needs to be *raw_udd_{htr}* or *udd_{htr}*.
+    The format of the dataset. For builtin knowledge graphs, the format is determined automatically. For users own knowledge graphs, it needs to be ``raw_udd_{htr}`` or ``udd_{htr}``. ``raw_udd_`` indicates that the user's data use **raw ID** for entities and relations and ``udd_`` indicates that the user's data uses **KGE ID**. ``{htr}`` indicates the location of the head entity, tail entity and relation in a triplet. For example, ``htr`` means the head entity is the first element in the triplet, the tail entity is the second element and the relation is the last element.
 
   - ``--data_files [DATA_FILES ...]``
-    A list of data file names. This is used if users want to train KGE on their own datasets. If the format is *raw_udd_{htr}*, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is *udd_{htr}*, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
+    A list of data file names. This is required for training KGE on their own datasets. If the format is ``raw_udd_{htr}``, users need to provide *train_file* [*valid_file*] [*test_file*]. If the format is ``udd_{htr}``, users need to provide *entity_file* *relation_file* *train_file* [*valid_file*] [*test_file*]. In both cases, *valid_file* and *test_file* are optional.
 
   - ``--delimiter DELIMITER``
     Delimiter used in data files. Note all files should use the same delimiter.
@@ -31,7 +32,7 @@ Arguments
     Disable saving the embeddings under save_path.
 
   - ``--max_step MAX_STEP``   
-    The maximal number of steps to train the model. A step trains the model with a batch of data.
+    The maximal number of steps to train the model in a single process. A step trains the model with a batch of data. In the case of multiprocessing training, the total number of training steps is ``MAX_STEP`` * ``NUM_PROC``.
 
   - ``--batch_size BATCH_SIZE``
     The batch size for training.
@@ -58,25 +59,25 @@ Arguments
     Disable filter positive edges from randomly constructed negative edges for evaluation.
 
   - ``-log LOG_INTERVAL``
-    Print runtime of different components every *x* steps.
+    Print runtime of different components every ``LOG_INTERVAL`` steps.
 
   - ``--eval_interval EVAL_INTERVAL``
-    Print evaluation results on the validation dataset every *x* stepsif validation is turned on.
+    Print evaluation results on the validation dataset every ``EVAL_INTERVAL`` steps if validation is turned on.
 
   - ``--test``
     Evaluate the model on the test set after the model is trained.
 
   - ``--num_proc NUM_PROC`` 
-    The number of processes to train the model in parallel.In multi-GPU training, the number of processes by default is set to match the number of GPUs. If set explicitly, the number of processes needs to be divisible by the number of GPUs.
+    The number of processes to train the model in parallel. In multi-GPU training, the number of processes by default is the number of GPUs. If it is specified explicitly, the number of processes needs to be divisible by the number of GPUs.
 
   - ``--num_thread NUM_THREAD``
     The number of CPU threads to train the model in each process. This argument is used for multi-processing training.
 
   - ``--force_sync_interval FORCE_SYNC_INTERVAL``
-    We force a synchronization between processes every *x* steps formultiprocessing training. This potentially stablizes the training processto get a better performance. For multiprocessing training, it is set to 1000 by default.
+    We force a synchronization between processes every ``FORCE_SYNC_INTERVAL`` steps for multiprocessing training. This potentially stablizes the training process to get a better performance. For multiprocessing training, it is set to 1000 by default.
 
   - ``--hidden_dim HIDDEN_DIM``
-    The embedding size of relation and entity.
+    The embedding size of relations and entities.
 
   - ``--lr LR``          
     The learning rate. DGL-KE uses Adagrad to optimize the model parameters.
@@ -106,7 +107,7 @@ Arguments
     A list of gpu ids, e.g. 0 1 2 4
 
   - ``--mix_cpu_gpu``         
-    Training a knowledge graph embedding model with both CPUs and GPUs.The embeddings are stored in CPU memory and the training is performed in GPUs.This is usually used for training a large knowledge graph embeddings.
+    Training a knowledge graph embedding model with both CPUs and GPUs.The embeddings are stored in CPU memory and the training is performed in GPUs.This is usually used for training large knowledge graph embeddings.
 
   - ``--valid``               
     Evaluate the model on the validation set in the training.
@@ -120,12 +121,12 @@ Arguments
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors for the best system performance. In DGL-KE, we uses multi-processes instead of multi-threads for parallel training. In this design, the enity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
+Multi-core processors are very common and widely used in modern computer architecture. DGL-KE is optimized on multi-core processors. In DGL-KE, we uses multi-processes instead of multi-threads for parallel training. In this design, the enity embeddings and relation embeddings will be stored in a global shared-memory and all the trainer processes can read and write it. All the processes will train the global model in a *Hogwild* style.
 
 .. image:: ../images/multi-core.png
     :width: 400
 
-The following command trains the ``transE`` model on ``FB15k`` dataset on a multi-core machine::
+The following command trains the ``transE`` model on ``FB15k`` dataset on a multi-core machine. Note that, the total number of steps to train the model in this case is ``24000``::
 
   dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
   --gamma 19.9 --lr 0.25 --max_step 3000 --log_interval 100 --batch_size_eval 16 --test -adv \
@@ -141,30 +142,11 @@ After training, you will see the following messages::
     Test average HITS@10 : 0.8479202993008413
     -----------------------------------------
 
-Training on Powerful Workstation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-DGL-KE can efficiently train KG embeddings on the powerful workstation, which could have a large number of CPU cores. As an example, we start an ``r5dn.24xlarge`` instance on AWS EC2. This instance has 48 cores and 768 GB memory. The following command trains the previous ``transE`` model on this machine. Note that, as we use 48 cores in parallel, the ``--max_step`` will be decreased from ``3000`` to ``500``::
-
-  dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --neg_sample_size 200 --hidden_dim 400 \
-  --gamma 19.9 --lr 0.25 --max_step 500 --log_interval 100 --batch_size_eval 16 --test -adv \
-  --regularization_coef 1.00E-09 --num_thread 1 --num_proc 48
-
-The training result::
-
-    -------------- Test result --------------
-    Test average MRR : 0.6342726325727872
-    Test average MR : 45.80598770970527
-    Test average HITS@1 : 0.5021922770902811
-    Test average HITS@3 : 0.7371468233143167
-    Test average HITS@10 : 0.8409794992466693
-    -----------------------------------------
-
 
 Training on single GPU
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Training knowledge graph embeddings contains large numbers of tensor computation, which can be accelerated by GPU. DGL-KE can run on single-GPU, as well as the multi-GPU machine. Also, it can run in a *mix-gpu-cpu* environment, where the embedding data cannot be fit into GPU memory.
+Training knowledge graph embeddings requires a large number of tensor computation, which can be accelerated by GPU. DGL-KE can run on a single GPU, as well as a multi-GPU machine. Also, it can run in a *mix-gpu-cpu* setting, where the embedding data cannot fit in GPU memory.
 
 .. image:: ../images/multi-gpu.png
     :width: 400
@@ -206,13 +188,13 @@ Most of the options here we have already seen in the previous section. The only 
 Mix CPU-GPU training
 ^^^^^^^^^^^^^^^^^^^^^
 
-By default, DGL-KE keeps all node and relation embeddings in GPU memory for single-GPU training. Therefore, it cannot train embeddings of large knowledge graphs because the capacity of GPU memory typically is much smaller than the CPU memory. So if your KG embedding is too large to fit into the GPU memory, you can use ``--mix_cpu_gpu`` training::
+By default, DGL-KE keeps all node and relation embeddings in GPU memory for single-GPU training. It cannot train embeddings of large knowledge graphs because the capacity of GPU memory typically is much smaller than the CPU memory. So if your KG embedding is too large to fit in the GPU memory, you can use the *mix_cpu_gpu* training::
 
     dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 100 \
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
     --lr 0.25 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000 --mix_cpu_gpu
 
-The ``--mix_cpu_gpu`` training will keep node and relation embeddings in CPU memory and perform batch computation in GPU. In this way, you can train very large KG embeddings as long as your cpu memory can handle it. While the training speed of *mix_cpu_gpu* training will be slower than pure GPU training::
+The *mix_cpu_gpu* training keeps node and relation embeddings in CPU memory and performs batch computation in GPU. In this way, you can train very large KG embeddings as long as your cpu memory can handle it even though the training speed of *mix_cpu_gpu* training is slower than pure GPU training::
 
    [proc 0][Train](8200/24000) average pos_loss: 0.2720812517404556
    [proc 0][Train](8200/24000) average neg_loss: 0.4004567116498947
@@ -236,7 +218,7 @@ The ``--mix_cpu_gpu`` training will keep node and relation embeddings in CPU mem
 As we can see, the *mix_cpu_gpu* training takes ``0.95`` seconds on every 100 steps. It is slower than pure GPU training (``0.73``) but still much faster than CPU (``8.9``).
 
 
-Users can speed up the ``--mix_cpu_gpu`` training by using ``--async_update`` option. When using this option, the GPU device will not wait for the CPU to finish its job when it performs update operation::
+Users can speed up the *mix_cpu_gpu* training by using ``--async_update`` option. When using this option, the GPU device will not wait for the CPU to finish its job when it performs update operation::
 
     dglke_train --model_name TransE_l2 --dataset FB15k --batch_size 1000 --log_interval 100 \
     --neg_sample_size 200 --regularization_coef=1e-9 --hidden_dim 400 --gamma 19.9 \
@@ -267,7 +249,7 @@ We can see that the training time goes down from ``0.95`` to ``0.84`` seconds on
 Training on Multi-GPU
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-DGL-KE also supports multi-GPU training, which can increase performance by distributing training across multiple GPU devices. The following figure depicts 4 GPUs on a single machine and connected to the CPU through a PCIe switch. Multi-GPU training automatically keeps node and relation embeddings on CPUs and dispatch batches to different GPUs.
+DGL-KE also supports multi-GPU training to accelerate training. The following figure depicts 4 GPUs on a single machine and connected to the CPU through a PCIe switch. Multi-GPU training automatically keeps node and relation embeddings on CPUs and dispatch batches to different GPUs.
 
 .. image:: ../images/multi-gpu.svg
     :width: 200
@@ -311,7 +293,7 @@ Note that ``--async_update`` can increase system performance but it could also s
 Save embeddings
 ^^^^^^^^^^^^^^^
 
-By default, ``dglke_train`` saves the embeddings in the ``ckpts`` folder. Each runs creates a new folder in ``ckpts`` to store the training results. The new folder is named after ``xxxx_yyyy_zz``\ , where ``xxxx`` is the model name, ``yyyy`` is the dataset name, ``zz`` is a sequence number that ensures a unique name for each run. 
+By default, ``dglke_train`` saves the embeddings in the ``ckpts`` folder. Each run creates a new folder in ``ckpts`` to store the training results. The new folder is named after ``xxxx_yyyy_zz``\ , where ``xxxx`` is the model name, ``yyyy`` is the dataset name, ``zz`` is a sequence number that ensures a unique name for each run. 
 
 The saved embeddings are stored as numpy ndarrays. The node embedding is saved as ``XXX_YYY_entity.npy``.
 The relation embedding is saved as ``XXX_YYY_relation.npy``. ``XXX`` is the dataset name and ``YYY`` is the model name.

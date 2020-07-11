@@ -6,6 +6,7 @@ with the embeddings easily.
 
 .. toctree::
    :hidden:
+   :maxdepth: 1
    :titlesonly:
 
    format_kg
