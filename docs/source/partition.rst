@@ -11,6 +11,7 @@ For distributed training, a user needs to partition a graph beforehand. DGL-KE p
 
 Arguments
 ---------
+The command line provides the following arguments:
 
   - ``--data_path DATA_PATH``
     The name of the knowledge graph stored under data_path. If it is one ofthe builtin knowledge grpahs such as FB15k, DGL-KE will automatically download the knowledge graph and keep it under data_path.
