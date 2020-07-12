@@ -12,8 +12,8 @@ with the embeddings easily.
    format_kg
    format_out
    train
-   dist_train
    partition
+   dist_train
    eval
    predict
    emb_sim
