@@ -42,43 +42,33 @@ import dgl.backend as F
 from .dataloader import EvalDataset
 from .dataloader import get_dataset
 
-def row_saprse_adagrad(name, ID, data, target, lr):
-    """Row-Sparse Adagrad update function
-    """
-    original_name = name[0:-6]
-    state_sum = target[original_name+'_state-data-']
-    grad_sum = (data * data).mean(1)
-    state_sum.index_add_(0, ID, grad_sum)
-    std = state_sum[ID]  # _sparse_mask
-    std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-    tmp = (-lr * data / std_values)
-    target[name].index_add_(0, ID, tmp)
-
-
 class KGEClient(KVClient):
     """User-defined kvclient for DGL-KGE
     """
+    def _push_handler(self, name, ID, data, target):
+        """Row-Sparse Adagrad updater
+        """
+        original_name = name[0:-6]
+        state_sum = target[original_name+'_state-data-']
+        grad_sum = (data * data).mean(1)
+        state_sum.index_add_(0, ID, grad_sum)
+        std = state_sum[ID]  # _sparse_mask
+        std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
+        tmp = (-self.clr * data / std_values)
+        target[name].index_add_(0, ID, tmp)
+
+
     def set_clr(self, learning_rate):
-        """Set learning rate for Row-Sparse Adagrad updater
+        """Set learning rate
         """
-        self._udf_push_param = learning_rate
-
-
-    def set_udf_push(self, push_handler):
-        """Set user-defined push
-        """
-        self._udf_push_handler = push_handler
+        self.clr = learning_rate
 
 
     def set_local2global(self, l2g):
-        """Set local2global mapping
-        """
         self._l2g = l2g
 
 
     def get_local2global(self):
-        """Get local2global mapping
-        """
         return self._l2g
 
 def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
@@ -89,8 +79,6 @@ def connect_to_kvstore(args, entity_pb, relation_pb, l2g):
     my_client = KGEClient(server_namebook=server_namebook)
 
     my_client.set_clr(args.lr)
-
-    my_client.set_udf_push(row_saprse_adagrad)
 
     my_client.connect()
 
@@ -286,8 +274,8 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
         eval_dataset = EvalDataset(dataset_full, args)
 
         if args.neg_sample_size_eval < 0:
-            args.neg_sample_size_eval = dataset_full.n_entities
-        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+            args.neg_sample_size_eval = args.neg_sample_size = eval_dataset.g.number_of_nodes()
+            args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
 
         model_test = load_model(args, dataset_full.n_entities, dataset_full.n_relations)
 
@@ -324,7 +312,7 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
 
         if args.test:
             model_test.share_memory()
-            start = time.time()
+
             test_sampler_tails = []
             test_sampler_heads = []
             for i in range(args.num_test_proc):
@@ -379,7 +367,5 @@ def dist_train_test(args, model, train_sampler, entity_pb, relation_pb, l2g, ran
 
             for proc in procs:
                 proc.join()
-
-            print('testing takes {:.3f} seconds'.format(time.time() - start))
 
         client.shut_down() # shut down kvserver
