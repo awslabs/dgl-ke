@@ -19,7 +19,7 @@ pipeline {
     stage("Lint Check") {
       agent { 
         docker {
-          label "linux-cpu-node"
+          label "linux-c52x-node"
           image "dgllib/dgl-ci-lint" 
         }
       }
@@ -38,7 +38,7 @@ pipeline {
         stage("Knowledge Graph CPU") {
           agent { 
             docker {
-              label "linux-cpu-node"
+              label "linux-c52x-node"
               image "dgllib/dgl-ci-cpu:conda" 
             }
           }
