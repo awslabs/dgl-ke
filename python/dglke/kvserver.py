@@ -155,8 +155,6 @@ def start_server(args):
 
     my_server.set_clr(args.lr)
 
-    my_server.set_udf_push(row_saprse_adagrad)
-
     if my_server.get_id() % my_server.get_group_count() == 0: # master server
         g2l, entity_emb, entity_emb_state, relation_emb, relation_emb_state = get_server_data(args, my_server.get_machine_id())
         my_server.set_global2local(name='entity_emb', global2local=g2l)
