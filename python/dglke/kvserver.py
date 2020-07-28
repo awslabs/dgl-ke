@@ -35,31 +35,26 @@ from .dataloader import get_server_partition_dataset
 NUM_THREAD = 1 # Fix the number of threads to 1 on kvstore
 
 
-def row_saprse_adagrad(name, ID, data, target, lr):
-    """Row-Sparse Adagrad update function
-    """
-    original_name = name[0:-6]
-    state_sum = target[original_name+'_state-data-']
-    grad_sum = (data * data).mean(1)
-    state_sum.index_add_(0, ID, grad_sum)
-    std = state_sum[ID]  # _sparse_mask
-    std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-    tmp = (-lr * data / std_values)
-    target[name].index_add_(0, ID, tmp)
-
-
 class KGEServer(KVServer):
     """User-defined kvstore for DGL-KGE
     """
+    def _push_handler(self, name, ID, data, target):
+        """Row-Sparse Adagrad updater
+        """
+        original_name = name[0:-6]
+        state_sum = target[original_name+'_state-data-']
+        grad_sum = (data * data).mean(1)
+        state_sum.index_add_(0, ID, grad_sum)
+        std = state_sum[ID]  # _sparse_mask
+        std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
+        tmp = (-self.clr * data / std_values)
+        target[name].index_add_(0, ID, tmp)
+
+
     def set_clr(self, learning_rate):
         """Set learning rate for Row-Sparse Adagrad updater
         """
-        self._udf_push_param = learning_rate
-
-    def set_udf_push(self, push_handler):
-        """Set user-defined push
-        """
-        self._udf_push_handler = push_handler
+        self.clr = learning_rate
 
 
 # Note: Most of the args are unnecessary for KVStore, will remove them later
