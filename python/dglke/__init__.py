@@ -20,5 +20,9 @@
 #!/usr/bin/env python3
 
 import pkg_resources
+import dgl
+
+if LooseVersion(dgl.__version__) != 0.4.3:
+    raise("DGL-KE 0.1.1 only work with DGL 0.4.3")
 
 __version__ = pkg_resources.resource_string("dglke", "VERSION.txt").decode("utf-8").strip()
