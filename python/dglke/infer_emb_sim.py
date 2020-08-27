@@ -133,6 +133,7 @@ def main():
                     t = id2e_map[t]
                 f.write('{}\t{}\t{}\n'.format(h, t, s))
     print('Inference Done')
+    print('The result is saved in {}'.format(args.output))
 
 if __name__ == '__main__':
     main()
