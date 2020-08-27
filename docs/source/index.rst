@@ -16,7 +16,7 @@ Knowledge graphs (KGs) are data structures that store information about differen
 .. __: http://proceedings.mlr.press/v48/trouillon16.pdf
 .. __: https://arxiv.org/pdf/1902.10197.pdf
 
-.. image:: ../images/dgl_ke_arch.png
+.. image:: https://data.dgl.ai/asset/image/ke/dgl_ke_arch.png
     :width: 650  
 
 Performance and Scalability
@@ -26,23 +26,23 @@ DGL-KE is designed for learning at scale. It introduces various novel optimizati
 
 *DGL-KE vs Graphvite*
 
-.. image:: ../images/vs-gv-fb15k.png
+.. image:: https://data.dgl.ai/asset/image/ke/vs-gv-fb15k.png
     :width: 650 
 
 *DGL-KE vs Pytorch-Biggraph*
 
-.. image:: ../images/vs-pbg-fb.png
+.. image:: https://data.dgl.ai/asset/image/ke/vs-pbg-fb.png
     :width: 650 
 
 Get started with DGL-KE!
 ----------------------------------------
 
 .. toctree::
-   :glob:
    :maxdepth: 2
-   :titlesonly:
 
    install
    kg
    commands
+   train_user_data
    benchmarks
+   profile
