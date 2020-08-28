@@ -66,23 +66,23 @@ cast of characters and the world in which they live.
 
 **Scenario:**
 
-**Mary** and **Tom** are ***siblings*** and they both are ***are
-vegetarians***, who ***like*** **potatoes** and **cheese**. Mary and Tom
-both ***work*** at **Amazon**. **Joe** is a bloke who is a
-***colleague*** of Tom. To make the matter complicated, Joe ***loves***
+**Mary** and **Tom** are *siblings* and they both are *are
+vegetarians*, who *like* **potatoes** and **cheese**. Mary and Tom
+both *work* at **Amazon**. **Joe** is a bloke who is a
+*colleague* of Tom. To make the matter complicated, Joe *loves*
 Mary, but we do not know if the feeling is reciprocated.
 
-Joe ***is from*** **Quebec** and is proud of his native dish of
-**Poutine**, which is ***composed*** of potato, cheese, and **gravy**.
-We also know that gravy ***contains*** **meat** in some form.
+Joe *is from* **Quebec** and is proud of his native dish of
+**Poutine**, which is *composed* of potato, cheese, and **gravy**.
+We also know that gravy *contains* **meat** in some form.
 
 Joe is excited to invite Tom for dinner and has sneakily included his
 sibling, Mary, in the invitation. His plans are doomed from get go as he
 is planning to serve the vegetarian siblings his favourite Quebecois
 dish, Poutine.
 
-Oh! by the way, a piece of geography trivia: Quebec ***is located*** in
-a **province** of the same name which in turn ***is located*** in
+Oh! by the way, a piece of geography trivia: Quebec *is located* in
+a **province** of the same name which in turn *is located* in
 **Canada**.
 
 There are several relationships in this scenario that are not explicitly
@@ -117,9 +117,9 @@ more information on how to use the examples, please refer to the
 `code <https://github.com/cyrusmvahid/GNNTrainingMaterial/blob/master/March2020/supportingexamples/examples.py>`__
 that draws the examples.
 
-.. image:: ../images/kg_example.png
+.. image:: https://data.dgl.ai/asset/image/ke/kg_example.png
   :width: 400
-  :alt: Figure1: World of Mary
+  :alt: kg_example
 
 What is the task of Knowledge Graph Embedding?
 ----------------------------------------------
@@ -138,25 +138,25 @@ Different connectivity or relational pattern are commonly observed in
 KGs. A Knowledge Graph Embedding model intends to predict missing
 connections that are often one of the types below.
 
--  ***symmetric***
--  **Definition:** A relation :math:`r` is ***symmetric*** if
+-  *symmetric*
+-  **Definition:** A relation :math:`r` is *symmetric* if
    :math:`\forall {x,y}: (x,r,y)\implies (y,r,x)`
 -  **Example:**
    :math:`\text{x=Mary and y=Tom and r="is a sibling of"}; \\ (x,r,y) = \text{Mary is a sibling of Tom} \implies (y,r,x)=\text{Tom is a sibling of Mary}`
 
--  ***antisymmetric***
--  **Definition:** A relation r is ***antisymmetric*** if
+-  *antisymmetric*
+-  **Definition:** A relation r is *antisymmetric* if
    :math:`\forall {x,y}: (x,r,y)\implies \lnot (y,r,x)`
 -  **Example:**
    :math:`\text{x=Quebec and y=Canada and r="is located in"}; \\ (x,r,y) = \text{Quebec is located in Canada} \implies (y,\lnot r,x)=\text{Canada is not located in Quebec}`
 
--  ***inversion***
--  **Definition:** A relation :math:`r_1` is ***inverse*** to relation
+-  *inversion*
+-  **Definition:** A relation :math:`r_1` is *inverse* to relation
    :math:`r_2` if :math:`\forall x,y: r_2(x,y)\implies r_1(y,x)`.
 -  **Example:**
    :math:`x=Mary,\ y=Tom,\ r_1=\text{"is a sister of}"\ and r_2=\text{"is a brother of"} \\ (x,r_1,y)=\text{Mary is a sister of Tom} \implies (y,r_2,x) = \text{Tom is a brother of Mary}`
 
--  ***composition***
+-  *composition*
 -  **Definition**: relation :math:`r_1` is composed of relation
    :math:`r_2` and relation :math:`r_3` if
    :math:`\forall x,y,z: (x,r_2,y) \land (y,r_3,z) \implies (x,r_1, z)`
@@ -176,21 +176,12 @@ the reader to DGL-KE, an open source knowledge graph embedding library,
 we limit the scope only to those methods that are implemented by DGL-KE
 and are listed in Figure 2.
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure2: A list of score functions for KE papers implemented by DGL-KE
 
-.. raw:: html
-
-   </figcaption>
-   </figure>
+.. image:: https://data.dgl.ai/asset/image/ke/kge_scores.png
+  :width: 400
+  :alt: kge_scores
 
 A short explanation of the score functions
 ------------------------------------------
@@ -232,21 +223,12 @@ respectively. TransE performs linear transformation and the scoring
 function is negative distance between :math:`h+r` and :math:`t`, or
 :math:`f=-\|h+r-t\|_{\frac{1}{2}}`
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
-
 Figure 3: TransE
 
-.. raw:: html
+.. image:: https://data.dgl.ai/asset/image/ke/transe.png
+  :width: 400
+  :alt: transe
 
-   </figcaption>
-   </figure>
 
 TransR
 ~~~~~~
@@ -278,22 +260,14 @@ measures euclidean distance between :math:`h+r` and :math:`t`, but the
 distance measure is per relationship space. More formally:
 :math:`f_r=\|h_r+r-t_r\|_2^2`
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure 4: TransR projecting different aspects of an entity to a
 relationship space.
 
-.. raw:: html
+.. image:: https://data.dgl.ai/asset/image/ke/transr.png
+  :width: 400
+  :alt: transr
 
-   </figcaption>
-   </figure>
 
 Another advantage of TransR over TransE is its ability to extract
 compositional rules. Ability to extract rules has two major benefits. It
@@ -354,22 +328,14 @@ Value of :math:`\mathcal{X}_{ijk}` is determined as:
           0\  &\quad\text{if }(e_i, r_k, e_j)\text{ does not hold}
         \end{cases}
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure 5: RESCAL captures entities and their relations as
 multi-dimensional tensor
 
-.. raw:: html
+.. image:: https://data.dgl.ai/asset/image/ke/rescal.png
+  :width: 400
+  :alt: rescal
 
-   </figcaption>
-   </figure>
 
 As entity relationship tensors tend to be sparse, the authors of RESCAL,
 propose a dyadic decomposition to capture the inherent structure of the
@@ -390,30 +356,33 @@ component in :math:`\mathcal{X}`. To make sense of it all, let's take a
 look at an example:
 
 .. math::
+   :nowrap:
 
+   \begin{gather}
+      Entities=\{\text{Mary :}0, \text{Tom :}1, \text{Joe :}2\} \\
+      Relationships=\{\text{sibling, colleague}\} \\
+      Relation_{k=0}^{sibling}: \text{Mary and Tom are siblings but Joe is not their sibling.} \\
+      Relations_{k=1}^{colleague}: \text{Mary,Tom, and Joe are colleagues}\\
+      \text{relationship matrices will model: }\mathcal{X_k}=
+      \begin{bmatrix}
+      Mary & Tom  & Joe \\
+      Tom  & Joe & Mary \\
+      Joe  & Mary  & Tom
+      \end{bmatrix}\\
+      {\mathcal{X}}_{0:sibling}=
+      \begin{bmatrix}
+      0 & 1 & 0\\
+      0 & 0 & 1\\
+      0 & 0 & 0
+      \end{bmatrix}\\
+      \mathcal{X}_{1:colleague}=
+      \begin{bmatrix}
+      0 & 1 & 1\\
+      1 & 0 & 1\\
+      1 & 1 & 0
+      \end{bmatrix}
+   \end{gather}
 
-   Entities=\{\text{Mary :}0, \text{Tom :}1, \text{Joe :}2\} \\
-   Relationships=\{\text{sibling, colleague}\} \\
-   Relation_{k=0}^{sibling}: \text{Mary and Tom are siblings but Joe is not their sibling.} \\
-   Relations_{k=1}^{colleague}: \text{Mary,Tom, and Joe are colleagues}\\
-   \text{relationship matrices will model: }\mathcal{X_k}=
-   \begin{bmatrix}
-   Mary & Tom  & Joe \\
-   Tom  & Joe & Mary \\
-   Joe  & Mary  & Tom
-   \end{bmatrix}\\
-   {\mathcal{X}}_{0:sibling}=
-   \begin{bmatrix}
-   0 & 1 & 0\\
-   0 & 0 & 1\\
-   0 & 0 & 0
-   \end{bmatrix}\\
-   \mathcal{X}_{1:colleague}=
-   \begin{bmatrix}
-   0 & 1 & 1\\
-   1 & 0 & 1\\
-   1 & 1 & 0
-   \end{bmatrix}
 
 Note that even in such a small knowledge graph where two of the three
 entities have even a symmetrical relationship, matrices
@@ -428,24 +397,17 @@ it contains little information and has very low entropy.
 Next step in RESCAL is decomposing matrices :math:`\mathcal{X}_k` using
 a rank\_k decomposition as illustrated in figure 6.
 
-.. raw:: html
 
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure 6: Each of the :math:`k` slices of martix :math:`\mathcal{X}` is
 factorized to its k-rank components in form of a :math:`n\times r`
 entity-latent component and an asymmetric :math:`r\times r` that
 specifies interactions of entity-latent components per relation.
 
-.. raw:: html
+.. image:: https://data.dgl.ai/asset/image/ke/rescal2.png
+  :width: 400
+  :alt: rescal2
 
-   </figcaption>
-   </figure>
 
 :math:`A` and :math:`R_k` are computed through solving an optimization
 problem that is correlated to minimizing the distance between
@@ -470,21 +432,14 @@ collection of all individual :math:`R_k` matrices and is of dimension
 
 Figure 7 illustrates computation of the the score for RESCAL method.
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure 7: RESCAL
 
-.. raw:: html
 
-   </figcaption>
-   </figure>
+.. image:: https://data.dgl.ai/asset/image/ke/rescal3.png
+  :width: 400
+  :alt: rescal3
+
 
 Score function :math:`f` requires :math:`O(d^2)` parameters per
 relation.
@@ -505,28 +460,21 @@ where :math:`M_r=diag(r)` is computed as:
 
 .. math::
 
-
    f_r(h,t) = \mathbf{h}^\top diag(r) t = \sum_{i=0}^{d-1}[r]_i.[h]_i.[t]_i
+
 
 Figure 8 illustrates how DistMulti computes the score by capturing the
 pairwise interaction only along the same dimensions of components of h
 and t.
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure 8: DistMulti
 
-.. raw:: html
 
-   </figcaption>
-   </figure>
+.. image:: https://data.dgl.ai/asset/image/ke/distmult.png
+  :width: 400
+  :alt: distmult
+
 
 A basic refresher on linear algebra
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -919,21 +867,14 @@ and
 or a rotation is a combination of two smaller rotations sum of whose
 angles is the angle of the third relation.
 
-.. raw:: html
-
-   <figure>
-       
-
-.. raw:: html
-
-   <figcaption>
 
 Figure 9: RotateE vs. TransE
 
-.. raw:: html
 
-   </figcaption>
-   </figure>
+.. image:: https://data.dgl.ai/asset/image/ke/rotate.png
+  :width: 400
+  :alt: rotate
+
 
 Score Function
 ^^^^^^^^^^^^^^
