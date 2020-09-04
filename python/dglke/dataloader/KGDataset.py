@@ -83,7 +83,7 @@ class KGDataset:
 
     The triples are stored as 'head_name\trelation_name\ttail_name'.
     '''
-    def __init__(self, entity_path, relation_path, train_path, 
+    def __init__(self, entity_path, relation_path, train_path,
                  valid_path=None, test_path=None, format=[0,1,2],
                  delimiter='\t', skip_first_line=False):
         self.delimiter = delimiter
@@ -406,10 +406,10 @@ class KGDatasetUDDRaw(KGDataset):
     * test stores the triples in the test set. In format [src_name, rel_name, dst_name]
 
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
-    The triples are stored as 'head_nid\trelation_id\ttail_nid'. Users can also use other delimiters 
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'. Users can also use other delimiters
     other than \t.
     '''
-    def __init__(self, path, name, delimiter, files, format):
+    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
@@ -426,6 +426,7 @@ class KGDatasetUDDRaw(KGDataset):
         if delimiter not in ['\t', '|', ',',';']:
             print('WARNING: delimiter {} is not in \'\\t\', \'|\', \',\', \';\'' \
                   'This is not tested by the developer'.format(delimiter))
+        self.has_edge_importance = has_edge_importance
         # Only train set is provided
         if len(files) == 1:
             super(KGDatasetUDDRaw, self).__init__("entities.tsv",
@@ -442,6 +443,40 @@ class KGDatasetUDDRaw(KGDataset):
                                                   os.path.join(path, files[2]),
                                                   format=format,
                                                   delimiter=delimiter)
+
+    def read_triple(self, path, mode, skip_first_line=False, format=[0,1,2]):
+        # mode: train/valid/test
+        if path is None:
+            return None
+
+        print('Reading {} triples....'.format(mode))
+        heads = []
+        tails = []
+        rels = []
+        e_impts = []
+        with open(path) as f:
+            if skip_first_line:
+                _ = f.readline()
+            for line in f:
+                triple = line.strip().split(self.delimiter)
+                h, r, t = triple[format[0]], triple[format[1]], triple[format[2]]
+                heads.append(self.entity2id[h])
+                rels.append(self.relation2id[r])
+                tails.append(self.entity2id[t])
+                if self.has_edge_importance:
+                    e_impts.append(float(triple[3]))
+
+        heads = np.array(heads, dtype=np.int64)
+        tails = np.array(tails, dtype=np.int64)
+        rels = np.array(rels, dtype=np.int64)
+
+        print('Finished. Read {} {} triples.'.format(len(heads), mode))
+        if self.has_edge_importance:
+            e_impts = np.array(e_impts, dtype=np.float)
+            assert np.min(e_impts) > 0., 'Edge importance score should > 0'
+            return (heads, rels, tails, e_impts)
+
+        return (heads, rels, tails)
 
     def load_entity_relation(self, path, delimiter, files, format):
         entity_map = {}
@@ -469,7 +504,7 @@ class KGDatasetUDDRaw(KGDataset):
 
     def read_entity(self, entity_path):
         return self.entity2id, self.n_entities
-    
+
     def read_relation(self, relation_path):
         return self.relation2id, self.n_relations
 
@@ -492,10 +527,10 @@ class KGDatasetUDD(KGDataset):
     * test stores the triples in the test set. In format [src_id, rel_id, dst_id]
 
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
-    The triples are stored as 'head_nid\trelation_id\ttail_nid'. Users can also use other delimiters 
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'. Users can also use other delimiters
     other than \t.
     '''
-    def __init__(self, path, name, delimiter, files, format):
+    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
@@ -509,6 +544,7 @@ class KGDatasetUDD(KGDataset):
         if delimiter not in ['\t', '|', ',',';']:
             print('WARNING: delimiter {} is not in \'\\t\', \'|\', \',\', \';\'' \
                   'This is not tested by the developer'.format(delimiter))
+        self.has_edge_importance = has_edge_importance
         if len(files) == 3:
             super(KGDatasetUDD, self).__init__(os.path.join(path, files[0]),
                                                os.path.join(path, files[1]),
@@ -545,6 +581,7 @@ class KGDatasetUDD(KGDataset):
         heads = []
         tails = []
         rels = []
+        e_impts = []
         print('Reading {} triples....'.format(mode))
         with open(path) as f:
             if skip_first_line:
@@ -556,6 +593,8 @@ class KGDatasetUDD(KGDataset):
                     heads.append(int(h))
                     tails.append(int(t))
                     rels.append(int(r))
+                    if self.has_edge_importance:
+                        e_impts.append(float(triple[3]))
                 except ValueError:
                     print("For User Defined Dataset, both node ids and relation ids in the " \
                           "triplets should be int other than {}\t{}\t{}".format(h, r, t))
@@ -570,10 +609,15 @@ class KGDatasetUDD(KGDataset):
             'Tail node ID should not exceeds the number of entities {}'.format(self.n_entities)
         assert np.max(rels) < self.n_relations, \
             'Relation ID should not exceeds the number of relations {}'.format(self.n_relations)
-        
+
         assert np.min(heads) >= 0, 'Head node ID should >= 0'
         assert np.min(tails) >= 0, 'Tail node ID should >= 0'
         assert np.min(rels) >= 0, 'Relation ID should >= 0'
+
+        if self.has_edge_importance:
+            e_impts = np.array(e_impts, dtype=np.float)
+            assert np.min(e_impts) > 0., 'Edge importance score should > 0'
+            return (heads, rels, tails, e_impts)
         return (heads, rels, tails)
 
     @property
@@ -584,7 +628,7 @@ class KGDatasetUDD(KGDataset):
     def rmap_fname(self):
         return self.rmap_file
 
-def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None):
+def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, has_edge_importance=False):
     if format_str == 'built_in':
         if data_name == 'Freebase':
             dataset = KGDatasetFreebase(data_path)
@@ -596,18 +640,18 @@ def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None):
             dataset = KGDatasetWN18(data_path)
         elif data_name == 'wn18rr':
             dataset = KGDatasetWN18rr(data_path)
-        else: 
+        else:
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):
         # user defined dataset
         assert data_name != 'FB15k', 'You should provide the dataset name for raw_udd format.'
         format = format_str[8:]
-        dataset = KGDatasetUDDRaw(data_path, data_name, delimiter, files, format)
+        dataset = KGDatasetUDDRaw(data_path, data_name, delimiter, files, format, has_edge_importance)
     elif format_str.startswith('udd'):
         # user defined dataset
         assert data_name != 'FB15k', 'You should provide the dataset name for udd format.'
         format = format_str[4:]
-        dataset = KGDatasetUDD(data_path, data_name, delimiter, files, format)
+        dataset = KGDatasetUDD(data_path, data_name, delimiter, files, format, has_edge_importance)
     else:
         assert False, "Unknown format {}".format(format_str)
 
@@ -626,9 +670,9 @@ def get_partition_dataset(data_path, data_name, part_id):
     partition_book_path = os.path.join(path, 'partition_book.txt')
     relation_path = os.path.join(path, 'relation_count.txt')
 
-    dataset = PartitionKGDataset(relation_path, 
-                                 train_path, 
-                                 local2global_path, 
+    dataset = PartitionKGDataset(relation_path,
+                                 train_path,
+                                 local2global_path,
                                  read_triple=True)
 
     partition_book = []
@@ -652,7 +696,7 @@ def get_server_partition_dataset(data_path, data_name, part_id):
         exit()
 
     train_path = os.path.join(path, 'train.txt')
-    local2global_path = os.path.join(path, 'local_to_global.txt')    
+    local2global_path = os.path.join(path, 'local_to_global.txt')
     relation_path = os.path.join(path, 'relation_count.txt')
 
     dataset = PartitionKGDataset(relation_path,

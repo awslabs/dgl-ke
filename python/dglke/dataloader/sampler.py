@@ -41,7 +41,7 @@ def SoftRelationPartition(edges, n, threshold=0.05):
         if r.size() > threadold
             Evenly divide edges of r into n parts and put into each relation.
         else
-            Find partition with fewest edges, and put edges of r into 
+            Find partition with fewest edges, and put edges of r into
             this partition.
 
     Parameters
@@ -286,10 +286,15 @@ def ConstructGraph(edges, n_entities, args):
     args :
         Global configs.
     """
-    src, etype_id, dst = edges
+    if args.has_edge_importance:
+        src, etype_id, dst, e_impts = edges
+    else:
+        src, etype_id, dst = edges
     coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
     g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
     g.edata['tid'] = F.tensor(etype_id, F.int64)
+    if args.has_edge_importance:
+        g.edata['impts'] = F.tensor(e_impts, F.float32)
     return g
 
 class TrainDataset(object):
@@ -523,11 +528,11 @@ class EvalSampler(object):
             pos_g, neg_g = next(self.sampler_iter)
             if self.filter_false_neg:
                 neg_positive = neg_g.edata['false_neg']
-            neg_g = create_neg_subgraph(pos_g, neg_g, 
-                                        self.neg_chunk_size, 
-                                        self.neg_sample_size, 
-                                        'chunk' in self.mode, 
-                                        self.neg_head, 
+            neg_g = create_neg_subgraph(pos_g, neg_g,
+                                        self.neg_chunk_size,
+                                        self.neg_sample_size,
+                                        'chunk' in self.mode,
+                                        self.neg_head,
                                         self.g.number_of_nodes())
             if neg_g is not None:
                 break
@@ -677,15 +682,15 @@ class NewBidirectionalOneShotIterator:
         Total number of nodes in the whole graph.
     """
     def __init__(self, dataloader_head, dataloader_tail, neg_chunk_size, neg_sample_size,
-                 is_chunked, num_nodes):
+                 is_chunked, num_nodes, has_edge_importance=False):
         self.sampler_head = dataloader_head
         self.sampler_tail = dataloader_tail
         self.iterator_head = self.one_shot_iterator(dataloader_head, neg_chunk_size,
                                                     neg_sample_size, is_chunked,
-                                                    True, num_nodes)
+                                                    True, num_nodes, has_edge_importance)
         self.iterator_tail = self.one_shot_iterator(dataloader_tail, neg_chunk_size,
                                                     neg_sample_size, is_chunked,
-                                                    False, num_nodes)
+                                                    False, num_nodes, has_edge_importance)
         self.step = 0
 
     def __next__(self):
@@ -698,7 +703,7 @@ class NewBidirectionalOneShotIterator:
 
     @staticmethod
     def one_shot_iterator(dataloader, neg_chunk_size, neg_sample_size, is_chunked,
-                          neg_head, num_nodes):
+                          neg_head, num_nodes, has_edge_importance=False):
         while True:
             for pos_g, neg_g in dataloader:
                 neg_g = create_neg_subgraph(pos_g, neg_g, neg_chunk_size, neg_sample_size,
@@ -709,4 +714,6 @@ class NewBidirectionalOneShotIterator:
                 pos_g.ndata['id'] = pos_g.parent_nid
                 neg_g.ndata['id'] = neg_g.parent_nid
                 pos_g.edata['id'] = pos_g._parent.edata['tid'][pos_g.parent_eid]
+                if has_edge_importance:
+                    pos_g.edata['impts'] = pos_g._parent.edata['impts'][pos_g.parent_eid]
                 yield pos_g, neg_g
