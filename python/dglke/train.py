@@ -58,7 +58,7 @@ class ArgParser(CommonArgParser):
         self.add_argument('--has_edge_importance', action='store_true',
                           help='Allow providing edge importance score for each edge during training.'\
                                   'The positive score will be adjusted '\
-                                  'using pos_score = pos_score * edge_importance')
+                                  'as pos_score = pos_score * edge_importance')
 
 def prepare_save_path(args):
     if not os.path.exists(args.save_path):

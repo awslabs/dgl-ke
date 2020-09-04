@@ -28,10 +28,10 @@ The command line provides the following arguments:
   - ``--save_path SAVE_PATH``
     The path of the directory where models and logs are saved.
 
-  - ``--no_save_emb``         
+  - ``--no_save_emb``
     Disable saving the embeddings under save_path.
 
-  - ``--max_step MAX_STEP``   
+  - ``--max_step MAX_STEP``
     The maximal number of steps to train the model in a single process. A step trains the model with a batch of data. In the case of multiprocessing training, the total number of training steps is ``MAX_STEP`` * ``NUM_PROC``.
 
   - ``--batch_size BATCH_SIZE``
@@ -55,7 +55,7 @@ The command line provides the following arguments:
   - ``--eval_percent EVAL_PERCENT``
     Randomly sample some percentage of edges for evaluation.
 
-  - ``--no_eval_filter`` 
+  - ``--no_eval_filter``
     Disable filter positive edges from randomly constructed negative edges for evaluation.
 
   - ``-log LOG_INTERVAL``
@@ -67,7 +67,7 @@ The command line provides the following arguments:
   - ``--test``
     Evaluate the model on the test set after the model is trained.
 
-  - ``--num_proc NUM_PROC`` 
+  - ``--num_proc NUM_PROC``
     The number of processes to train the model in parallel. In multi-GPU training, the number of processes by default is the number of GPUs. If it is specified explicitly, the number of processes needs to be divisible by the number of GPUs.
 
   - ``--num_thread NUM_THREAD``
@@ -79,7 +79,7 @@ The command line provides the following arguments:
   - ``--hidden_dim HIDDEN_DIM``
     The embedding size of relations and entities.
 
-  - ``--lr LR``          
+  - ``--lr LR``
     The learning rate. DGL-KE uses Adagrad to optimize the model parameters.
 
   - ``-g GAMMA`` or ``--gamma GAMMA``
@@ -106,17 +106,20 @@ The command line provides the following arguments:
   - ``--gpu [GPU ...]``
     A list of gpu ids, e.g. 0 1 2 4
 
-  - ``--mix_cpu_gpu``         
+  - ``--mix_cpu_gpu``
     Training a knowledge graph embedding model with both CPUs and GPUs.The embeddings are stored in CPU memory and the training is performed in GPUs.This is usually used for training large knowledge graph embeddings.
 
-  - ``--valid``               
+  - ``--valid``
     Evaluate the model on the validation set in the training.
 
-  - ``--rel_part``         
+  - ``--rel_part``
     Enable relation partitioning for multi-GPU training.
 
   - ``--async_update``
     Allow asynchronous update on node embedding for multi-GPU training. This overlaps CPU and GPU computation to speed up.
+
+  - ``--has_edge_importance``
+    Allow providing edge importance score for each edge during training. The positive score will be adjusted as pos_score = pos_score * edge_importance.
 
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -293,7 +296,7 @@ Note that ``--async_update`` can increase system performance but it could also s
 Save embeddings
 ^^^^^^^^^^^^^^^
 
-By default, ``dglke_train`` saves the embeddings in the ``ckpts`` folder. Each run creates a new folder in ``ckpts`` to store the training results. The new folder is named after ``xxxx_yyyy_zz``\ , where ``xxxx`` is the model name, ``yyyy`` is the dataset name, ``zz`` is a sequence number that ensures a unique name for each run. 
+By default, ``dglke_train`` saves the embeddings in the ``ckpts`` folder. Each run creates a new folder in ``ckpts`` to store the training results. The new folder is named after ``xxxx_yyyy_zz``\ , where ``xxxx`` is the model name, ``yyyy`` is the dataset name, ``zz`` is a sequence number that ensures a unique name for each run.
 
 The saved embeddings are stored as numpy ndarrays. The node embedding is saved as ``XXX_YYY_entity.npy``.
 The relation embedding is saved as ``XXX_YYY_relation.npy``. ``XXX`` is the dataset name and ``YYY`` is the model name.
