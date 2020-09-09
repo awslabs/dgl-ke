@@ -517,8 +517,13 @@ class KEModel(object):
         #    pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()
         #    neg_score = (neg_score * subsampling_weight).sum() / subsampling_weight.sum()
         #else:
-        pos_score = pos_score.mean()
-        neg_score = neg_score.mean()
+        if self.has_edge_importance:
+            edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
+            pos_score = (pos_score * edge_weight).sum() / edge_weight.sum()
+            neg_score = (neg_score * edge_weight).sum() / edge_weight.sum()
+        else:
+            pos_score = pos_score.mean()
+            neg_score = neg_score.mean()
 
         # compute loss
         loss = -(pos_score + neg_score) / 2
