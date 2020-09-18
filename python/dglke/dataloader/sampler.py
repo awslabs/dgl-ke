@@ -29,7 +29,7 @@ import time
 
 from dgl.base import NID, EID
 
-def SoftRelationPartition(edges, n, threshold=0.05):
+def SoftRelationPartition(edges, n, has_importance=False, threshold=0.05):
     """This partitions a list of edges to n partitions according to their
     relation types. For any relation with number of edges larger than the
     threshold, its edges will be evenly distributed into all partitions.
@@ -63,7 +63,10 @@ def SoftRelationPartition(edges, n, threshold=0.05):
     bool
         Whether there exists some relations belongs to multiple partitions
     """
-    heads, rels, tails = edges
+    if has_importance:
+        heads, rels, tails, e_impts = edges
+    else:
+        heads, rels, tails = edges
     print('relation partition {} edges into {} parts'.format(len(heads), n))
     uniq, cnts = np.unique(rels, return_counts=True)
     idx = np.flip(np.argsort(cnts))
@@ -133,6 +136,8 @@ def SoftRelationPartition(edges, n, threshold=0.05):
     heads[:] = heads[shuffle_idx]
     rels[:] = rels[shuffle_idx]
     tails[:] = tails[shuffle_idx]
+    if has_importance:
+        e_impts[:] = e_impts[shuffle_idx]
 
     off = 0
     for i, part in enumerate(parts):
@@ -142,7 +147,7 @@ def SoftRelationPartition(edges, n, threshold=0.05):
 
     return parts, rel_parts, num_cross_part > 0, cross_rel_part
 
-def BalancedRelationPartition(edges, n):
+def BalancedRelationPartition(edges, n, has_importance=False):
     """This partitions a list of edges based on relations to make sure
     each partition has roughly the same number of edges and relations.
     Algo:
@@ -170,7 +175,10 @@ def BalancedRelationPartition(edges, n):
     bool
         Whether there exists some relations belongs to multiple partitions
     """
-    heads, rels, tails = edges
+    if has_importance:
+        heads, rels, tails, e_impts = edges
+    else:
+        heads, rels, tails = edges
     print('relation partition {} edges into {} parts'.format(len(heads), n))
     uniq, cnts = np.unique(rels, return_counts=True)
     idx = np.flip(np.argsort(cnts))
@@ -235,6 +243,8 @@ def BalancedRelationPartition(edges, n):
     heads[:] = heads[shuffle_idx]
     rels[:] = rels[shuffle_idx]
     tails[:] = tails[shuffle_idx]
+    if has_importance:
+        e_impts[:] = e_impts[shuffle_idx]
 
     off = 0
     for i, part in enumerate(parts):
@@ -243,7 +253,7 @@ def BalancedRelationPartition(edges, n):
 
     return parts, rel_parts, num_cross_part > 0
 
-def RandomPartition(edges, n):
+def RandomPartition(edges, n, has_importance=False):
     """This partitions a list of edges randomly across n partitions
 
     Parameters
@@ -258,12 +268,17 @@ def RandomPartition(edges, n):
     List of np.array
         Edges of each partition
     """
-    heads, rels, tails = edges
+    if has_importance:
+        heads, rels, tails, e_impts = edges
+    else:
+        heads, rels, tails = edges
     print('random partition {} edges into {} parts'.format(len(heads), n))
     idx = np.random.permutation(len(heads))
     heads[:] = heads[idx]
     rels[:] = rels[idx]
     tails[:] = tails[idx]
+    if has_importance:
+        e_impts[:] = e_impts[idx]
 
     part_size = int(math.ceil(len(idx) / n))
     parts = []
@@ -309,16 +324,16 @@ class TrainDataset(object):
     ranks:
         Number of partitions.
     """
-    def __init__(self, dataset, args, ranks=64):
+    def __init__(self, dataset, args, ranks=64, has_importance=False):
         triples = dataset.train
         num_train = len(triples[0])
         print('|Train|:', num_train)
 
         if ranks > 1 and args.rel_part:
             self.edge_parts, self.rel_parts, self.cross_part, self.cross_rels = \
-            SoftRelationPartition(triples, ranks)
+            SoftRelationPartition(triples, ranks, has_importance=has_importance)
         elif ranks > 1:
-            self.edge_parts = RandomPartition(triples, ranks)
+            self.edge_parts = RandomPartition(triples, ranks, has_importance=has_importance)
             self.cross_part = True
         else:
             self.edge_parts = [np.arange(num_train)]
