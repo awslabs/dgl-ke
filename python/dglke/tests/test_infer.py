@@ -50,7 +50,7 @@ class dotdict(dict):
 
 def generate_rand_emb(func_name, bcast):
     dim=16
-    
+
     num_head = 16
     num_rels = 4
     num_tail = 32
@@ -261,7 +261,7 @@ def test_score_func_rescal():
 
 def test_score_func_rotate():
     check_infer_score('RotatE')
-        
+
 if __name__ == '__main__':
     test_score_func_transe()
     test_score_func_distmult()

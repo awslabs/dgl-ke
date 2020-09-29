@@ -73,13 +73,13 @@ def dot_dist(x, y, pw=False):
 
 def cosine_dist(x, y, pw=False):
     score = dot_dist(x, y, pw)
-    
+
     x = x.norm(p=2, dim=-1)
     y = y.norm(p=2, dim=-1)
     if pw is False:
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
-       
+
     return score / (x * y)
 
 def extended_jaccard_dist(x, y, pw=False):
@@ -92,6 +92,9 @@ def extended_jaccard_dist(x, y, pw=False):
         y = y.unsqueeze(0)
 
     return score / (x + y - score)
+
+def floor_divide(input, other):
+    return th.floor_divide(input, other)
 
 def thread_wrapped_func(func):
     """Wrapped func for torch.multiprocessing.Process.
@@ -129,7 +132,7 @@ def async_update(args, emb, queue):
     """Asynchronous embedding update for entity embeddings.
     How it works:
         1. trainer process push entity embedding update requests into the queue.
-        2. async_update process pull requests from the queue, calculate 
+        2. async_update process pull requests from the queue, calculate
            the gradient state and gradient and write it into entity embeddings.
 
     Parameters
@@ -181,6 +184,16 @@ class InferEmbedding:
         """
         file_name = os.path.join(path, name+'.npy')
         self.emb = th.Tensor(np.load(file_name))
+
+    def load_emb(self, emb_array):
+        """Load embeddings from numpy array.
+
+        Parameters
+        ----------
+        emb_array : numpy.array
+            Embedding array
+        """
+        self.emb = th.Tensor(emb_array)
 
     def __call__(self, idx):
         return self.emb[idx].to(self.device)
@@ -281,7 +294,7 @@ class ExternalEmbedding:
 
     def update(self, gpu_id=-1):
         """ Update embeddings in a sparse manner
-        Sparse embeddings are updated in mini batches. we maintains gradient states for 
+        Sparse embeddings are updated in mini batches. we maintains gradient states for
         each embedding so they can be updated separately.
 
         Parameters

@@ -19,13 +19,14 @@
 
 import os
 import time
+from abc import abstractmethod
 import argparse
 import numpy as np
 
 import dgl.backend as F
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
-from .general_models import InferModel
+from .general_models import KGEInferModel, GeneralInferModel
 if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import logsigmoid
     from .mxnet.tensor_models import none
@@ -35,6 +36,7 @@ if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import l1_dist
     from .mxnet.tensor_models import dot_dist
     from .mxnet.tensor_models import extended_jaccard_dist
+    from .mxnet.tensor_models import floor_divide
     DEFAULT_INFER_BATCHSIZE = 256
 else:
     from .pytorch.tensor_models import logsigmoid
@@ -45,6 +47,7 @@ else:
     from .pytorch.tensor_models import l1_dist
     from .pytorch.tensor_models import dot_dist
     from .pytorch.tensor_models import extended_jaccard_dist
+    from .pytorch.tensor_models import floor_divide
     DEFAULT_INFER_BATCHSIZE = 1024
 
 class ScoreInfer(object):
@@ -53,47 +56,28 @@ class ScoreInfer(object):
 
     Parameters
     ---------
-    device : int 
+    device : int
         Device to run the inference, -1 for CPU
-
-    config : dict
-        Containing KG model information
-
-    model_path : str
-        path storing the model (pretrained embeddings)
-
     score_func : str
         What kind of score is used,
             none: score = $x$
             logsigmoid: score $log(sigmoid(x))
     """
-    def __init__(self, device, config, model_path, sfunc='none'):
+    def __init__(self, device, sfunc='none'):
         assert sfunc in ['none', 'logsigmoid'], 'score function should be none or logsigmoid'
 
         self.device = 'cpu' if device < 0 else device
-        self.config = config
-        self.model_path = model_path
         self.sfunc = sfunc
         if sfunc == 'none':
             self.score_func = none
         else:
             self.score_func = logsigmoid
 
+    @abstractmethod
     def load_model(self):
-        config = self.config
-        model_path = self.model_path
-        # for none score func, use 0.
-        # for logsigmoid use original gamma to make the score closer to 0.
-        gamma=config['gamma'] if self.sfunc == 'logsigmoid' else 0.0
-        model = InferModel(device=self.device,
-                           model_name=config['model'],
-                           hidden_dim=config['emb_size'],
-                           double_entity_emb=config['double_ent'],
-                           double_relation_emb=config['double_rel'],
-                           gamma=gamma)
-        dataset = config['dataset']
-        model.load_emb(model_path, dataset)
-        self.model = model
+        """ loading model
+        """
+        pass
 
     def topK(self, head=None, rel=None, tail=None, exec_mode='all', k=10):
         if head is None:
@@ -143,13 +127,13 @@ class ScoreInfer(object):
             sidx = sidx[:k]
             score = score[sidx]
             idx = idx[sidx]
-            
+
             tail_idx = idx % num_tail
-            idx = idx / num_tail
+            idx = floor_divide(idx, num_tail)
             rel_idx = idx % num_rel
-            idx = idx / num_rel
+            idx = floor_divide(idx, num_rel)
             head_idx = idx % num_head
-            
+
             result.append((F.asnumpy(head[head_idx]),
                            F.asnumpy(rel[rel_idx]),
                            F.asnumpy(tail[tail_idx]),
@@ -166,7 +150,7 @@ class ScoreInfer(object):
                 score = score[sidx]
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
-                idx = idx / num_tail
+                idx = floor_divide(idx, num_tail)
                 rel_idx = idx % num_rel
 
                 result.append((np.full((k,), F.asnumpy(head[i])),
@@ -185,7 +169,7 @@ class ScoreInfer(object):
                 score = score[sidx]
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
-                idx = idx / num_tail
+                idx = floor_divide(idx, num_tail)
                 head_idx = idx % num_head
 
                 result.append((F.asnumpy(head[head_idx]),
@@ -204,7 +188,7 @@ class ScoreInfer(object):
                 score = score[sidx]
                 idx = idx[sidx]
                 rel_idx = idx % num_rel
-                idx = idx / num_rel
+                idx = floor_divide(idx, num_rel)
                 head_idx = idx % num_head
                 result.append((F.asnumpy(head[head_idx]),
                                F.asnumpy(rel[rel_idx]),
@@ -215,16 +199,101 @@ class ScoreInfer(object):
 
         return result
 
-class EmbSimInfer():
+class KGEScoreInfer(ScoreInfer):
+    """ Calculate score of triplet (h, r, t) based on pretained KG embeddings
+        using specified score_function
+
+    Parameters
+    ---------
+    device : int
+        Device to run the inference, -1 for CPU
+
+    config : dict
+        Containing KG model information
+
+    model_path : str
+        path storing the model (pretrained embeddings)
+
+    score_func : str
+        What kind of score is used,
+            none: score = $x$
+            logsigmoid: score $log(sigmoid(x))
+
+    Note
+    ----
+    Load KGE model
+    """
+    def __init__(self, device, config, model_path, sfunc='none'):
+        self.config = config
+        self.model_path = model_path
+        super(KGEScoreInfer, self).__init__(device=device, sfunc=sfunc)
+
+    def load_model(self):
+        config = self.config
+        model_path = self.model_path
+        # for none score func, use 0.
+        # for logsigmoid use original gamma to make the score closer to 0.
+        gamma=config['gamma'] if self.sfunc == 'logsigmoid' else 0.0
+        model = KGEInferModel(device=self.device,
+                              model_name=config['model'],
+                              hidden_dim=config['emb_size'],
+                              double_entity_emb=config['double_ent'],
+                              double_relation_emb=config['double_rel'],
+                              gamma=gamma)
+        dataset = config['dataset']
+        model.load_emb(model_path, dataset)
+        self.model = model
+
+class GeneralScoreInfer(ScoreInfer):
+    """ Calculate score of triplet (h, r, t) based on pretained general embeddings
+        using specified score_function
+
+    Parameters
+    ---------
+    device : int
+        Device to run the inference, -1 for CPU
+    model_name : str
+        Model name, including TransE_l1, TransE_l2, DistMult
+    score_func : str
+        What kind of score is used,
+            none: score = $x$
+            logsigmoid: score $log(sigmoid(x))
+
+    Note
+    ----
+    Load KGE model
+    """
+    def __init__(self, device, model_name, sfunc='none'):
+        self.model_name = model_name
+        super(GeneralScoreInfer, self).__init__(device=device, sfunc=sfunc)
+
+    def load_model(self, entity_emb, relation_emb, gamma=0.):
+        """ Load general inference model
+
+        Parameters
+        ----------
+        entity_emb : numpy.array
+            Entity embedding
+        relation_emb : numpy.array
+            Relation embedding
+        gamma : float
+        Gamma for TransE_l1, TransE_l2, tec.
+        """
+        hidden_dim = entity_emb.shape[1]
+        model = GeneralInferModel(self.device,
+                                  model_name=self.model_name,
+                                  hidden_dim=hidden_dim,
+                                  gamma=gamma)
+        model.load_emb(entity_emb, relation_emb)
+        self.model = model
+
+class EmbSimInfer(object):
     """ Calculate simularity of entity/relation embeddings based on pretained KG embeddings
 
     Parameters
     ---------
-    device : int 
+    device : int
         Device to run the inference, -1 for CPU
-
-    emb_file : dict
-        Containing embedding information
 
     sfunc : str
         What kind of score is used,
@@ -233,10 +302,12 @@ class EmbSimInfer():
             l1: score = $-||x - y||_1$
             dot: score = $x \cdot y$
             ext_jaccard: score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
+
+    batch_size : int
+        Minibatch size
     """
-    def __init__(self, device, emb_file, sfunc='cosine', batch_size=DEFAULT_INFER_BATCHSIZE):
+    def __init__(self, device, sfunc='cosine', batch_size=DEFAULT_INFER_BATCHSIZE):
         self.device = get_dev(device)
-        self.emb_file = emb_file
         self.sfunc = sfunc
         if sfunc == 'cosine':
             self.sim_func = cosine_dist
@@ -250,9 +321,10 @@ class EmbSimInfer():
             self.sim_func = extended_jaccard_dist
         self.batch_size = batch_size
 
+    @abstractmethod
     def load_emb(self):
-        self.emb = F.tensor(np.load(self.emb_file))
-            
+        pass
+
     def topK(self, head=None, tail=None, bcast=False, pair_ws=False, k=10):
         if head is None:
             head = F.arange(0, self.emb.shape[0])
@@ -294,7 +366,7 @@ class EmbSimInfer():
             num_head = head.shape[0]
             num_tail = tail.shape[0]
             batch_size = self.batch_size
-            
+
             # chunked cal score
             score = []
             for i in range((num_head + batch_size - 1) // batch_size):
@@ -323,7 +395,7 @@ class EmbSimInfer():
                 sidx = sidx
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
-                idx = idx / num_tail
+                idx = floor_divide(idx, num_tail)
                 head_idx = idx % num_head
 
                 result.append((F.asnumpy(head[head_idx]),
@@ -347,5 +419,60 @@ class EmbSimInfer():
 
         return result
 
+class KGEEmbSimInfer(EmbSimInfer):
+    """ Calculate simularity of entity/relation embeddings based on pretained KG embeddings
 
+    Parameters
+    ---------
+    device : int
+        Device to run the inference, -1 for CPU
 
+    emb_file : dict
+        Containing embedding information
+
+    sfunc : str
+        What kind of score is used,
+            cosine: score = $\frac{x \cdot y}{||x||_2||y||_2}$
+            l2: score = $-||x - y||_2$
+            l1: score = $-||x - y||_1$
+            dot: score = $x \cdot y$
+            ext_jaccard: score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
+
+    batch_size : int
+        Minibatch size
+    """
+    def __init__(self, device, emb_file, sfunc='cosine', batch_size=DEFAULT_INFER_BATCHSIZE):
+        self.emb_file = emb_file
+        super(KGEEmbSimInfer, self).__init__(device=device, sfunc=sfunc, batch_size=batch_size)
+
+    def load_emb(self):
+        self.emb = F.tensor(np.load(self.emb_file))
+
+class GeneralEmbSimInfer(EmbSimInfer):
+    """ Calculate simularity of entity/relation embeddings based on pretained general embeddings
+
+    Parameters
+    ---------
+    device : int
+        Device to run the inference, -1 for CPU
+
+    emb : numpy.array
+        Embedding array in numpy array
+
+    sfunc : str
+        What kind of score is used,
+            cosine: score = $\frac{x \cdot y}{||x||_2||y||_2}$
+            l2: score = $-||x - y||_2$
+            l1: score = $-||x - y||_1$
+            dot: score = $x \cdot y$
+            ext_jaccard: score = $\frac{x \cdot y}{||x||_{2}^{2} + ||y||_{2}^{2} - x \cdot y}$
+
+    batch_size : int
+        Minibatch size
+    """
+    def __init__(self, device, emb, sfunc='cosine', batch_size=DEFAULT_INFER_BATCHSIZE):
+        self.emb = emb
+        super(GeneralEmbSimInfer, self).__init__(device=device, sfunc=sfunc, batch_size=batch_size)
+
+    def load_emb(self):
+        self.emb = F.tensor(self.emb)
