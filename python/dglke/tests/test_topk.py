@@ -387,6 +387,7 @@ def create_kge_emb_sim(emb, sfunc):
 
 def create_general_emb_sim(emb, sfunc):
     sim_infer = GeneralEmbSimInfer(-1, emb, sfunc, 32)
+    sim_infer.load_emb()
     return sim_infer
 
 def run_topk_emb(sfunc, sim_func, create_emb_sim=create_kge_emb_sim):
@@ -562,7 +563,25 @@ def test_dot_topk_emb_general():
 def test_extended_jaccard_topk_emb_general():
     test_extended_jaccard_topk_emb(create_general_emb_sim)
 
+def test_lazy_load():
+    emb = F.tensor([[0],[1],[2],[3]])
+    sim_infer = GeneralEmbSimInfer(-1, emb)
+    sim_infer.load_emb()
+    emb[0][0] = 3
+    assert sim_infer.emb[0][0].item() == 3
+
+    entity_emb = emb
+    rel_emb = F.tensor([[0],[1],[2],[3]])
+    score_model = GeneralScoreInfer(-1, 'TransE_l1', 'none')
+    score_model.load_model(entity_emb, rel_emb)
+    entity_emb[0][0] = 10
+    rel_emb[0][0] = 10
+    assert score_model.model.entity_emb.emb[0][0].item() == 10
+    assert score_model.model.relation_emb.emb[0][0].item() == 10
+
 if __name__ == '__main__':
+    test_lazy_load()
+
     test_topk_transe()
     test_topk_distmult()
     test_topk_complex()

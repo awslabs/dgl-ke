@@ -190,10 +190,13 @@ class InferEmbedding:
 
         Parameters
         ----------
-        emb_array : numpy.array
-            Embedding array
+        emb_array : numpy.array  or torch.tensor
+            Embedding array in numpy array or torch.tensor
         """
-        self.emb = th.Tensor(emb_array)
+        if isinstance(emb_array, np.ndarray):
+            self.emb = th.Tensor(emb_array)
+        else:
+            self.emb = emb_array
 
     def __call__(self, idx):
         return self.emb[idx].to(self.device)

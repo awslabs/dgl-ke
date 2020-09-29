@@ -110,6 +110,19 @@ class InferEmbedding:
         file_name = os.path.join(path, name+'.npy')
         self.emb = mx.nd.array(np.load(file_name))
 
+    def load_emb(self, emb_array):
+        """Load embeddings from numpy array.
+
+        Parameters
+        ----------
+        emb_array : numpy.array  or torch.tensor
+            Embedding array in numpy array or torch.tensor
+        """
+        if isinstance(emb_array, np.ndarray):
+            self.emb = mx.nd.array(emb_array)
+        else:
+            self.emb = emb_array
+
     def __call__(self, idx):
         return self.emb[idx]
 

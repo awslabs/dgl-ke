@@ -456,8 +456,8 @@ class GeneralEmbSimInfer(EmbSimInfer):
     device : int
         Device to run the inference, -1 for CPU
 
-    emb : numpy.array
-        Embedding array in numpy array
+    emb : numpy.array or F.tensor
+        Embedding array in numpy array or F.tensor
 
     sfunc : str
         What kind of score is used,
@@ -475,4 +475,5 @@ class GeneralEmbSimInfer(EmbSimInfer):
         super(GeneralEmbSimInfer, self).__init__(device=device, sfunc=sfunc, batch_size=batch_size)
 
     def load_emb(self):
-        self.emb = F.tensor(self.emb)
+        if isinstance(self.emb, np.ndarray):
+            self.emb = F.tensor(self.emb)
