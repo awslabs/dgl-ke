@@ -863,6 +863,198 @@ def test_gnn_model_topk():
     model = GNNModel('cpu', 'DistMult')
     check_topk_score2(model)
 
+def run_topk_emb2(sfunc, sim_func, emb_model):
+    hidden_dim = 32
+    num_head = 40
+    num_tail = 40
+    num_emb = 80
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        emb = F.uniform((num_emb, hidden_dim), F.float32, F.cpu(), -1, 1)
+        create_emb_file(Path(tmpdirname), 'entity.npy', emb.numpy())
+        create_emb_file(Path(tmpdirname), 'rel.npy', emb.numpy())
+
+        emb_model.load(Path(tmpdirname),
+                       entity_emb_file='entity.npy',
+                       relation_emb_file='rel.npy')
+
+    head = F.arange(0, num_head)
+    tail = F.arange(num_head, num_head+num_tail)
+    result1 = emb_model.embed_sim(head, tail, 'entity', sfunc=sfunc, pair_ws=True)
+    scores = []
+    head_ids = []
+    tail_ids = []
+    for i in range(head.shape[0]):
+        j = i
+        hemb = F.take(emb, head[i], 0)
+        temb = F.take(emb, tail[j], 0)
+
+        score = sim_func(hemb, temb)
+        scores.append(F.asnumpy(score))
+        head_ids.append(F.asnumpy(head[i]))
+        tail_ids.append(F.asnumpy(tail[j]))
+    scores = np.asarray(scores)
+    scores = scores.reshape(scores.shape[0])
+    head_ids = np.asarray(head_ids)
+    tail_ids = np.asarray(tail_ids)
+    idx = np.argsort(scores)
+    idx = idx[::-1]
+    idx = idx[:10]
+    head_ids = head_ids[idx]
+    tail_ids = tail_ids[idx]
+    score_topk = scores[idx]
+
+    r1_head, r1_tail, r1_score = result1[0]
+    np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(r1_head, head_ids)
+    np.testing.assert_allclose(r1_tail, tail_ids)
+    print('pass pair wise')
+
+    head = F.arange(0, num_head)
+    tail = F.arange(num_head, num_head+num_tail)
+    result1 = emb_model.embed_sim(head, tail, 'entity', sfunc=sfunc)
+    assert len(result1) == 1
+    scores = []
+    head_ids = []
+    tail_ids = []
+    for i in range(head.shape[0]):
+        for j in range(tail.shape[0]):
+            hemb = F.take(emb, head[i], 0)
+            temb = F.take(emb, tail[j], 0)
+
+            score = sim_func(hemb, temb)
+            scores.append(F.asnumpy(score))
+            head_ids.append(F.asnumpy(head[i]))
+            tail_ids.append(F.asnumpy(tail[j]))
+    scores = np.asarray(scores)
+    scores = scores.reshape(scores.shape[0])
+    head_ids = np.asarray(head_ids)
+    tail_ids = np.asarray(tail_ids)
+    idx = np.argsort(scores)
+    idx = idx[::-1]
+    idx = idx[:10]
+    head_ids = head_ids[idx]
+    tail_ids = tail_ids[idx]
+    score_topk = scores[idx]
+
+    r1_head, r1_tail, r1_score = result1[0]
+    np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(r1_head, head_ids)
+    np.testing.assert_allclose(r1_tail, tail_ids)
+
+    emb_ids = F.arange(0, num_emb)
+    result1 = emb_model.embed_sim(emb_ids, emb_ids, 'entity', sfunc=sfunc, bcast=True)
+    result2 = emb_model.embed_sim(embed_type='entity', sfunc=sfunc, bcast=True)
+    assert len(result1) == emb_ids.shape[0]
+    assert len(result2) == emb_ids.shape[0]
+
+    for i in range(emb_ids.shape[0]):
+        scores = []
+        head_ids = []
+        tail_ids = []
+        for j in range(emb_ids.shape[0]):
+            hemb = F.take(emb, emb_ids[i], 0)
+            temb = F.take(emb, emb_ids[j], 0)
+
+            score = sim_func(hemb, temb)
+            score = F.asnumpy(score)
+            scores.append(score)
+            tail_ids.append(F.asnumpy(emb_ids[j]))
+        scores = np.asarray(scores)
+        scores = scores.reshape(scores.shape[0])
+        tail_ids = np.asarray(tail_ids)
+        idx = np.argsort(scores)
+        idx = idx[::-1]
+        idx = idx[:10]
+        head_ids = np.full((10,), F.asnumpy(emb_ids[i]))
+        tail_ids = tail_ids[idx]
+        score_topk = scores[idx]
+
+        r1_head, r1_tail, r1_score = result1[i]
+        np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(r1_head, head_ids)
+        np.testing.assert_allclose(r1_tail, tail_ids)
+        r2_head, r2_tail, r2_score = result2[i]
+        np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(r2_head, head_ids)
+        np.testing.assert_allclose(r2_tail, tail_ids)
+    print('pass all')
+
+def test_cosine_topk_emb2(emb_model):
+    def cosine_func(x, y):
+        score = F.sum(x * y, dim=0)
+        x_norm2 = F.sum(x * x, dim=0) ** (1/2)
+        y_norm2 = F.sum(y * y, dim=0) ** (1/2)
+
+        return score / (x_norm2 * y_norm2)
+
+    run_topk_emb2('cosine', cosine_func, emb_model=emb_model)
+
+def test_l2_topk_emb2(emb_model):
+    def l2_func(x, y):
+        score = x - y
+
+        return -F.sum(score * score, dim=0) ** (1/2)
+    run_topk_emb2('l2', l2_func, emb_model=emb_model)
+
+def test_l1_topk_emb2(emb_model):
+    def l1_func(x, y):
+        score = x - y
+
+        return -norm(score, p=1)
+    run_topk_emb2('l1', l1_func, emb_model=emb_model)
+
+def test_dot_topk_emb2(emb_model):
+    def dot_func(x, y):
+        return F.sum(x * y, dim=0)
+
+    run_topk_emb2('dot', dot_func, emb_model=emb_model)
+
+def test_extended_jaccard_topk_emb2(emb_model):
+    def extended_jaccard_func(x, y):
+        score = F.sum(x * y, dim=0)
+        x = F.sum(x * x, dim=0)
+        y = F.sum(y * y, dim=0)
+
+        return score / (x + y - score)
+    run_topk_emb2('ext_jaccard', extended_jaccard_func, emb_model=emb_model)
+
+
+def test_transe_model_topk_emb():
+    gamma = 12.0
+    transe_model = TransEModel('cpu', gamma)
+    test_cosine_topk_emb2(transe_model)
+    transe_model = TransE_l2Model('cpu', gamma)
+    test_cosine_topk_emb2(transe_model)
+    transe_model = TransE_l1Model('cpu', gamma)
+    test_cosine_topk_emb2(transe_model)
+
+def test_distmult_model_topk_emb():
+    model = DistMultModel('cpu')
+    test_l2_topk_emb2(model)
+
+def test_complex_model_topk_emb():
+    model = ComplExModel('cpu')
+    test_l1_topk_emb2(model)
+
+def test_rescal_model_topk_emb():
+    model = RESCALModel('cpu')
+    test_dot_topk_emb2(model)
+
+def test_rotate_model_topk_emb():
+    gamma = 12.0
+    model = RotatEModel('cpu', gamma)
+    test_extended_jaccard_topk_emb2(model)
+
+def test_gnn_model_topk_emb():
+    gamma = 12.0
+    model = GNNModel('cpu', 'TransE', gamma)
+    test_cosine_topk_emb2(model)
+    model = GNNModel('cpu', 'TransE_l1', gamma)
+    test_l2_topk_emb2(model)
+    model = GNNModel('cpu', 'DistMult')
+    test_l1_topk_emb2(model)
+
 if __name__ == '__main__':
     #test_lazy_load()
 
@@ -885,10 +1077,18 @@ if __name__ == '__main__':
     #test_dot_topk_emb_general()
     #test_extended_jaccard_topk_emb_general()
 
-    test_transe_model_topk()
-    test_distmult_model_topk()
-    test_complex_model_topk()
-    test_rescal_model_topk()
-    test_transr_model_topk
+    #test_transe_model_topk()
+    #test_distmult_model_topk()
+    #test_complex_model_topk()
+    #test_rescal_model_topk()
+    #test_transr_model_topk()
     #test_rotate_model_topk()
-    test_gnn_model_topk()
+    #test_gnn_model_topk()
+
+    test_transe_model_topk_emb()
+    test_distmult_model_topk_emb()
+    test_complex_model_topk_emb()
+    test_rescal_model_topk_emb()
+    #test_transr_model_topk_emb()
+    test_rotate_model_topk_emb()
+    test_gnn_model_topk_emb()

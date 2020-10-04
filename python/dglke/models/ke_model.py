@@ -43,6 +43,11 @@ from .pytorch.tensor_models import ExternalEmbedding
 from .pytorch.tensor_models import InferEmbedding
 from .pytorch.score_fun import *
 from .pytorch.ke_tensor import KGEmbedding
+from .pytorch.tensor_models import cosine_dist
+from .pytorch.tensor_models import l2_dist
+from .pytorch.tensor_models import l1_dist
+from .pytorch.tensor_models import dot_dist
+from .pytorch.tensor_models import extended_jaccard_dist
 from .pytorch.tensor_models import floor_divide
 
 EMB_INIT_EPS = 2.0
@@ -429,7 +434,7 @@ class BasicGEModel(object):
 
         return result
 
-    def _embed_sim(self, head, tail, emb, sfunc='cosine', bcast=False, pair_ws=False, k=10):
+    def _embed_sim(self, head, tail, emb, sfunc='cosine', bcast=False, pair_ws=False, topk=10):
         batch_size=DEFAULT_INFER_BATCHSIZE
         if head is None:
             head = th.arange(0, emb.shape[0])
@@ -439,6 +444,8 @@ class BasicGEModel(object):
             tail = th.arange(0, emb.shape[0])
         else:
             tail = th.tensor(tail)
+        head_emb = emb[head]
+        tail_emb = emb[tail]
 
         if sfunc == 'cosine':
             sim_func = cosine_dist
@@ -493,7 +500,7 @@ class BasicGEModel(object):
                                                     else num_tail]
                     st_emb = st_emb.to(self._device)
                     s_score.append(sim_func(sh_emb, st_emb).to(th.device('cpu')))
-                score.append(F.cat(s_score, dim=1))
+                score.append(th.cat(s_score, dim=1))
             score = th.cat(score, dim=0)
 
             if bcast is False:
@@ -525,7 +532,7 @@ class BasicGEModel(object):
                     i_score = i_score[i_idx]
                     idx = idx[i_idx]
 
-                    result.append((th.full((topk,), head[i]),
+                    result.append((th.full((topk,), head[i], dtype=head[i].dtype),
                                   tail[idx],
                                   i_score))
 
@@ -597,13 +604,13 @@ class BasicGEModel(object):
         else:
             assert False, 'emb should entity or relation'
 
-        return self._embed_sim(head=head,
-                               tail=tail,
+        return self._embed_sim(head=left,
+                               tail=right,
                                emb=emb,
                                sfunc=sfunc,
                                bcast=bcast,
                                pair_ws=pair_ws,
-                               k=k)
+                               topk=topk)
 
     @property
     def model_name(self):
