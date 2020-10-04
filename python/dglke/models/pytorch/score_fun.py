@@ -176,7 +176,7 @@ class TransRScore(nn.Module):
     def update(self, gpu_id=-1):
         self.projection_emb.update(gpu_id)
 
-    def save(self, path, name):  
+    def save(self, path, name):
         self.projection_emb.save(path, name+'projection')
 
     def load(self, path, name):
@@ -198,7 +198,7 @@ class TransRScore(nn.Module):
         self.projection_emb = projection_emb
 
     def share_memory(self):
-        self.projection_emb.share_memory()  
+        self.projection_emb.share_memory()
 
     def create_neg(self, neg_head):
         gamma = self.gamma
@@ -493,15 +493,15 @@ class RotatEScore(nn.Module):
 
     def forward(self, g):
         g.apply_edges(lambda edges: self.edge_func(edges))
-        
+
     def create_neg_prepare(self, neg_head):
         def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
             return head, tail
         return fn
-    
+
     def prepare(self, g, gpu_id, trace=False):
         pass
-    
+
     def create_neg(self, neg_head):
         gamma = self.gamma
         emb_init = self.emb_init

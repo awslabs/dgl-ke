@@ -33,6 +33,7 @@ import dgl
 import torch as th
 
 from .pytorch.tensor_models import logsigmoid
+from .pytorch.tensor_models import none
 from .pytorch.tensor_models import get_device
 from .pytorch.tensor_models import norm
 from .pytorch.tensor_models import get_scalar
@@ -42,6 +43,10 @@ from .pytorch.tensor_models import ExternalEmbedding
 from .pytorch.tensor_models import InferEmbedding
 from .pytorch.score_fun import *
 from .pytorch.ke_tensor import KGEmbedding
+from .pytorch.tensor_models import floor_divide
+
+EMB_INIT_EPS = 2.0
+DEFAULT_INFER_BATCHSIZE = 1024
 
 class BasicGEModel(object):
     """ Basic Graph Embeding Model
@@ -53,6 +58,8 @@ class BasicGEModel(object):
         self._entity_emb = KGEmbedding(device)
         self._relation_emb = KGEmbedding(device)
         self._score_func = score_func
+        self._g = None
+        self._dataset_name = None
 
     def attach_data(self, data, etid_field='tid', ntid_filed='ntid'):
         """ Attach dataset into Graph Embedding Model
@@ -164,7 +171,70 @@ class BasicGEModel(object):
         """
         assert False, 'Not support evaluation now'
 
-    def link_predict(self, head=None, rel=None, tail=None, exec_mode='all', sfunc='none', topk=10, exclude_mode=None):
+    def _infer_score_func(self, head, rel, tail, triplet_wise=False, batch_size=DEFAULT_INFER_BATCHSIZE):
+        head_emb = self.entity_embed[head]
+        rel_emb = self.relation_embed[rel]
+        tail_emb = self.entity_embed[tail]
+
+        num_head = head.shape[0]
+        num_rel = rel.shape[0]
+        num_tail = tail.shape[0]
+
+        score = []
+        if triplet_wise:
+            class FakeEdge(object):
+                def __init__(self, head_emb, rel_emb, tail_emb):
+                    self._hobj = {}
+                    self._robj = {}
+                    self._tobj = {}
+                    self._hobj['emb'] = head_emb
+                    self._robj['emb'] = rel_emb
+                    self._tobj['emb'] = tail_emb
+
+                @property
+                def src(self):
+                    return self._hobj
+
+                @property
+                def dst(self):
+                    return self._tobj
+
+                @property
+                def data(self):
+                    return self._robj
+
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                sr_emb = rel_emb[i * batch_size : (i + 1) * batch_size \
+                                                  if (i + 1) * batch_size < num_head \
+                                                  else num_head]
+                st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                edata = FakeEdge(sh_emb, sr_emb, st_emb)
+                score.append(self._score_func.edge_func(edata)['score'].to(th.device('cpu')))
+            score = th.cat(score, dim=0)
+            return score
+        else:
+            for i in range((num_head + batch_size - 1) // batch_size):
+                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
+                                                   if (i + 1) * batch_size < num_head \
+                                                   else num_head]
+                s_score = []
+                for j in range((num_tail + batch_size - 1) // batch_size):
+                    st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
+                                                       if (j + 1) * batch_size < num_tail \
+                                                       else num_tail]
+
+                    s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb).to(th.device('cpu')))
+                score.append(th.cat(s_score, dim=2))
+            score = th.cat(score, dim=0)
+            return th.reshape(score, (num_head * num_rel * num_tail,))
+
+
+    def link_predict(self, head=None, rel=None, tail=None, exec_mode='all', sfunc='none', topk=10, exclude_mode=None, batch_size=DEFAULT_INFER_BATCHSIZE):
         """ Predicts missing entities or relations in a triplet.
 
         Given head_id, relation_id and tail_id, return topk most relevent triplet.
@@ -231,21 +301,21 @@ class BasicGEModel(object):
         A list of (head_idx, rel_idx, tail_idx, score)
         """
         if head is None:
-            head = F.arange(0, self.num_entity)
+            head = th.arange(0, self.num_entity)
         else:
-            head = F.tensor(head)
+            head = th.tensor(head)
         if rel is None:
-            rel = F.arange(0, self.num_rel)
+            rel = th.arange(0, self.num_rel)
         else:
-            rel = F.tensor(rel)
+            rel = th.tensor(rel)
         if tail is None:
-            tail = F.arange(0, self.num_entity)
+            tail = th.arange(0, self.num_entity)
         else:
-            tail = F.tensor(tail)
+            tail = th.tensor(tail)
 
-        num_head = F.shape(head)[0]
-        num_rel = F.shape(rel)[0]
-        num_tail = F.shape(tail)[0]
+        num_head = head.shape[0]
+        num_rel = rel.shape[0]
+        num_tail = tail.shape[0]
 
         if sfunc == 'none':
             sfunc = none
@@ -253,7 +323,7 @@ class BasicGEModel(object):
             sfunc = logsigmoid
 
         # if exclude_mode is not None, we need a graph to do the edge filtering
-        assert (self.g is not None) or (exclude_mode is None),
+        assert (self._g is not None) or (exclude_mode is None), \
             'If exclude_mode is not None, please use load_graph() to initialize ' \
             'a graph for edge filtering.'
         if exec_mode == 'triplet_wise':
@@ -263,28 +333,28 @@ class BasicGEModel(object):
             assert num_head == num_tail, \
                 'For triplet wise exection mode, head, relation and tail lists should have same length'
 
-            raw_score = self._score_func(head, rel, tail, triplet_wise=True)
+            raw_score = self._infer_score_func(head, rel, tail, triplet_wise=True, batch_size=batch_size)
             score = sfunc(raw_score)
-            idx = F.arange(0, num_head)
+            idx = th.arange(0, num_head)
 
-            sidx = F.argsort(score, dim=0, descending=True)
-            sidx = sidx[:k]
+            sidx = th.argsort(score, dim=0, descending=True)
+            sidx = sidx[:topk]
             score = score[sidx]
             idx = idx[sidx]
 
-            result.append((F.asnumpy(head[idx]),
-                           F.asnumpy(rel[idx]),
-                           F.asnumpy(tail[idx]),
-                           F.asnumpy(score)))
+            result.append((head[idx],
+                           rel[idx],
+                           tail[idx],
+                           score))
 
         elif exec_mode == 'all':
             result = []
-            raw_score = self._score_func(head, rel, tail)
+            raw_score = self._infer_score_func(head, rel, tail)
             score = sfunc(raw_score)
-            idx = F.arange(0, num_head * num_rel * num_tail)
+            idx = th.arange(0, num_head * num_rel * num_tail)
 
-            sidx = F.argsort(score, dim=0, descending=True)
-            sidx = sidx[:k]
+            sidx = th.argsort(score, dim=0, descending=True)
+            sidx = sidx[:topk]
             score = score[sidx]
             idx = idx[sidx]
 
@@ -294,66 +364,66 @@ class BasicGEModel(object):
             idx = floor_divide(idx, num_rel)
             head_idx = idx % num_head
 
-            result.append((F.asnumpy(head[head_idx]),
-                           F.asnumpy(rel[rel_idx]),
-                           F.asnumpy(tail[tail_idx]),
-                           F.asnumpy(score)))
+            result.append((head[head_idx],
+                           rel[rel_idx],
+                           tail[tail_idx],
+                           score))
         elif exec_mode == 'batch_head':
             result = []
             for i in range(num_head):
-                raw_score = self._score_func(F.unsqueeze(head[i], 0), rel, tail)
+                raw_score = self._infer_score_func(th.unsqueeze(head[i], 0), rel, tail)
                 score = sfunc(raw_score)
-                idx = F.arange(0, num_rel * num_tail)
+                idx = th.arange(0, num_rel * num_tail)
 
-                sidx = F.argsort(score, dim=0, descending=True)
-                sidx = sidx[:k]
+                sidx = th.argsort(score, dim=0, descending=True)
+                sidx = sidx[:topk]
                 score = score[sidx]
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
                 idx = floor_divide(idx, num_tail)
                 rel_idx = idx % num_rel
 
-                result.append((np.full((k,), F.asnumpy(head[i])),
-                               F.asnumpy(rel[rel_idx]),
-                               F.asnumpy(tail[tail_idx]),
-                               F.asnumpy(score)))
+                result.append((th.full((topk,), head[i], dtype=head[i].dtype),
+                               rel[rel_idx],
+                               tail[tail_idx],
+                               score))
         elif exec_mode == 'batch_rel':
             result = []
             for i in range(num_rel):
-                raw_score = self._score_func(head, F.unsqueeze(rel[i], 0), tail)
+                raw_score = self._infer_score_func(head, th.unsqueeze(rel[i], 0), tail)
                 score = sfunc(raw_score)
-                idx = F.arange(0, num_head * num_tail)
+                idx = th.arange(0, num_head * num_tail)
 
-                sidx = F.argsort(score, dim=0, descending=True)
-                sidx = sidx[:k]
+                sidx = th.argsort(score, dim=0, descending=True)
+                sidx = sidx[:topk]
                 score = score[sidx]
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
                 idx = floor_divide(idx, num_tail)
                 head_idx = idx % num_head
 
-                result.append((F.asnumpy(head[head_idx]),
-                               np.full((k,), F.asnumpy(rel[i])),
-                               F.asnumpy(tail[tail_idx]),
-                               F.asnumpy(score)))
+                result.append((head[head_idx],
+                               th.full((topk,), rel[i], dtype=rel[i].dtype),
+                               tail[tail_idx],
+                               score))
         elif exec_mode == 'batch_tail':
             result = []
             for i in range(num_tail):
-                raw_score = self._score_func(head, rel, F.unsqueeze(tail[i], 0))
+                raw_score = self._infer_score_func(head, rel, th.unsqueeze(tail[i], 0))
                 score = sfunc(raw_score)
-                idx = F.arange(0, num_head * num_rel)
+                idx = th.arange(0, num_head * num_rel)
 
-                sidx = F.argsort(score, dim=0, descending=True)
-                sidx = sidx[:k]
+                sidx = th.argsort(score, dim=0, descending=True)
+                sidx = sidx[:topk]
                 score = score[sidx]
                 idx = idx[sidx]
                 rel_idx = idx % num_rel
                 idx = floor_divide(idx, num_rel)
                 head_idx = idx % num_head
-                result.append((F.asnumpy(head[head_idx]),
-                               F.asnumpy(rel[rel_idx]),
-                               np.full((k,), F.asnumpy(tail[i])),
-                               F.asnumpy(score)))
+                result.append((head[head_idx],
+                               rel[rel_idx],
+                               th.full((topk,), tail[i], dtype=tail[i].dtype),
+                               score))
         else:
             assert False, 'unknow execution mode type {}'.format(exec_mode)
 
@@ -362,13 +432,13 @@ class BasicGEModel(object):
     def _embed_sim(self, head, tail, emb, sfunc='cosine', bcast=False, pair_ws=False, k=10):
         batch_size=DEFAULT_INFER_BATCHSIZE
         if head is None:
-            head = F.arange(0, emb.shape[0])
+            head = th.arange(0, emb.shape[0])
         else:
-            head = F.tensor(head)
+            head = th.tensor(head)
         if tail is None:
-            tail = F.arange(0, emb.shape[0])
+            tail = th.arange(0, emb.shape[0])
         else:
-            tail = F.tensor(tail)
+            tail = th.tensor(tail)
 
         if sfunc == 'cosine':
             sim_func = cosine_dist
@@ -391,20 +461,20 @@ class BasicGEModel(object):
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
                                                    if (i + 1) * batch_size < num_head \
                                                    else num_head]
-                sh_emb = F.copy_to(sh_emb, self._device)
+                sh_emb = sh_emb.to(self._device)
                 st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
                                                    if (i + 1) * batch_size < num_head \
                                                    else num_head]
-                st_emb = F.copy_to(st_emb, self._device)
-                score.append(F.copy_to(sim_func(sh_emb, st_emb, pw=True), F.cpu()))
-            score = F.cat(score, dim=0)
+                st_emb = st_emb.to(self._device)
+                score.append(sim_func(sh_emb, st_emb, pw=True).to(th.device('cpu')))
+            score = th.cat(score, dim=0)
 
-            sidx = F.argsort(score, dim=0, descending=True)
-            sidx = sidx[:k]
+            sidx = th.argsort(score, dim=0, descending=True)
+            sidx = sidx[:topk]
             score = score[sidx]
-            result.append((F.asnumpy(head[sidx]),
-                           F.asnumpy(tail[sidx]),
-                           F.asnumpy(score)))
+            result.append((head[sidx],
+                           tail[sidx],
+                           score))
         else:
             num_head = head.shape[0]
             num_tail = tail.shape[0]
@@ -415,24 +485,24 @@ class BasicGEModel(object):
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
                                             if (i + 1) * batch_size < num_head \
                                             else num_head]
-                sh_emb = F.copy_to(sh_emb, self._device)
+                sh_emb = sh_emb.to(self._device)
                 s_score = []
                 for j in range((num_tail + batch_size - 1) // batch_size):
                     st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
                                                     if (j + 1) * batch_size < num_tail \
                                                     else num_tail]
-                    st_emb = F.copy_to(st_emb, self._device)
-                    s_score.append(F.copy_to(sim_func(sh_emb, st_emb), F.cpu()))
+                    st_emb = st_emb.to(self._device)
+                    s_score.append(sim_func(sh_emb, st_emb).to(th.device('cpu')))
                 score.append(F.cat(s_score, dim=1))
-            score = F.cat(score, dim=0)
+            score = th.cat(score, dim=0)
 
             if bcast is False:
                 result = []
-                idx = F.arange(0, num_head * num_tail)
-                score = F.reshape(score, (num_head * num_tail, ))
+                idx = th.arange(0, num_head * num_tail)
+                score = th.reshape(score, (num_head * num_tail, ))
 
-                sidx = F.argsort(score, dim=0, descending=True)
-                sidx = sidx[:k]
+                sidx = th.argsort(score, dim=0, descending=True)
+                sidx = sidx[:topk]
                 score = score[sidx]
                 sidx = sidx
                 idx = idx[sidx]
@@ -440,24 +510,24 @@ class BasicGEModel(object):
                 idx = floor_divide(idx, num_tail)
                 head_idx = idx % num_head
 
-                result.append((F.asnumpy(head[head_idx]),
-                           F.asnumpy(tail[tail_idx]),
-                           F.asnumpy(score)))
+                result.append((head[head_idx],
+                               tail[tail_idx],
+                               score))
 
             else: # bcast at head
                 result = []
                 for i in range(num_head):
                     i_score = score[i]
 
-                    sidx = F.argsort(i_score, dim=0, descending=True)
-                    idx = F.arange(0, num_tail)
-                    i_idx = sidx[:k]
+                    sidx = th.argsort(i_score, dim=0, descending=True)
+                    idx = th.arange(0, num_tail)
+                    i_idx = sidx[:topk]
                     i_score = i_score[i_idx]
                     idx = idx[i_idx]
 
-                    result.append((np.full((k,), F.asnumpy(head[i])),
-                                  F.asnumpy(tail[idx]),
-                                  F.asnumpy(i_score)))
+                    result.append((th.full((topk,), head[i]),
+                                  tail[idx],
+                                  i_score))
 
         return result
 
@@ -568,36 +638,37 @@ class KGEModel(BasicGEModel):
                                               else self._dataset_name+'_'+self.model_name+'_relation.npy'
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
-        self._score_func.load(model_path, dataset+'_'+self.model_name)
+        if self._dataset_name is not None:
+            self._score_func.load(model_path, self._dataset_name+'_'+self.model_name)
 
-class TransEModel(BasicGEModel):
+class TransEModel(KGEModel):
     """ TransE Model
     """
     def __init__(self, device, gamma):
         model_name = 'TransE'
         score_func = TransEScore(gamma, 'l2')
         self._gamma = gamma
-        super(TransEModel, self).__init__(model_name, score_func)
+        super(TransEModel, self).__init__(device, model_name, score_func)
 
-class TransE_l2Model(BasicGEModel):
+class TransE_l2Model(KGEModel):
     """ TransE_l2 Model
     """
     def __init__(self, device, gamma):
         model_name = 'TransE_l2'
         score_func = TransEScore(gamma, 'l2')
         self._gamma = gamma
-        super(TransE_l2Model, self).__init__(model_name, score_func)
+        super(TransE_l2Model, self).__init__(device, model_name, score_func)
 
-class TransE_l1Model(BasicGEModel):
+class TransE_l1Model(KGEModel):
     """ TransE_l1 Model
     """
     def __init__(self, device, gamma):
         model_name = 'TransE_l1'
         score_func = TransEScore(gamma, 'l1')
         self._gamma = gamma
-        super(TransE_l1Model, self).__init__(model_name, score_func)
+        super(TransE_l1Model, self).__init__(device, model_name, score_func)
 
-class TransRModel(BasicGEModel):
+class TransRModel(KGEModel):
     """ TransR Model
     """
     def __init__(self, device, gamma):
@@ -606,55 +677,63 @@ class TransRModel(BasicGEModel):
         projection_emb = KGEmbedding(device)
         score_func = TransRScore(gamma, projection_emb, -1, -1)
         self._gamma = gamma
-        super(TransRModel, self).__init__(model_name, _score_func)
+        super(TransRModel, self).__init__(device, model_name, _score_func)
 
     def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
         super(TransRModel, self).load(model_path, entity_emb_file, relation_emb_file)
         self._score_func.relation_dim = self._relation_emb.emb.shape[1]
         self._score_func.entity_dim = self._entity_emb.emb.shape[1]
 
-class DistMultModel(BasicGEModel):
+class DistMultModel(KGEModel):
     """ DistMult Model
     """
     def __init__(self, device):
         model_name = 'DistMult'
         score_func = DistMultScore()
-        super(DistMultModel, self).__init__(model_name, score_func)
+        super(DistMultModel, self).__init__(device, model_name, score_func)
 
-class ComplExModel(BasicGEModel):
+class ComplExModel(KGEModel):
     """ ComplEx Model
     """
     def __init__(self, device):
         model_name = 'ComplEx'
         score_func = ComplExScore()
-        super(ComplExModel, self).__init__(model_name, score_func)
+        super(ComplExModel, self).__init__(device, model_name, score_func)
 
-class RESCALModel(BasicGEModel):
+class RESCALModel(KGEModel):
     """ RESCAL Model
     """
     def __init__(self, device):
         model_name = 'RESCAL'
         score_func = RESCALScore(-1, -1)
-        super(RESCALModel, self).__init__(model_name, score_func)
+        super(RESCALModel, self).__init__(device, model_name, score_func)
 
     def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
-        super(TransRModel, self).load(model_path, entity_emb_file, relation_emb_file)
-        self._score_func.relation_dim = self._relation_emb.emb.shape[1]
+        super(RESCALModel, self).load(model_path, entity_emb_file, relation_emb_file)
         self._score_func.entity_dim = self._entity_emb.emb.shape[1]
+        self._score_func.relation_dim = self._relation_emb.emb.shape[1] // self._score_func.entity_dim
 
-class RotatEModel(BasicGEModel):
-    """ RESCAL Model
+class RotatEModel(KGEModel):
+    """ RotatE Model
     """
     def __init__(self, device, gamma):
         model_name = 'RotatE'
-        score_func = RotatEcore(gamma, 0)
         self._gamma = gamma
-        super(RotatEModel, self).__init__(model_name, score_func)
+        score_func = RotatEScore(gamma, 0)
+        super(RotatEModel, self).__init__(device, model_name, score_func)
+
+    def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
+        super(RotatEModel, self).load(model_path, entity_emb_file, relation_emb_file)
+        # retrive emb_init, which is used in scoring func
+        entity_dim = self._entity_emb.emb.shape[1]
+        hidden_dim = entity_dim // 2
+        emb_init = (self._gamma + EMB_INIT_EPS) / hidden_dim
+        self._score_func.emb_init = emb_init
 
 class GNNModel(BasicGEModel):
     """ Basic GNN Model
     """
-    def __init__(self, device, model_name, gamma):
+    def __init__(self, device, model_name, gamma=0):
         if model_name == 'TransE' or model_name == 'TransE_l2':
             score_func = TransEScore(gamma, 'l2')
         elif model_name == 'TransE_l1':
@@ -667,3 +746,8 @@ class GNNModel(BasicGEModel):
                 "DistMult, but {} is given.".format(model_name)
 
         super(GNNModel, self).__init__(device, model_name, score_func)
+
+
+    def load(self, model_path, entity_emb_file, relation_emb_file):
+        self._entity_emb.load(model_path, entity_emb_file)
+        self._relation_emb.load(model_path, relation_emb_file)

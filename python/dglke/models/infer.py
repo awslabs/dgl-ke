@@ -72,7 +72,6 @@ class ScoreInfer(object):
             self.score_func = none
         else:
             self.score_func = logsigmoid
-        self.g = None
 
     @abstractmethod
     def load_model(self):
@@ -80,17 +79,14 @@ class ScoreInfer(object):
         """
         pass
 
-    def load_graph(self, g, etype_field='etype'):
+    def load_graph(self, etype_field='etype'):
         """ Load graph for edge filtering
 
         Parameter
         ---------
-        g : DGLGraph
-            DGLGraph storing all the edges and nodes
         etype_filed: str
             Edge feature name storing edge_type ids which should be compatable with rel_id
         """
-        self.g = g
         self.etype_field = etype_field
 
     def topK(self, head=None, rel=None, tail=None, exec_mode='all', k=10, exclude_mode=None):
@@ -111,10 +107,6 @@ class ScoreInfer(object):
         num_rel = F.shape(rel)[0]
         num_tail = F.shape(tail)[0]
 
-        # if exclude_mode is not None, we need a graph to do the edge filtering
-        assert (self.g is not None) or (exclude_mode is None),
-            'If exclude_mode is not None, please use load_graph() to initialize ' \
-            'a graph for edge filtering.'
         if exec_mode == 'triplet_wise':
             result = []
             assert num_head == num_rel, \
