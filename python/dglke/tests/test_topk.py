@@ -586,19 +586,42 @@ def test_lazy_load():
 def create_emb_file(path, filename, emb):
     np.save(os.path.join(path, filename), emb)
 
-def check_topk_score2(score_model):
+def check_topk_score2(score_model, exclude_mode):
+    num_entity = 40
+    num_rels = 4
+
+    src = F.arange(0, num_entity)
+    dst1 = src + 1
+    dst1[num_entity-1] = 0
+    dst2 = src - 1
+    dst2[0] = num_entity-1
+    src = F.cat([src, src], dim=0)
+    dst = F.cat([dst1, dst2], dim=0)
+    src = F.cat([src, src, src, src], dim=0)
+    dst = F.cat([dst, dst, dst, dst], dim=0)
+    etype = F.cat([th.full((num_entity*2,), 0, dtype=th.long),
+                    th.full((num_entity*2,), 1, dtype=th.long),
+                    th.full((num_entity*2,), 2, dtype=th.long),
+                    th.full((num_entity*2,), 3, dtype=th.long)],
+                    dim=0)
+    g = dgl.graph((src, dst))
+    g.edata['tid'] = etype
+
+    _check_topk_score2(score_model, g, num_entity, num_rels, exclude_mode)
+
+def _check_topk_score2(score_model, g, num_entity, num_rels, exclude_mode):
     hidden_dim = 32
     num_entity = 40
     num_rels = 4
     with tempfile.TemporaryDirectory() as tmpdirname:
         entity_emb, rel_emb = generate_rand_emb(score_model.model_name, num_entity, num_rels, hidden_dim, 'none')
         create_emb_file(Path(tmpdirname), 'entity.npy', entity_emb.numpy())
-        create_emb_file(Path(tmpdirname), 'rel.npy', rel_emb.numpy())
+        create_emb_file(Path(tmpdirname), 'relation.npy', rel_emb.numpy())
 
-        score_model.load(Path(tmpdirname),
-                         entity_emb_file='entity.npy',
-                         relation_emb_file='rel.npy')
+        score_model.load(Path(tmpdirname))
+        score_model.attach_graph(g)
         score_func = score_model._score_func
+        print(score_model.graph)
 
     head = F.arange(0, num_entity // 2)
     rel = F.arange(0, num_rels)
@@ -607,7 +630,7 @@ def check_topk_score2(score_model):
     # exec_model==triplet_wise
     tw_rel = np.random.randint(0, num_rels, num_entity // 2)
     tw_rel = F.tensor(tw_rel)
-    result1 = score_model.link_predict(head, tw_rel, tail, exec_mode='triplet_wise',batch_size=16)
+    result1 = score_model.link_predict(head, tw_rel, tail, exec_mode='triplet_wise', exclude_mode=exclude_mode, batch_size=16)
     assert len(result1) == 1
     scores = []
     head_ids = []
@@ -630,21 +653,52 @@ def check_topk_score2(score_model):
     tail_ids = np.asarray(tail_ids)
     idx = np.argsort(scores)
     idx = idx[::-1]
-    idx = idx[:10]
-    head_ids = head_ids[idx]
-    rel_ids = rel_ids[idx]
-    tail_ids = tail_ids[idx]
-    score_topk = scores[idx]
+    if exclude_mode is None or exclude_mode == 'mask':
+        idx = idx[:10]
+        head_ids = head_ids[idx]
+        rel_ids = rel_ids[idx]
+        tail_ids = tail_ids[idx]
+        score_topk = scores[idx]
+        if exclude_mode == 'mask':
+            mask = np.zeros((10,))
+            for i in range(10):
+                if (head_ids[i] + 1) % num_entity == tail_ids[i] or \
+                    (head_ids[i] - 1) % num_entity == tail_ids[i]:
+                    mask[i] = 1
+    else:
+        c_head_idx = []
+        c_rel_idx = []
+        c_tail_idx = []
+        c_score_topk = []
+        cur_idx = 0
+        while len(c_head_idx) < 10:
+            c_idx = idx[cur_idx]
+            cur_idx += 1
+            if (head_ids[c_idx] + 1) % num_entity == tail_ids[c_idx] or \
+                (head_ids[c_idx] - 1) % num_entity == tail_ids[c_idx]:
+                continue
+            c_head_idx.append(head_ids[c_idx])
+            c_tail_idx.append(tail_ids[c_idx])
+            c_rel_idx.append(rel_ids[c_idx])
+            c_score_topk.append(scores[c_idx])
+        head_ids = F.tensor(c_head_idx)
+        rel_ids = F.tensor(c_rel_idx)
+        tail_ids = F.tensor(c_tail_idx)
+        score_topk = F.tensor(c_score_topk)
 
-    r1_head, r1_rel, r1_tail, r1_score = result1[0]
-    np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+    r1_head, r1_rel, r1_tail, r1_score, r1_mask = result1[0]
     np.testing.assert_allclose(r1_head, head_ids)
     np.testing.assert_allclose(r1_rel, rel_ids)
     np.testing.assert_allclose(r1_tail, tail_ids)
+    np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+    if exclude_mode == 'mask':
+        np.testing.assert_allclose(r1_mask, mask)
+    else:
+        assert r1_mask is None
 
     # exec_mode==all
-    result1 = score_model.link_predict(head, rel, tail, topk=20, batch_size=16)
-    result2 = score_model.link_predict(head=head, tail=tail, topk=20, batch_size=16)
+    result1 = score_model.link_predict(head, rel, tail, topk=20, exclude_mode=exclude_mode, batch_size=16)
+    result2 = score_model.link_predict(head=head, tail=tail, topk=20, exclude_mode=exclude_mode, batch_size=16)
     assert len(result1) == 1
     assert len(result2) == 1
 
@@ -672,14 +726,41 @@ def check_topk_score2(score_model):
     tail_ids = np.asarray(tail_ids)
     idx = np.argsort(scores)
     idx = idx[::-1]
-    idx = idx[:20]
-    head_ids = head_ids[idx]
-    rel_ids = rel_ids[idx]
-    tail_ids = tail_ids[idx]
-    score_topk = scores[idx]
+    if exclude_mode is None or exclude_mode == 'mask':
+        idx = idx[:20]
+        head_ids = head_ids[idx]
+        rel_ids = rel_ids[idx]
+        tail_ids = tail_ids[idx]
+        score_topk = scores[idx]
+        if exclude_mode == 'mask':
+            mask = np.zeros((20,))
+            for i in range(20):
+                if (head_ids[i] + 1) % num_entity == tail_ids[i] or \
+                    (head_ids[i] - 1) % num_entity == tail_ids[i]:
+                    mask[i] = 1
+    else:
+        c_head_idx = []
+        c_rel_idx = []
+        c_tail_idx = []
+        c_score_topk = []
+        cur_idx = 0
+        while len(c_head_idx) < 20:
+            c_idx = idx[cur_idx]
+            cur_idx += 1
+            if (head_ids[c_idx] + 1) % num_entity == tail_ids[c_idx] or \
+                (head_ids[c_idx] - 1) % num_entity == tail_ids[c_idx]:
+                continue
+            c_head_idx.append(head_ids[c_idx])
+            c_tail_idx.append(tail_ids[c_idx])
+            c_rel_idx.append(rel_ids[c_idx])
+            c_score_topk.append(scores[c_idx])
+        head_ids = F.tensor(c_head_idx)
+        rel_ids = F.tensor(c_rel_idx)
+        tail_ids = F.tensor(c_tail_idx)
+        score_topk = F.tensor(c_score_topk)
 
-    r1_head, r1_rel, r1_tail, r1_score = result1[0]
-    r2_head, r2_rel, r2_tail, r2_score = result2[0]
+    r1_head, r1_rel, r1_tail, r1_score, r1_mask = result1[0]
+    r2_head, r2_rel, r2_tail, r2_score, r2_mask = result2[0]
     np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(r1_head, head_ids)
@@ -688,9 +769,15 @@ def check_topk_score2(score_model):
     np.testing.assert_allclose(r2_rel, rel_ids)
     np.testing.assert_allclose(r1_tail, tail_ids)
     np.testing.assert_allclose(r2_tail, tail_ids)
+    if exclude_mode == 'mask':
+        np.testing.assert_allclose(r1_mask, mask)
+        np.testing.assert_allclose(r2_mask, mask)
+    else:
+        assert r1_mask is None
+        assert r2_mask is None
 
-    result1 = score_model.link_predict(head, rel, tail, exec_mode='batch_rel', batch_size=16)
-    result2 = score_model.link_predict(head=head, tail=tail, exec_mode='batch_rel', batch_size=16)
+    result1 = score_model.link_predict(head, rel, tail, exec_mode='batch_rel', exclude_mode=exclude_mode, batch_size=16)
+    result2 = score_model.link_predict(head=head, tail=tail, exec_mode='batch_rel', exclude_mode=exclude_mode, batch_size=16)
     assert len(result1) == num_rels
     assert len(result2) == num_rels
     for j in range(rel.shape[0]):
@@ -717,14 +804,41 @@ def check_topk_score2(score_model):
         tail_ids = np.asarray(tail_ids)
         idx = np.argsort(scores)
         idx = idx[::-1]
-        idx = idx[:10]
-        head_ids = head_ids[idx]
-        rel_ids = rel_ids[idx]
-        tail_ids = tail_ids[idx]
-        score_topk = scores[idx]
+        if exclude_mode is None or exclude_mode == 'mask':
+            idx = idx[:10]
+            head_ids = head_ids[idx]
+            rel_ids = rel_ids[idx]
+            tail_ids = tail_ids[idx]
+            score_topk = scores[idx]
+            if exclude_mode == 'mask':
+                mask = np.full((10,), False)
+                for i in range(10):
+                    if (head_ids[i] + 1) % num_entity == tail_ids[i] or \
+                        (head_ids[i] - 1) % num_entity == tail_ids[i]:
+                        mask[i] = True
+        else:
+            c_head_idx = []
+            c_rel_idx = []
+            c_tail_idx = []
+            c_score_topk = []
+            cur_idx = 0
+            while len(c_head_idx) < 10:
+                c_idx = idx[cur_idx]
+                cur_idx += 1
+                if (head_ids[c_idx] + 1) % num_entity == tail_ids[c_idx] or \
+                    (head_ids[c_idx] - 1) % num_entity == tail_ids[c_idx]:
+                    continue
+                c_head_idx.append(head_ids[c_idx])
+                c_tail_idx.append(tail_ids[c_idx])
+                c_rel_idx.append(rel_ids[c_idx])
+                c_score_topk.append(scores[c_idx])
+            head_ids = F.tensor(c_head_idx)
+            rel_ids = F.tensor(c_rel_idx)
+            tail_ids = F.tensor(c_tail_idx)
+            score_topk = F.tensor(c_score_topk)
 
-        r1_head, r1_rel, r1_tail, r1_score = result1[j]
-        r2_head, r2_rel, r2_tail, r2_score = result2[j]
+        r1_head, r1_rel, r1_tail, r1_score, r1_mask = result1[j]
+        r2_head, r2_rel, r2_tail, r2_score, r2_mask = result2[j]
         np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
         np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
         np.testing.assert_allclose(r1_head, head_ids)
@@ -733,12 +847,19 @@ def check_topk_score2(score_model):
         np.testing.assert_allclose(r2_rel, rel_ids)
         np.testing.assert_allclose(r1_tail, tail_ids)
         np.testing.assert_allclose(r2_tail, tail_ids)
+        if exclude_mode == 'mask':
+            np.testing.assert_allclose(r1_mask, mask)
+            np.testing.assert_allclose(r2_mask, mask)
+        else:
+            assert r1_mask is None
+            assert r2_mask is None
+
 
     head = F.arange(0, num_entity)
     rel = F.arange(0, num_rels)
     tail = F.arange(0, num_entity)
-    result1 = score_model.link_predict(head, rel, tail, exec_mode='batch_head', batch_size=16)
-    result2 = score_model.link_predict(exec_mode='batch_head', batch_size=16)
+    result1 = score_model.link_predict(head, rel, tail, exec_mode='batch_head', exclude_mode=exclude_mode, batch_size=16)
+    result2 = score_model.link_predict(exec_mode='batch_head', exclude_mode=exclude_mode, batch_size=16)
     assert len(result1) == num_entity
     assert len(result2) == num_entity
 
@@ -766,25 +887,58 @@ def check_topk_score2(score_model):
         tail_ids = np.asarray(tail_ids)
         idx = np.argsort(scores)
         idx = idx[::-1]
-        idx = idx[:10]
-        head_ids = head_ids[idx]
-        rel_ids = rel_ids[idx]
-        tail_ids = tail_ids[idx]
-        score_topk = scores[idx]
+        if exclude_mode is None or exclude_mode == 'mask':
+            idx = idx[:10]
+            head_ids = head_ids[idx]
+            rel_ids = rel_ids[idx]
+            tail_ids = tail_ids[idx]
+            score_topk = scores[idx]
+            if exclude_mode == 'mask':
+                mask = np.full((10,), False)
+                for l in range(10):
+                    if (head_ids[l] + 1) % num_entity == tail_ids[l] or \
+                        (head_ids[l] - 1) % num_entity == tail_ids[l]:
+                        mask[l] = True
+        else:
+            c_head_idx = []
+            c_rel_idx = []
+            c_tail_idx = []
+            c_score_topk = []
+            cur_idx = 0
+            while len(c_head_idx) < 10:
+                c_idx = idx[cur_idx]
+                cur_idx += 1
+                if (head_ids[c_idx] + 1) % num_entity == tail_ids[c_idx] or \
+                    (head_ids[c_idx] - 1) % num_entity == tail_ids[c_idx]:
+                    continue
+                c_head_idx.append(head_ids[c_idx])
+                c_tail_idx.append(tail_ids[c_idx])
+                c_rel_idx.append(rel_ids[c_idx])
+                c_score_topk.append(scores[c_idx])
+            head_ids = F.tensor(c_head_idx)
+            rel_ids = F.tensor(c_rel_idx)
+            tail_ids = F.tensor(c_tail_idx)
+            score_topk = F.tensor(c_score_topk)
 
-        r1_head, r1_rel, r1_tail, r1_score = result1[i]
-        r2_head, r2_rel, r2_tail, r2_score = result2[i]
-        np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
-        np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
+        r1_head, r1_rel, r1_tail, r1_score, r1_mask = result1[i]
+        r2_head, r2_rel, r2_tail, r2_score, r2_mask = result2[i]
         np.testing.assert_allclose(r1_head, head_ids)
         np.testing.assert_allclose(r2_head, head_ids)
         np.testing.assert_allclose(r1_rel, rel_ids)
         np.testing.assert_allclose(r2_rel, rel_ids)
         np.testing.assert_allclose(r1_tail, tail_ids)
         np.testing.assert_allclose(r2_tail, tail_ids)
+        np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
+        if exclude_mode == 'mask':
+            np.testing.assert_allclose(r1_mask, mask)
+            np.testing.assert_allclose(r2_mask, mask)
+        else:
+            assert r1_mask is None
+            assert r2_mask is None
 
-    result1 = score_model.link_predict(head, rel, tail, exec_mode='batch_tail')
-    result2 = score_model.link_predict(exec_mode='batch_tail')
+    result1 = score_model.link_predict(head, rel, tail, exec_mode='batch_tail', exclude_mode=exclude_mode)
+    result2 = score_model.link_predict(exec_mode='batch_tail', exclude_mode=exclude_mode)
     assert len(result1) == num_entity
     assert len(result2) == num_entity
     for k in range(tail.shape[0]):
@@ -811,14 +965,41 @@ def check_topk_score2(score_model):
         tail_ids = np.asarray(tail_ids)
         idx = np.argsort(scores)
         idx = idx[::-1]
-        idx = idx[:10]
-        head_ids = head_ids[idx]
-        rel_ids = rel_ids[idx]
-        tail_ids = tail_ids[idx]
-        score_topk = scores[idx]
+        if exclude_mode is None or exclude_mode == 'mask':
+            idx = idx[:10]
+            head_ids = head_ids[idx]
+            rel_ids = rel_ids[idx]
+            tail_ids = tail_ids[idx]
+            score_topk = scores[idx]
+            if exclude_mode == 'mask':
+                mask = np.full((10,), False)
+                for l in range(10):
+                    if (head_ids[l] + 1) % num_entity == tail_ids[l] or \
+                        (head_ids[l] - 1) % num_entity == tail_ids[l]:
+                        mask[l] = True
+        else:
+            c_head_idx = []
+            c_rel_idx = []
+            c_tail_idx = []
+            c_score_topk = []
+            cur_idx = 0
+            while len(c_head_idx) < 10:
+                c_idx = idx[cur_idx]
+                cur_idx += 1
+                if (head_ids[c_idx] + 1) % num_entity == tail_ids[c_idx] or \
+                    (head_ids[c_idx] - 1) % num_entity == tail_ids[c_idx]:
+                    continue
+                c_head_idx.append(head_ids[c_idx])
+                c_tail_idx.append(tail_ids[c_idx])
+                c_rel_idx.append(rel_ids[c_idx])
+                c_score_topk.append(scores[c_idx])
+            head_ids = F.tensor(c_head_idx)
+            rel_ids = F.tensor(c_rel_idx)
+            tail_ids = F.tensor(c_tail_idx)
+            score_topk = F.tensor(c_score_topk)
 
-        r1_head, r1_rel, r1_tail, r1_score = result1[k]
-        r2_head, r2_rel, r2_tail, r2_score = result2[k]
+        r1_head, r1_rel, r1_tail, r1_score, r1_mask = result1[k]
+        r2_head, r2_rel, r2_tail, r2_score, r2_mask = result2[k]
         np.testing.assert_allclose(r1_head, head_ids)
         np.testing.assert_allclose(r2_head, head_ids)
         np.testing.assert_allclose(r1_rel, rel_ids)
@@ -827,41 +1008,53 @@ def check_topk_score2(score_model):
         np.testing.assert_allclose(r2_tail, tail_ids)
         np.testing.assert_allclose(r1_score, score_topk, rtol=1e-6, atol=1e-6)
         np.testing.assert_allclose(r2_score, score_topk, rtol=1e-6, atol=1e-6)
+        if exclude_mode == 'mask':
+            np.testing.assert_allclose(r1_mask, mask)
+            np.testing.assert_allclose(r2_mask, mask)
+        else:
+            assert r1_mask is None
+            assert r2_mask is None
 
 def test_transe_model_topk():
     gamma = 12.0
     transe_model = TransEModel('cpu', gamma)
-    check_topk_score2(transe_model)
+    check_topk_score2(transe_model, exclude_mode=None)
+    check_topk_score2(transe_model, exclude_mode='mask')
+    check_topk_score2(transe_model, exclude_mode='exclude')
     transe_model = TransE_l2Model('cpu', gamma)
-    check_topk_score2(transe_model)
+    check_topk_score2(transe_model, exclude_mode=None)
+    check_topk_score2(transe_model, exclude_mode='mask')
+    check_topk_score2(transe_model, exclude_mode='exclude')
     transe_model = TransE_l1Model('cpu', gamma)
-    check_topk_score2(transe_model)
+    check_topk_score2(transe_model, exclude_mode=None)
+    check_topk_score2(transe_model, exclude_mode='mask')
+    check_topk_score2(transe_model, exclude_mode='exclude')
 
 def test_distmult_model_topk():
     model = DistMultModel('cpu')
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
 
 def test_complex_model_topk():
     model = ComplExModel('cpu')
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
 
 def test_rescal_model_topk():
     model = RESCALModel('cpu')
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
 
 def test_rotate_model_topk():
     gamma = 12.0
     model = RotatEModel('cpu', gamma)
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
 
 def test_gnn_model_topk():
     gamma = 12.0
     model = GNNModel('cpu', 'TransE', gamma)
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
     model = GNNModel('cpu', 'TransE_l1', gamma)
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
     model = GNNModel('cpu', 'DistMult')
-    check_topk_score2(model)
+    check_topk_score2(model, exclude_mode=None)
 
 def run_topk_emb2(sfunc, sim_func, emb_model):
     hidden_dim = 32
@@ -1077,18 +1270,18 @@ if __name__ == '__main__':
     #test_dot_topk_emb_general()
     #test_extended_jaccard_topk_emb_general()
 
-    #test_transe_model_topk()
-    #test_distmult_model_topk()
-    #test_complex_model_topk()
-    #test_rescal_model_topk()
+    test_transe_model_topk()
+    test_distmult_model_topk()
+    test_complex_model_topk()
+    test_rescal_model_topk()
     #test_transr_model_topk()
-    #test_rotate_model_topk()
-    #test_gnn_model_topk()
+    test_rotate_model_topk()
+    test_gnn_model_topk()
 
-    test_transe_model_topk_emb()
-    test_distmult_model_topk_emb()
-    test_complex_model_topk_emb()
-    test_rescal_model_topk_emb()
+    #test_transe_model_topk_emb()
+    #test_distmult_model_topk_emb()
+    #test_complex_model_topk_emb()
+    #test_rescal_model_topk_emb()
     #test_transr_model_topk_emb()
-    test_rotate_model_topk_emb()
-    test_gnn_model_topk_emb()
+    #test_rotate_model_topk_emb()
+    #test_gnn_model_topk_emb()

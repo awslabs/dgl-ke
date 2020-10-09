@@ -63,15 +63,13 @@ class BasicGEModel(object):
         self._entity_emb = KGEmbedding(device)
         self._relation_emb = KGEmbedding(device)
         self._score_func = score_func
-        self._g = None
-        self._dataset_name = None
 
-    def attach_data(self, data, etid_field='tid', ntid_filed='ntid'):
+    def attach_graph(self, g, etid_field='tid', ntid_filed='ntid'):
         """ Attach dataset into Graph Embedding Model
 
         Parameter
         ----------
-        data: KGDataset or DGLGraph
+        g: DGLGraph
             Input data for knowledge graph
         etid_field: str
             Edge feature name storing the edge type id
@@ -86,83 +84,33 @@ class BasicGEModel(object):
         """
         self._etid_field = etid_field
         self._ntid_filed = ntid_filed
-        if isinstance(data, dgl.DGLGraph):
-            self._g = data
-            self._dataset_name = None
-        else:
-            self._dataset = data
-            self._g = self.load_dataset()
-            self._dataset_name = self._dataset.name
+        assert isinstance(g, dgl.DGLGraph)
+        self._g = g
 
-    def load_dataset(self):
-        train = self._dataset.train
-        valid = self._dataset.valid
-        test = self._dataset.test
-        src = [train[0]]
-        etype_id = [train[1]]
-        dst = [train[2]]
-        self.num_train = len(train[0])
-        if valid is not None:
-            src.append(valid[0])
-            etype_id.append(valid[1])
-            dst.append(valid[2])
-            self.num_valid = len(valid[0])
-        else:
-            self.num_valid = 0
-        if test is not None:
-            src.append(test[0])
-            etype_id.append(test[1])
-            dst.append(test[2])
-            self.num_test = len(test[0])
-        else:
-            self.num_test = 0
-        assert len(src) > 1, "we need to have at least validation set or test set."
-        src = np.concatenate(src)
-        etype_id = np.concatenate(etype_id)
-        dst = np.concatenate(dst)
-        g = dgl.graph((src, dst))
-        g.edata[self._etid_field] = th.Tensor(etype_id)
-        return g
-
-    def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
+    def load(self, model_path):
         """ Load Graph Embedding Model from model_path.
 
-        All model related data is stored under model_path. If entity_emb_file and
-        relation_emb_file are provided, entity embeddings and relation embeddings
-        are directly loaded from them. Otherwise default file name is used (i.e.,
-        $dataset$_$model_name$_entity.npy and $dataset$_$model_name$_relation.npy')
+        The default entity embeding file is entity.npy.
+        The default relation embedding file is relation.npy.
 
         Parameter
         ---------
         model_path : str
             Path to store the model information
-        entity_emb_file : str
-            Dedicated file to store entity embeddings. If None, use default name.
-            Default: None.
-        relation_emb_file : str
-            Dedicated file to store relation embeddings. If None, use default name.
-            Default: None.
         """
         pass
 
-    def save(self, model_path, entity_emb_file=None, relation_emb_file=None):
+    def save(self, model_path):
         """ Save Graph Embedding Model into model_path.
 
-        All model related data are saved under model_path. If entity_emb_file and
-        relation_emb_file are provided, entity embeddings and relation embeddings
-        are saved with the specified file names. Otherwise default file name is used
-        (i.e., $dataset$_$model_name$_entity.npy and $dataset$_$model_name$_relation.npy')
+        All model related data are saved under model_path.
+        The default entity embeding file is entity.npy.
+        The default relation embedding file is relation.npy.
 
         Parameter
         ---------
         model_path : str
             Path to store the model information
-        entity_emb_file : str
-            Dedicated file to store entity embeddings. If None, use default name.
-            Default: None.
-        relation_emb_file : str
-            Dedicated file to store relation embeddings. If None, use default name.
-            Default: None.
         """
         assert False, 'Not support training now'
 
@@ -238,6 +186,192 @@ class BasicGEModel(object):
             score = th.cat(score, dim=0)
             return th.reshape(score, (num_head * num_rel * num_tail,))
 
+    def _exclude_pos(self, sidx, score, idx, head, rel, tail, topk, exec_mode, exclude_mode):
+        g = self.graph
+        num_triples = idx.shape[0]
+        num_head = 1 if exec_mode == 'batch_head' else head.shape[0]
+        num_rel = 1 if exec_mode == 'batch_rel' else rel.shape[0]
+        num_tail = 1 if exec_mode == 'batch_tail' else tail.shape[0]
+
+        res_head = []
+        res_rel = []
+        res_tail = []
+        res_score = []
+        result = []
+        if exclude_mode == 'exclude':
+            cur_k = 0
+            while (cur_k < num_triples):
+                cur_sidx = sidx[cur_k:cur_k + topk if cur_k + topk < num_triples else num_triples]
+                cur_score = score[cur_sidx]
+                cur_idx = idx[cur_sidx]
+
+                if exec_mode == 'triplet_wise':
+                    cur_head = head[cur_idx]
+                    cur_rel = rel[cur_idx]
+                    cur_tail = tail[cur_idx]
+                elif exec_mode == 'all':
+                    tail_idx = cur_idx % num_tail
+                    cur_idx = floor_divide(cur_idx, num_tail)
+                    rel_idx = cur_idx % num_rel
+                    cur_idx = floor_divide(cur_idx, num_rel)
+                    head_idx = cur_idx % num_head
+
+                    cur_head = head[head_idx]
+                    cur_rel = rel[rel_idx]
+                    cur_tail = tail[tail_idx]
+                elif exec_mode == 'batch_head':
+                    tail_idx = cur_idx % num_tail
+                    cur_idx = floor_divide(cur_idx, num_tail)
+                    rel_idx = cur_idx % num_rel
+
+                    cur_head = th.full((cur_sidx.shape[0],), head, dtype=head.dtype)
+                    cur_rel = rel[rel_idx]
+                    cur_tail = tail[tail_idx]
+                elif exec_mode == 'batch_rel':
+                    tail_idx = cur_idx % num_tail
+                    cur_idx = floor_divide(cur_idx, num_tail)
+                    head_idx = cur_idx % num_head
+
+                    cur_head = head[head_idx]
+                    cur_rel = th.full((cur_sidx.shape[0],), rel, dtype=rel.dtype)
+                    cur_tail = tail[tail_idx]
+                elif exec_mode == 'batch_tail':
+                    rel_idx = cur_idx % num_rel
+                    cur_idx = floor_divide(cur_idx, num_rel)
+                    head_idx = cur_idx % num_head
+
+                    cur_head = head[head_idx]
+                    cur_rel = rel[rel_idx]
+                    cur_tail = th.full((cur_sidx.shape[0],), tail, dtype=tail.dtype)
+
+                uid, vid, eid = g.edge_ids(cur_head, cur_tail, return_uv=True)
+                sort_idx = th.argsort(uid, dim=0)
+                uid = uid[sort_idx]
+                vid = vid[sort_idx]
+                eid = eid[sort_idx]
+                rid = g.edata[self._etid_field][eid]
+                s_head_idx = th.argsort(cur_head, dim=0)
+                print(cur_head)
+
+                start_idx = 0
+                for i in range(cur_head.shape[0]):
+                    h = cur_head[s_head_idx[i]]
+                    t = cur_tail[s_head_idx[i]]
+                    r = cur_rel[s_head_idx[i]]
+                    while(start_idx < len(uid) and uid[start_idx] < h):
+                        start_idx += 1
+
+                    edge_exist = False
+                    # check existing edges
+                    if start_idx < len(uid):
+                        # uid[start_idx] == h
+                        cur_idx = 0
+                        while(start_idx + cur_idx < len(uid) and uid[start_idx + cur_idx] == h):
+                            if vid[start_idx + cur_idx] == t and rid[start_idx + cur_idx] == r:
+                                edge_exist = True
+                                break
+                            cur_idx += 1
+
+                    if edge_exist is False:
+                        res_head.append(h)
+                        res_rel.append(r)
+                        res_tail.append(t)
+                        res_score.append(cur_score[s_head_idx[i]])
+
+                if len(res_head) >= topk:
+                    break
+
+                cur_k += topk
+            res_head = th.tensor(res_head)
+            res_rel = th.tensor(res_rel)
+            res_tail = th.tensor(res_tail)
+            res_score = th.tensor(res_score)
+            sidx = th.argsort(res_score, dim=0, descending=True)
+            sidx = sidx[:topk] if topk < sidx.shape[0] else sidx
+            result.append((res_head[sidx],
+                           res_rel[sidx],
+                           res_tail[sidx],
+                           res_score[sidx],
+                           None))
+        else:
+            sidx = sidx[:topk]
+            score = score[sidx]
+            idx = idx[sidx]
+
+            if exec_mode == 'triplet_wise':
+                head = head[idx]
+                rel = rel[idx]
+                tail = tail[idx]
+            elif exec_mode == 'all':
+                tail_idx = idx % num_tail
+                idx = floor_divide(idx, num_tail)
+                rel_idx = idx % num_rel
+                idx = floor_divide(idx, num_rel)
+                head_idx = idx % num_head
+
+                head = head[head_idx]
+                rel = rel[rel_idx]
+                tail = tail[tail_idx]
+            elif exec_mode == 'batch_head':
+                tail_idx = idx % num_tail
+                idx = floor_divide(idx, num_tail)
+                rel_idx = idx % num_rel
+
+                head = th.full((topk,), head, dtype=head.dtype)
+                rel = rel[rel_idx]
+                tail = tail[tail_idx]
+            elif exec_mode == 'batch_rel':
+                tail_idx = idx % num_tail
+                idx = floor_divide(idx, num_tail)
+                head_idx = idx % num_head
+
+                head = head[head_idx]
+                rel = th.full((topk,), rel, dtype=rel.dtype)
+                tail = tail[tail_idx]
+            elif exec_mode == 'batch_tail':
+                rel_idx = idx % num_rel
+                idx = floor_divide(idx, num_rel)
+                head_idx = idx % num_head
+
+                head = head[head_idx]
+                rel = rel[rel_idx]
+                tail = th.full((topk,), tail, dtype=tail.dtype)
+
+            if exclude_mode == 'mask':
+                uid, vid, eid = g.edge_ids(head, tail, return_uv=True)
+                mask = th.full((head.shape[0],), False, dtype=th.bool)
+                sort_idx = th.argsort(uid, dim=0)
+                uid = uid[sort_idx]
+                vid = vid[sort_idx]
+                eid = eid[sort_idx]
+                rid = g.edata[self._etid_field][eid]
+                s_head_idx = th.argsort(head, dim=0)
+
+                if len(uid) > 0:
+                    start_idx = 0
+                    for i in range(head.shape[0]):
+                        h = head[s_head_idx[i]]
+                        t = tail[s_head_idx[i]]
+                        r = rel[s_head_idx[i]]
+
+                        while(start_idx < len(uid) and uid[start_idx] < h):
+                            start_idx += 1
+                        # no more edges
+                        if start_idx == len(uid):
+                            break
+
+                        # uid[start_idx] == h
+                        cur_idx = 0
+                        while(start_idx + cur_idx < len(uid) and uid[start_idx + cur_idx] == h):
+                            if vid[start_idx + cur_idx] == t and rid[start_idx + cur_idx] == r:
+                                mask[s_head_idx[i]] = True
+                                break
+                            cur_idx += 1
+                result.append((head, rel, tail, score, mask))
+            else:
+                result.append((head, rel, tail, score, None))
+
+        return result
 
     def link_predict(self, head=None, rel=None, tail=None, exec_mode='all', sfunc='none', topk=10, exclude_mode=None, batch_size=DEFAULT_INFER_BATCHSIZE):
         """ Predicts missing entities or relations in a triplet.
@@ -332,7 +466,6 @@ class BasicGEModel(object):
             'If exclude_mode is not None, please use load_graph() to initialize ' \
             'a graph for edge filtering.'
         if exec_mode == 'triplet_wise':
-            result = []
             assert num_head == num_rel, \
                 'For triplet wise exection mode, head, relation and tail lists should have same length'
             assert num_head == num_tail, \
@@ -343,15 +476,15 @@ class BasicGEModel(object):
             idx = th.arange(0, num_head)
 
             sidx = th.argsort(score, dim=0, descending=True)
-            sidx = sidx[:topk]
-            score = score[sidx]
-            idx = idx[sidx]
-
-            result.append((head[idx],
-                           rel[idx],
-                           tail[idx],
-                           score))
-
+            result = self._exclude_pos(sidx=sidx,
+                                       score=score,
+                                       idx=idx,
+                                       head=head,
+                                       rel=rel,
+                                       tail=tail,
+                                       topk=topk,
+                                       exec_mode=exec_mode,
+                                       exclude_mode=exclude_mode)
         elif exec_mode == 'all':
             result = []
             raw_score = self._infer_score_func(head, rel, tail)
@@ -359,20 +492,15 @@ class BasicGEModel(object):
             idx = th.arange(0, num_head * num_rel * num_tail)
 
             sidx = th.argsort(score, dim=0, descending=True)
-            sidx = sidx[:topk]
-            score = score[sidx]
-            idx = idx[sidx]
-
-            tail_idx = idx % num_tail
-            idx = floor_divide(idx, num_tail)
-            rel_idx = idx % num_rel
-            idx = floor_divide(idx, num_rel)
-            head_idx = idx % num_head
-
-            result.append((head[head_idx],
-                           rel[rel_idx],
-                           tail[tail_idx],
-                           score))
+            result = self._exclude_pos(sidx=sidx,
+                                       score=score,
+                                       idx=idx,
+                                       head=head,
+                                       rel=rel,
+                                       tail=tail,
+                                       topk=topk,
+                                       exec_mode=exec_mode,
+                                       exclude_mode=exclude_mode)
         elif exec_mode == 'batch_head':
             result = []
             for i in range(num_head):
@@ -381,17 +509,17 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_rel * num_tail)
 
                 sidx = th.argsort(score, dim=0, descending=True)
-                sidx = sidx[:topk]
-                score = score[sidx]
-                idx = idx[sidx]
-                tail_idx = idx % num_tail
-                idx = floor_divide(idx, num_tail)
-                rel_idx = idx % num_rel
+                res = self._exclude_pos(sidx=sidx,
+                                        score=score,
+                                        idx=idx,
+                                        head=head[i],
+                                        rel=rel,
+                                        tail=tail,
+                                        topk=topk,
+                                        exec_mode=exec_mode,
+                                        exclude_mode=exclude_mode)
 
-                result.append((th.full((topk,), head[i], dtype=head[i].dtype),
-                               rel[rel_idx],
-                               tail[tail_idx],
-                               score))
+                result.append(res[0])
         elif exec_mode == 'batch_rel':
             result = []
             for i in range(num_rel):
@@ -400,17 +528,17 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_head * num_tail)
 
                 sidx = th.argsort(score, dim=0, descending=True)
-                sidx = sidx[:topk]
-                score = score[sidx]
-                idx = idx[sidx]
-                tail_idx = idx % num_tail
-                idx = floor_divide(idx, num_tail)
-                head_idx = idx % num_head
+                res = self._exclude_pos(sidx=sidx,
+                                        score=score,
+                                        idx=idx,
+                                        head=head,
+                                        rel=rel[i],
+                                        tail=tail,
+                                        topk=topk,
+                                        exec_mode=exec_mode,
+                                        exclude_mode=exclude_mode)
 
-                result.append((head[head_idx],
-                               th.full((topk,), rel[i], dtype=rel[i].dtype),
-                               tail[tail_idx],
-                               score))
+                result.append(res[0])
         elif exec_mode == 'batch_tail':
             result = []
             for i in range(num_tail):
@@ -419,16 +547,17 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_head * num_rel)
 
                 sidx = th.argsort(score, dim=0, descending=True)
-                sidx = sidx[:topk]
-                score = score[sidx]
-                idx = idx[sidx]
-                rel_idx = idx % num_rel
-                idx = floor_divide(idx, num_rel)
-                head_idx = idx % num_head
-                result.append((head[head_idx],
-                               rel[rel_idx],
-                               th.full((topk,), tail[i], dtype=tail[i].dtype),
-                               score))
+                res = self._exclude_pos(sidx=sidx,
+                                        score=score,
+                                        idx=idx,
+                                        head=head,
+                                        rel=rel,
+                                        tail=tail[i],
+                                        topk=topk,
+                                        exec_mode=exec_mode,
+                                        exclude_mode=exclude_mode)
+
+                result.append(res[0])
         else:
             assert False, 'unknow execution mode type {}'.format(exec_mode)
 
@@ -632,6 +761,10 @@ class BasicGEModel(object):
     def num_rel(self):
         return -1 if self.relation_embed is None else self.relation_embed.shape[0]
 
+    @property
+    def graph(self):
+        return self._g
+
 class KGEModel(BasicGEModel):
     """ Basic Knowledge Graph Embedding Model
     """
@@ -639,14 +772,11 @@ class KGEModel(BasicGEModel):
         super(KGEModel, self).__init__(device, model_name, score_func)
 
     def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
-        entity_emb_file = entity_emb_file if entity_emb_file is not None \
-                                          else self._dataset_name+'_'+self.model_name+'_entity.npy'
-        relation_emb_file = relation_emb_file if relation_emb_file is not None \
-                                              else self._dataset_name+'_'+self.model_name+'_relation.npy'
+        entity_emb_file = 'entity.npy'
+        relation_emb_file = 'relation.npy'
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
-        if self._dataset_name is not None:
-            self._score_func.load(model_path, self._dataset_name+'_'+self.model_name)
+        self._score_func.load(model_path, self.model_name)
 
 class TransEModel(KGEModel):
     """ TransE Model
@@ -754,7 +884,8 @@ class GNNModel(BasicGEModel):
 
         super(GNNModel, self).__init__(device, model_name, score_func)
 
-
-    def load(self, model_path, entity_emb_file, relation_emb_file):
+    def load(self, model_path):
+        entity_emb_file = 'entity.npy'
+        relation_emb_file = 'relation.npy'
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
