@@ -26,7 +26,6 @@ Graph Embedding Model
 6. RotatE
 """
 import os
-from abc import abstractmethod, ABCMeta
 import numpy as np
 import dgl.backend as F
 
@@ -56,7 +55,7 @@ else:
 
 EMB_INIT_EPS = 2.0
 
-class InferModel(metaclass=ABCMeta):
+class InferModel(object):
     def __init__(self, device, model_name, hidden_dim,
         double_entity_emb=False, double_relation_emb=False,
         gamma=0., batch_size=DEFAULT_INFER_BATCHSIZE):
@@ -87,11 +86,19 @@ class InferModel(metaclass=ABCMeta):
             emb_init = (gamma + EMB_INIT_EPS) / hidden_dim
             self.score_func = RotatEScore(gamma, emb_init)
 
-    @abstractmethod
-    def load_emb(self):
-        """ loading embedding
+    def load_emb(self, path, dataset):
+        """Load the model.
+
+        Parameters
+        ----------
+        path : str
+            Directory to load the model.
+        dataset : str
+            Dataset name as prefix to the saved embeddings.
         """
-        pass
+        self.entity_emb.load(path, dataset+'_'+self.model_name+'_entity')
+        self.relation_emb.load(path, dataset+'_'+self.model_name+'_relation')
+        self.score_func.load(path, dataset+'_'+self.model_name)
 
     def score(self, head, rel, tail, triplet_wise=False):
         head_emb = self.entity_emb(head)
@@ -163,109 +170,6 @@ class InferModel(metaclass=ABCMeta):
     @property
     def num_rel(self):
         return self.relation_emb.emb.shape[0]
-
-class KGEInferModel(InferModel):
-    """ Knowledge graph embedding model Inference Model
-
-    KGEInferModel is compatible with KGE models.
-
-    Parameters
-    ---------
-    device : int
-        Device to run the inference, -1 for CPU
-    model_name : str
-        Model name, including TransE_l1, TransE_l2, TransR, DistMult, ComplEx, RESCAL, RotatE
-    hidden_dim : int
-        Hidden dimension
-    double_entity_emb : bool
-        Whether double entity embedding, used by RotatE. Default: False
-    double_relation_emb : bool
-        Whether double relation embedding. Default: False
-    gamma : float
-        Gamma for TransE_l1, TransE_l2, tec.
-    batch_size: int
-        Minibatch size. Default: DEFAULT_INFER_BATCHSIZE
-    """
-    def __init__(self, device, model_name, hidden_dim,
-        double_entity_emb=False, double_relation_emb=False,
-        gamma=0., batch_size=DEFAULT_INFER_BATCHSIZE):
-
-        super(KGEInferModel, self).__init__(device=device,
-                                            model_name=model_name,
-                                            hidden_dim=hidden_dim,
-                                            double_entity_emb=double_entity_emb,
-                                            double_relation_emb=double_relation_emb,
-                                            gamma=gamma,
-                                            batch_size=batch_size)
-
-    def load_emb(self, path, emb_info):
-        """Load the model.
-
-        Parameters
-        ----------
-        path : str
-            Directory to load the model.
-        emb_info : str
-            Dataset name as a prefix to the saved embeddings.
-        """
-        dataset = emb_info
-        self.entity_emb.load(path, dataset+'_'+self.model_name+'_entity')
-        self.relation_emb.load(path, dataset+'_'+self.model_name+'_relation')
-        self.score_func.load(path, dataset+'_'+self.model_name)
-
-class GeneralInferModel(InferModel):
-    """ General purpose Inference Model
-
-    GeneralInferModel is compatible with some GNN-based embedding models.
-    For example RGCN.
-
-    Parameters
-    ---------
-    device : int
-        Device to run the inference, -1 for CPU
-    model_name : str
-        Model name, including TransE_l1, TransE_l2, DistMult
-    hidden_dim : int
-        Hidden dimension
-    double_entity_emb : bool
-        Whether double entity embedding, used by RotatE. Default: False
-    double_relation_emb : bool
-        Whether double relation embedding. Default: False
-    gamma : float
-        Gamma for TransE_l1, TransE_l2, tec.
-    batch_size: int
-        Minibatch size. Default: DEFAULT_INFER_BATCHSIZE
-
-    Note
-    ----
-    GeneralInferModel only support TransE_l1, TransE_l2, DistMult now.
-    """
-    def __init__(self, device, model_name, hidden_dim,
-        gamma=0., batch_size=DEFAULT_INFER_BATCHSIZE):
-
-        assert model_name in ['TransE', 'TransE_l2', 'TransE_l1', 'DistMult'], \
-            "For general purpose Scoring function, we only support TransE_l1, TransE_l2" \
-            "DistMult, but {} is given.".format(model_name)
-        super(GeneralInferModel, self).__init__(device=device,
-                                                model_name=model_name,
-                                                hidden_dim=hidden_dim,
-                                                double_entity_emb=False,
-                                                double_relation_emb=False,
-                                                gamma=gamma,
-                                                batch_size=batch_size)
-
-    def load_emb(self, entity_emb, relation_emb):
-        """Load the model.
-
-        Parameters
-        ----------
-        entity_emb : numpy.array
-            Entity embedding
-        relation_emb : numpy.array
-            Relation embedding
-        """
-        self.entity_emb.load_emb(entity_emb)
-        self.relation_emb.load_emb(relation_emb)
 
 class KEModel(object):
     """ DGL Knowledge Embedding Model.

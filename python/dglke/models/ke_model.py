@@ -199,8 +199,7 @@ class BasicGEModel(object):
         res_score = []
         result = []
         if exclude_mode == 'exclude':
-            ''' The basic idea of doing exclude
-            '''
+            # exclude existing edges
             cur_k = 0
             batch_size = topk
             while (cur_k < num_triples):
@@ -307,6 +306,7 @@ class BasicGEModel(object):
                            res_score[sidx],
                            None))
         else:
+            # including the existing edges in the result
             sidx = sidx[:topk]
             score = score[sidx]
             idx = idx[sidx]
@@ -792,7 +792,7 @@ class KGEModel(BasicGEModel):
     def __init__(self, device, model_name, score_func):
         super(KGEModel, self).__init__(device, model_name, score_func)
 
-    def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
+    def load(self, model_path):
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         self._entity_emb.load(model_path, entity_emb_file)
@@ -837,8 +837,8 @@ class TransRModel(KGEModel):
         self._gamma = gamma
         super(TransRModel, self).__init__(device, model_name, _score_func)
 
-    def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
-        super(TransRModel, self).load(model_path, entity_emb_file, relation_emb_file)
+    def load(self, model_path):
+        super(TransRModel, self).load(model_path)
         self._score_func.relation_dim = self._relation_emb.emb.shape[1]
         self._score_func.entity_dim = self._entity_emb.emb.shape[1]
 
@@ -866,8 +866,8 @@ class RESCALModel(KGEModel):
         score_func = RESCALScore(-1, -1)
         super(RESCALModel, self).__init__(device, model_name, score_func)
 
-    def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
-        super(RESCALModel, self).load(model_path, entity_emb_file, relation_emb_file)
+    def load(self, model_path):
+        super(RESCALModel, self).load(model_path)
         self._score_func.entity_dim = self._entity_emb.emb.shape[1]
         self._score_func.relation_dim = self._relation_emb.emb.shape[1] // self._score_func.entity_dim
 
@@ -880,8 +880,8 @@ class RotatEModel(KGEModel):
         score_func = RotatEScore(gamma, 0)
         super(RotatEModel, self).__init__(device, model_name, score_func)
 
-    def load(self, model_path, entity_emb_file=None, relation_emb_file=None):
-        super(RotatEModel, self).load(model_path, entity_emb_file, relation_emb_file)
+    def load(self, model_path):
+        super(RotatEModel, self).load(model_path)
         # retrive emb_init, which is used in scoring func
         entity_dim = self._entity_emb.emb.shape[1]
         hidden_dim = entity_dim // 2

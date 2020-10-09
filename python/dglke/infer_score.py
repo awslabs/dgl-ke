@@ -22,7 +22,7 @@ import time
 import argparse
 
 from .utils import load_model_config, load_raw_triplet_data, load_triplet_data
-from .models.infer import KGEScoreInfer
+from .models.infer import ScoreInfer
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -211,7 +211,7 @@ def main():
     else:
         assert False, "Unsupported format {}".format(args.format)
 
-    model = KGEScoreInfer(args.gpu, config, args.model_path, args.score_func)
+    model = ScoreInfer(args.gpu, config, args.model_path, args.score_func)
     model.load_model()
     result = model.topK(head, rel, tail, args.exec_mode, args.topK)
 

@@ -22,7 +22,7 @@ import time
 import argparse
 
 from .utils import load_entity_data, load_raw_emb_data, load_raw_emb_mapping
-from .models.infer import KGEEmbSimInfer
+from .models.infer import EmbSimInfer
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -115,7 +115,7 @@ def main():
     else:
         assert False, 'Unknow execution model'
 
-    model = KGEEmbSimInfer(args.gpu, args.emb_file, args.sim_func)
+    model = EmbSimInfer(args.gpu, args.emb_file, args.sim_func)
     model.load_emb()
     result = model.topK(head, tail, bcast=bcast, pair_ws=pair_wise, k=args.topK)
 

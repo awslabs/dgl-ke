@@ -27,9 +27,11 @@ import numpy as np
 import dgl.backend as F
 import dgl
 
-from models import KGEInferModel
-from models.infer import KGEScoreInfer, KGEEmbSimInfer, GeneralScoreInfer, GeneralEmbSimInfer
-from models import TransEModel, TransE_l2Model, TransE_l1Model, DistMultModel, TransRModel, ComplExModel, RESCALModel, RotatEModel, GNNModel
+from models import InferModel
+from models.infer import ScoreInfer, EmbSimInfer
+from models import TransEModel, TransE_l2Model, TransE_l1Model, TransRModel, RotatEModel
+from models import DistMultModel, ComplExModel, RESCALModel
+from models import GNNModel
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
@@ -101,19 +103,19 @@ class FakeEdge:
     def data(self):
         return self._data
 
-def create_kge_score_infer(model_name, entity_emb, rel_emb):
+def create_score_infer(model_name, entity_emb, rel_emb):
     hidden_dim = entity_emb.shape[1]
-    score_model = KGEScoreInfer(-1, 'config', 'path', 'none')
+    score_model = ScoreInfer(-1, 'config', 'path', 'none')
     if model_name == 'TransE' or \
         model_name =='TransE_l1' or \
         model_name == 'TransE_l2' or \
         model_name == 'DistMult' or \
         model_name == 'ComplEx':
-        model = KGEInferModel('cpu', model_name, hidden_dim, batch_size=16)
+        model = InferModel('cpu', model_name, hidden_dim, batch_size=16)
     elif model_name == 'RESCAL':
-        model = KGEInferModel('cpu', model_name, hidden_dim)
+        model = InferModel('cpu', model_name, hidden_dim)
     elif model_name == 'RotatE':
-        model = KGEInferModel('cpu', model_name, hidden_dim, double_entity_emb=True)
+        model = InferModel('cpu', model_name, hidden_dim, double_entity_emb=True)
 
     model.entity_emb = InferEmbedding('cpu')
     model.entity_emb.emb = entity_emb
@@ -124,13 +126,7 @@ def create_kge_score_infer(model_name, entity_emb, rel_emb):
 
     return score_model, score_func
 
-def create_general_score_infer(model_name, entity_emb, rel_emb):
-    score_model = GeneralScoreInfer(-1, model_name, 'none')
-    score_model.load_model(entity_emb, rel_emb)
-    score_func = score_model.model.score_func
-    return score_model, score_func
-
-def check_topk_score(model_name, create_score_infer=create_kge_score_infer):
+def check_topk_score(model_name):
     hidden_dim = 32
     gamma = 12.0
 
@@ -385,13 +381,8 @@ def test_topk_rotate():
     check_topk_score('RotatE')
 
 def create_kge_emb_sim(emb, sfunc):
-    sim_infer = KGEEmbSimInfer(-1, None, sfunc, 32)
+    sim_infer = EmbSimInfer(-1, None, sfunc, 32)
     sim_infer.emb = emb
-    return sim_infer
-
-def create_general_emb_sim(emb, sfunc):
-    sim_infer = GeneralEmbSimInfer(-1, emb, sfunc, 32)
-    sim_infer.load_emb()
     return sim_infer
 
 def run_topk_emb(sfunc, sim_func, create_emb_sim=create_kge_emb_sim):
@@ -544,44 +535,7 @@ def test_extended_jaccard_topk_emb(create_emb_sim=create_kge_emb_sim):
         return score / (x + y - score)
     run_topk_emb('ext_jaccard', extended_jaccard_func, create_emb_sim=create_emb_sim)
 
-def test_topk_transe_general():
-    check_topk_score('TransE', create_general_score_infer)
-    check_topk_score('TransE_l1', create_general_score_infer)
-    check_topk_score('TransE_l2', create_general_score_infer)
-
-def test_topk_distmult_general():
-    check_topk_score('DistMult', create_general_score_infer)
-
-def test_cosine_topk_emb_general():
-    test_cosine_topk_emb(create_general_emb_sim)
-
-def test_l2_topk_emb_general():
-    test_l2_topk_emb(create_general_emb_sim)
-
-def test_l1_topk_emb_general():
-    test_l1_topk_emb(create_general_emb_sim)
-
-def test_dot_topk_emb_general():
-    test_dot_topk_emb(create_general_emb_sim)
-
-def test_extended_jaccard_topk_emb_general():
-    test_extended_jaccard_topk_emb(create_general_emb_sim)
-
-def test_lazy_load():
-    emb = F.tensor([[0],[1],[2],[3]])
-    sim_infer = GeneralEmbSimInfer(-1, emb)
-    sim_infer.load_emb()
-    emb[0][0] = 3
-    assert sim_infer.emb[0][0].item() == 3
-
-    entity_emb = emb
-    rel_emb = F.tensor([[0],[1],[2],[3]])
-    score_model = GeneralScoreInfer(-1, 'TransE_l1', 'none')
-    score_model.load_model(entity_emb, rel_emb)
-    entity_emb[0][0] = 10
-    rel_emb[0][0] = 10
-    assert score_model.model.entity_emb.emb[0][0].item() == 10
-    assert score_model.model.relation_emb.emb[0][0].item() == 10
+############################# BasicGEModel ##############################
 
 def create_emb_file(path, filename, emb):
     np.save(os.path.join(path, filename), emb)
@@ -1078,11 +1032,9 @@ def run_topk_emb2(sfunc, sim_func, emb_model):
     with tempfile.TemporaryDirectory() as tmpdirname:
         emb = F.uniform((num_emb, hidden_dim), F.float32, F.cpu(), -1, 1)
         create_emb_file(Path(tmpdirname), 'entity.npy', emb.numpy())
-        create_emb_file(Path(tmpdirname), 'rel.npy', emb.numpy())
+        create_emb_file(Path(tmpdirname), 'relation.npy', emb.numpy())
 
-        emb_model.load(Path(tmpdirname),
-                       entity_emb_file='entity.npy',
-                       relation_emb_file='rel.npy')
+        emb_model.load(Path(tmpdirname))
 
     head = F.arange(0, num_head)
     tail = F.arange(num_head, num_head+num_tail)
@@ -1262,26 +1214,17 @@ def test_gnn_model_topk_emb():
     test_l1_topk_emb2(model)
 
 if __name__ == '__main__':
-    #test_lazy_load()
-
-    #test_topk_transe()
-    #test_topk_distmult()
-    #test_topk_complex()
-    #test_topk_rescal()
+    test_topk_transe()
+    test_topk_distmult()
+    test_topk_complex()
+    test_topk_rescal()
     #test_topk_transr()
-    #test_topk_rotate()
-    #test_cosine_topk_emb()
-    #test_l2_topk_emb()
-    #test_l1_topk_emb()
-    #test_dot_topk_emb()
-    #test_extended_jaccard_topk_emb()
-    #test_topk_transe_general()
-    #test_topk_distmult_general()
-    #test_cosine_topk_emb_general()
-    #test_l2_topk_emb_general()
-    #test_l1_topk_emb_general()
-    #test_dot_topk_emb_general()
-    #test_extended_jaccard_topk_emb_general()
+    test_topk_rotate()
+    test_cosine_topk_emb()
+    test_l2_topk_emb()
+    test_l1_topk_emb()
+    test_dot_topk_emb()
+    test_extended_jaccard_topk_emb()
 
     test_transe_model_topk()
     test_distmult_model_topk()
@@ -1291,10 +1234,10 @@ if __name__ == '__main__':
     test_rotate_model_topk()
     test_gnn_model_topk()
 
-    #test_transe_model_topk_emb()
-    #test_distmult_model_topk_emb()
-    #test_complex_model_topk_emb()
-    #test_rescal_model_topk_emb()
+    test_transe_model_topk_emb()
+    test_distmult_model_topk_emb()
+    test_complex_model_topk_emb()
+    test_rescal_model_topk_emb()
     #test_transr_model_topk_emb()
-    #test_rotate_model_topk_emb()
-    #test_gnn_model_topk_emb()
+    test_rotate_model_topk_emb()
+    test_gnn_model_topk_emb()
