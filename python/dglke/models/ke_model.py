@@ -199,9 +199,12 @@ class BasicGEModel(object):
         res_score = []
         result = []
         if exclude_mode == 'exclude':
+            ''' The basic idea of doing exclude
+            '''
             cur_k = 0
+            batch_size = topk
             while (cur_k < num_triples):
-                cur_sidx = sidx[cur_k:cur_k + topk if cur_k + topk < num_triples else num_triples]
+                cur_sidx = sidx[cur_k:cur_k + batch_size if cur_k + batch_size < num_triples else num_triples]
                 cur_score = score[cur_sidx]
                 cur_idx = idx[cur_sidx]
 
@@ -244,6 +247,15 @@ class BasicGEModel(object):
                     cur_rel = rel[rel_idx]
                     cur_tail = th.full((cur_sidx.shape[0],), tail, dtype=tail.dtype)
 
+                # Find exising edges
+                # It is expacted that the existing edges are much less than triples
+                # The idea is: 1) we get existing edges using g.edge_ids
+                #              2) sort edges according to source node id (O(nlog(n)), n is number of edges)
+                #              3) sort candidate triples according to cur_head (O(mlog(m)), m is number of cur_head nodes)
+                #              4) go over all candidate triples and compare with existing edges,
+                #                 as both edges and candidate triples are sorted. filtering edges out
+                #                 will take only O(n+m)
+                #              5) sort the score again it taks O(klog(k))
                 uid, vid, eid = g.edge_ids(cur_head, cur_tail, return_uv=True)
                 sort_idx = th.argsort(uid, dim=0)
                 uid = uid[sort_idx]
@@ -251,7 +263,6 @@ class BasicGEModel(object):
                 eid = eid[sort_idx]
                 rid = g.edata[self._etid_field][eid]
                 s_head_idx = th.argsort(cur_head, dim=0)
-                print(cur_head)
 
                 start_idx = 0
                 for i in range(cur_head.shape[0]):
@@ -281,7 +292,9 @@ class BasicGEModel(object):
                 if len(res_head) >= topk:
                     break
 
-                cur_k += topk
+                cur_k += batch_size
+                batch_size = topk - len(res_head) # check more edges
+                batch_size = 16 if batch_size < 16 else batch_size # avoid tailing issue
             res_head = th.tensor(res_head)
             res_rel = th.tensor(res_rel)
             res_tail = th.tensor(res_tail)
@@ -338,6 +351,14 @@ class BasicGEModel(object):
                 tail = th.full((topk,), tail, dtype=tail.dtype)
 
             if exclude_mode == 'mask':
+                # Find exising edges
+                # It is expacted that the existing edges are much less than triples
+                # The idea is: 1) we get existing edges using g.edge_ids
+                #              2) sort edges according to source node id (O(nlog(n)), n is number of edges)
+                #              3) sort candidate triples according to cur_head (O(mlog(m)), m is number of cur_head nodes)
+                #              4) go over all candidate triples and compare with existing edges and mask them,
+                #                 as both edges and candidate triples are sorted. filtering edges out
+                #                 will take only O(n+m)
                 uid, vid, eid = g.edge_ids(head, tail, return_uv=True)
                 mask = th.full((head.shape[0],), False, dtype=th.bool)
                 sort_idx = th.argsort(uid, dim=0)

@@ -621,7 +621,6 @@ def _check_topk_score2(score_model, g, num_entity, num_rels, exclude_mode):
         score_model.load(Path(tmpdirname))
         score_model.attach_graph(g)
         score_func = score_model._score_func
-        print(score_model.graph)
 
     head = F.arange(0, num_entity // 2)
     rel = F.arange(0, num_rels)
@@ -1033,28 +1032,42 @@ def test_transe_model_topk():
 def test_distmult_model_topk():
     model = DistMultModel('cpu')
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
 
 def test_complex_model_topk():
     model = ComplExModel('cpu')
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
 
 def test_rescal_model_topk():
     model = RESCALModel('cpu')
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
 
 def test_rotate_model_topk():
     gamma = 12.0
     model = RotatEModel('cpu', gamma)
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
 
 def test_gnn_model_topk():
     gamma = 12.0
     model = GNNModel('cpu', 'TransE', gamma)
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
     model = GNNModel('cpu', 'TransE_l1', gamma)
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
     model = GNNModel('cpu', 'DistMult')
     check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
 
 def run_topk_emb2(sfunc, sim_func, emb_model):
     hidden_dim = 32
