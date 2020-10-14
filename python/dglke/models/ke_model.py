@@ -307,6 +307,7 @@ class BasicGEModel(object):
                            None))
         else:
             # including the existing edges in the result
+            topk = topk if topk < num_triples else num_triples
             sidx = sidx[:topk]
             score = score[sidx]
             idx = idx[sidx]
