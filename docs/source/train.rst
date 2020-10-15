@@ -119,7 +119,7 @@ The command line provides the following arguments:
     Allow asynchronous update on node embedding for multi-GPU training. This overlaps CPU and GPU computation to speed up.
 
   - ``--has_edge_importance``
-    Allow providing edge importance score for each edge during training. The positive score will be adjusted as pos_score = pos_score * edge_importance.
+    Allow providing edge importance score for each edge during training. The positive score and negative scores will be adjusted as score = score * edge_importance.
 
 Training on Multi-Core
 ^^^^^^^^^^^^^^^^^^^^^^^
