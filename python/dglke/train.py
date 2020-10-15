@@ -42,7 +42,7 @@ class ArgParser(CommonArgParser):
     def __init__(self):
         super(ArgParser, self).__init__()
 
-        self.add_argument('--gpu', type=int, default=[-1], nargs='+', 
+        self.add_argument('--gpu', type=int, default=[-1], nargs='+',
                           help='A list of gpu ids, e.g. 0 1 2 4')
         self.add_argument('--mix_cpu_gpu', action='store_true',
                           help='Training a knowledge graph embedding model with both CPUs and GPUs.'\
@@ -57,15 +57,15 @@ class ArgParser(CommonArgParser):
                                   'This overlaps CPU and GPU computation to speed up.')
 
 def prepare_save_path(args):
-    if not os.path.exists(args.save_path):	
-        os.mkdir(args.save_path)	
+    if not os.path.exists(args.save_path):
+        os.mkdir(args.save_path)
 
-    folder = '{}_{}_'.format(args.model_name, args.dataset)	
-    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])	
-    folder += str(n)	
-    args.save_path = os.path.join(args.save_path, folder)	
+    folder = '{}_{}_'.format(args.model_name, args.dataset)
+    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
+    folder += str(n)
+    args.save_path = os.path.join(args.save_path, folder)
 
-    if not os.path.exists(args.save_path):	
+    if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
 
 def main():
@@ -302,7 +302,7 @@ def main():
             for i in range(args.num_test_proc):
                 log = queue.get()
                 logs = logs + log
-            
+
             for metric in logs[0].keys():
                 metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
             print("-------------- Test result --------------")
