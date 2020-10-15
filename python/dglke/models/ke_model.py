@@ -114,12 +114,12 @@ class BasicGEModel(object):
         """
         assert False, 'Not support training now'
 
-    def fit(self, params):
+    def fit(self):
         """ Start training
         """
         assert False, 'Not support training now'
 
-    def eval(self, params):
+    def eval(self):
         """ Start evaluation
         """
         assert False, 'Not support evaluation now'
