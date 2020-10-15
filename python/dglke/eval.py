@@ -123,6 +123,7 @@ def main():
     args.strict_rel_part = False
     args.soft_rel_part = False
     args.async_update = False
+    args.has_edge_importance = False
     if len(args.gpu) > 1:
         args.mix_cpu_gpu = True
         if args.num_proc < len(args.gpu):
