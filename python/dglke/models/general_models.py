@@ -519,8 +519,8 @@ class KEModel(object):
         #else:
         if self.has_edge_importance:
             edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
-            pos_score = (pos_score * edge_weight).sum() / edge_weight.sum()
-            neg_score = (neg_score * edge_weight).sum() / edge_weight.sum()
+            pos_score = (pos_score * edge_weight).mean()
+            neg_score = (neg_score * edge_weight).mean()
         else:
             pos_score = pos_score.mean()
             neg_score = neg_score.mean()
