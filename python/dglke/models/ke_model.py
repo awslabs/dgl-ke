@@ -395,6 +395,61 @@ class BasicGEModel(object):
 
         return result
 
+    def _topk_exclude_pos(self, score, idx, head, rel, tail, topk, exec_mode, exclude_mode):
+        if exclude_mode == 'exclude':
+            if idx.shape[0] < topk * 3: # TODO(xiangsx): Find a better value of topk * n
+                topk_score, topk_sidx = th.topk(score, k=idx.shape[0], dim=0)
+                sidx = th.argsort(topk_score, dim=0, descending=True)
+                sidx = topk_sidx[sidx]
+                result = self._exclude_pos(sidx=sidx,
+                                           score=score,
+                                           idx=idx,
+                                           head=head,
+                                           rel=rel,
+                                           tail=tail,
+                                           topk=topk,
+                                           exec_mode=exec_mode,
+                                           exclude_mode=exclude_mode)
+            else:
+                topk_score, topk_sidx = th.topk(score, k= topk * 3, dim=0)
+                sidx = th.argsort(topk_score, dim=0, descending=True)
+                sidx = topk_sidx[sidx]
+                result = self._exclude_pos(sidx=sidx,
+                                           score=score,
+                                           idx=idx,
+                                           head=head,
+                                           rel=rel,
+                                           tail=tail,
+                                           topk=topk,
+                                           exec_mode=exec_mode,
+                                           exclude_mode=exclude_mode)
+                if len(result) < topk:
+                    sidx = th.argsort(score, dim=0, descending=True)
+                    result = self._exclude_pos(sidx=sidx,
+                                               score=score,
+                                               idx=idx,
+                                               head=head,
+                                               rel=rel,
+                                               tail=tail,
+                                               topk=topk,
+                                               exec_mode=exec_mode,
+                                               exclude_mode=exclude_mode)
+        else:
+            topk = idx.shape[0] if idx.shape[0] < topk else topk
+            topk_score, topk_sidx = th.topk(score, k=topk, dim=0)
+            sidx = th.argsort(topk_score, dim=0, descending=True)
+            sidx = topk_sidx[sidx]
+            result = self._exclude_pos(sidx=sidx,
+                                       score=score,
+                                       idx=idx,
+                                       head=head,
+                                       rel=rel,
+                                       tail=tail,
+                                       topk=topk,
+                                       exec_mode=exec_mode,
+                                       exclude_mode=exclude_mode)
+        return result
+
     def link_predict(self, head=None, rel=None, tail=None, exec_mode='all', sfunc='none', topk=10, exclude_mode=None, batch_size=DEFAULT_INFER_BATCHSIZE):
         """ Predicts missing entities or relations in a triplet.
 
@@ -497,32 +552,28 @@ class BasicGEModel(object):
             score = sfunc(raw_score)
             idx = th.arange(0, num_head)
 
-            sidx = th.argsort(score, dim=0, descending=True)
-            result = self._exclude_pos(sidx=sidx,
-                                       score=score,
-                                       idx=idx,
-                                       head=head,
-                                       rel=rel,
-                                       tail=tail,
-                                       topk=topk,
-                                       exec_mode=exec_mode,
-                                       exclude_mode=exclude_mode)
+            result = self._topk_exclude_pos(score=score,
+                                            idx=idx,
+                                            head=head,
+                                            rel=rel,
+                                            tail=tail,
+                                            topk=topk,
+                                            exec_mode=exec_mode,
+                                            exclude_mode=exclude_mode)
         elif exec_mode == 'all':
             result = []
             raw_score = self._infer_score_func(head, rel, tail)
             score = sfunc(raw_score)
             idx = th.arange(0, num_head * num_rel * num_tail)
 
-            sidx = th.argsort(score, dim=0, descending=True)
-            result = self._exclude_pos(sidx=sidx,
-                                       score=score,
-                                       idx=idx,
-                                       head=head,
-                                       rel=rel,
-                                       tail=tail,
-                                       topk=topk,
-                                       exec_mode=exec_mode,
-                                       exclude_mode=exclude_mode)
+            result = self._topk_exclude_pos(score=score,
+                                            idx=idx,
+                                            head=head,
+                                            rel=rel,
+                                            tail=tail,
+                                            topk=topk,
+                                            exec_mode=exec_mode,
+                                            exclude_mode=exclude_mode)
         elif exec_mode == 'batch_head':
             result = []
             for i in range(num_head):
@@ -531,15 +582,14 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_rel * num_tail)
 
                 sidx = th.argsort(score, dim=0, descending=True)
-                res = self._exclude_pos(sidx=sidx,
-                                        score=score,
-                                        idx=idx,
-                                        head=head[i],
-                                        rel=rel,
-                                        tail=tail,
-                                        topk=topk,
-                                        exec_mode=exec_mode,
-                                        exclude_mode=exclude_mode)
+                res = self._topk_exclude_pos(score=score,
+                                             idx=idx,
+                                             head=head[i],
+                                             rel=rel,
+                                             tail=tail,
+                                             topk=topk,
+                                             exec_mode=exec_mode,
+                                             exclude_mode=exclude_mode)
 
                 result.append(res[0])
         elif exec_mode == 'batch_rel':
@@ -550,15 +600,14 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_head * num_tail)
 
                 sidx = th.argsort(score, dim=0, descending=True)
-                res = self._exclude_pos(sidx=sidx,
-                                        score=score,
-                                        idx=idx,
-                                        head=head,
-                                        rel=rel[i],
-                                        tail=tail,
-                                        topk=topk,
-                                        exec_mode=exec_mode,
-                                        exclude_mode=exclude_mode)
+                res = self._topk_exclude_pos(score=score,
+                                             idx=idx,
+                                             head=head,
+                                             rel=rel[i],
+                                             tail=tail,
+                                             topk=topk,
+                                             exec_mode=exec_mode,
+                                             exclude_mode=exclude_mode)
 
                 result.append(res[0])
         elif exec_mode == 'batch_tail':
@@ -569,15 +618,14 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_head * num_rel)
 
                 sidx = th.argsort(score, dim=0, descending=True)
-                res = self._exclude_pos(sidx=sidx,
-                                        score=score,
-                                        idx=idx,
-                                        head=head,
-                                        rel=rel,
-                                        tail=tail[i],
-                                        topk=topk,
-                                        exec_mode=exec_mode,
-                                        exclude_mode=exclude_mode)
+                res = self._topk_exclude_pos(score=score,
+                                             idx=idx,
+                                             head=head,
+                                             rel=rel,
+                                             tail=tail[i],
+                                             topk=topk,
+                                             exec_mode=exec_mode,
+                                             exclude_mode=exclude_mode)
 
                 result.append(res[0])
         else:
