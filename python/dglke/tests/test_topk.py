@@ -959,8 +959,8 @@ def _check_topk_score2(score_model, g, num_entity, num_rels, exclude_mode):
         np.testing.assert_allclose(r2_rel, rel_ids)
         np.testing.assert_allclose(r1_tail, tail_ids)
         np.testing.assert_allclose(r2_tail, tail_ids)
-        np.testing.assert_allclose(r1_score, score_topk, rtol=1e-6, atol=1e-6)
-        np.testing.assert_allclose(r2_score, score_topk, rtol=1e-6, atol=1e-6)
+        np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(r2_score, score_topk, rtol=1e-5, atol=1e-5)
         if exclude_mode == 'mask':
             np.testing.assert_allclose(r1_mask, mask)
             np.testing.assert_allclose(r2_mask, mask)
