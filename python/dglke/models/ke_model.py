@@ -581,7 +581,6 @@ class BasicGEModel(object):
                 score = sfunc(raw_score)
                 idx = th.arange(0, num_rel * num_tail)
 
-                sidx = th.argsort(score, dim=0, descending=True)
                 res = self._topk_exclude_pos(score=score,
                                              idx=idx,
                                              head=head[i],
@@ -599,7 +598,6 @@ class BasicGEModel(object):
                 score = sfunc(raw_score)
                 idx = th.arange(0, num_head * num_tail)
 
-                sidx = th.argsort(score, dim=0, descending=True)
                 res = self._topk_exclude_pos(score=score,
                                              idx=idx,
                                              head=head,
@@ -617,7 +615,6 @@ class BasicGEModel(object):
                 score = sfunc(raw_score)
                 idx = th.arange(0, num_head * num_rel)
 
-                sidx = th.argsort(score, dim=0, descending=True)
                 res = self._topk_exclude_pos(score=score,
                                              idx=idx,
                                              head=head,
