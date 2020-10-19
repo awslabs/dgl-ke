@@ -204,8 +204,8 @@ def load_entity_data(file=None):
             entity.append(int(id))
             id = f.readline()
     entity = np.asarray(entity)
-
     return entity
+
 
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
@@ -213,7 +213,8 @@ class CommonArgParser(argparse.ArgumentParser):
 
         self.add_argument('--model_name', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
-                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE'],
+                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE',
+                                   'SimplE', 'SimplE_ignr'],
                           help='The models provided by DGL-KE.')
         self.add_argument('--data_path', type=str, default='data',
                           help='The path of the directory where DGL-KE loads knowledge graph data.')
@@ -285,9 +286,9 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('-g', '--gamma', type=float, default=12.0,
                           help='The margin value in the score function. It is used by TransX and RotatE.')
         self.add_argument('-de', '--double_ent', action='store_true',
-                          help='Double entitiy dim for complex number It is used by RotatE.')
+                          help='Double entitiy dim for complex number or canonical polyadic. It is used by RotatE and SimplE.')
         self.add_argument('-dr', '--double_rel', action='store_true',
-                          help='Double relation dim for complex number.')
+                          help='Double relation dim for complex number or canonical polyadic. It is used by RotatE and SimplE')
         self.add_argument('-adv', '--neg_adversarial_sampling', action='store_true',
                           help='Indicate whether to use negative adversarial sampling.'\
                                   'It will weight negative samples with higher scores more.')

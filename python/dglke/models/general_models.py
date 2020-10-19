@@ -27,9 +27,10 @@ Graph Embedding Model
 """
 import os
 import numpy as np
+import math
 import dgl.backend as F
 
-backend = os.environ.get('DGLBACKEND', 'pytorch')
+backend = os.environ.get('dglbackend', 'pytorch')
 if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import logsigmoid
     from .mxnet.tensor_models import get_device
@@ -85,6 +86,10 @@ class InferModel(object):
         elif model_name == 'RotatE':
             emb_init = (gamma + EMB_INIT_EPS) / hidden_dim
             self.score_func = RotatEScore(gamma, emb_init)
+        elif model_name == 'SimplE':
+            self.score_func = SimplEScore()
+        elif model_name == 'SimplE_ignr':
+            self.score_func = SimplEScore(ignr=True)
 
     def load_emb(self, path, dataset):
         """Load the model.
@@ -186,7 +191,7 @@ class KEModel(object):
     n_relations : int
         Num of relations.
     hidden_dim : int
-        Dimetion size of embedding.
+        Dimension size of embedding.
     gamma : float
         Gamma for score function.
     double_entity_emb : bool
@@ -211,6 +216,7 @@ class KEModel(object):
         relation_dim = 2 * hidden_dim if double_relation_emb else hidden_dim
 
         device = get_device(args)
+        # simpleE modification: TODO(lingfei)
         self.entity_emb = ExternalEmbedding(args, n_entities, entity_dim,
                                             F.cpu() if args.mix_cpu_gpu else device)
         # For RESCAL, relation_emb = relation_dim * entity_dim
@@ -248,7 +254,11 @@ class KEModel(object):
             self.score_func = RESCALScore(relation_dim, entity_dim)
         elif model_name == 'RotatE':
             self.score_func = RotatEScore(gamma, self.emb_init)
-        
+        elif model_name == 'SimplE':
+            self.score_func = SimplEScore(ignr=False)
+        elif model_name == 'SimplE_ignr':
+            self.score_func = SimplEScore(ignr=True)
+
         self.model_name = model_name
         self.head_neg_score = self.score_func.create_neg(True)
         self.tail_neg_score = self.score_func.create_neg(False)

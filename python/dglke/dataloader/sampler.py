@@ -38,7 +38,7 @@ def SoftRelationPartition(edges, n, threshold=0.05):
 
     Algo:
     For r in relations:
-        if r.size() > threadold
+        if r.size() > threshold
             Evenly divide edges of r into n parts and put into each relation.
         else
             Find partition with fewest edges, and put edges of r into 
@@ -659,7 +659,7 @@ class EvalDataset(object):
                            mode, num_workers, filter_false_neg)
 
 class NewBidirectionalOneShotIterator:
-    """Grouped samper iterator
+    """Grouped sampler iterator
 
     Parameters
     ----------
