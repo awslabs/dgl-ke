@@ -181,6 +181,9 @@ class BasicGEModel(object):
                                                        if (j + 1) * batch_size < num_tail \
                                                        else num_tail]
 
+                    sh_emb = sh_emb.to(self._device)
+                    rel_emb = rel_emb.to(self._device)
+                    st_emb = st_emb.to(self._device)
                     s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb).to(th.device('cpu')))
                 score.append(th.cat(s_score, dim=2))
             score = th.cat(score, dim=0)
