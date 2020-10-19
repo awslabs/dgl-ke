@@ -136,13 +136,13 @@ class BasicGEModel(object):
         score = []
         if triplet_wise:
             class FakeEdge(object):
-                def __init__(self, head_emb, rel_emb, tail_emb):
+                def __init__(self, head_emb, rel_emb, tail_emb, device=-1):
                     self._hobj = {}
                     self._robj = {}
                     self._tobj = {}
-                    self._hobj['emb'] = head_emb
-                    self._robj['emb'] = rel_emb
-                    self._tobj['emb'] = tail_emb
+                    self._hobj['emb'] = head_emb.to(device)
+                    self._robj['emb'] = rel_emb.to(device)
+                    self._tobj['emb'] = tail_emb.to(device)
 
                 @property
                 def src(self):
@@ -166,7 +166,7 @@ class BasicGEModel(object):
                 st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
                                                    if (i + 1) * batch_size < num_head \
                                                    else num_head]
-                edata = FakeEdge(sh_emb, sr_emb, st_emb)
+                edata = FakeEdge(sh_emb, sr_emb, st_emb, self._device)
                 score.append(self._score_func.edge_func(edata)['score'].to(th.device('cpu')))
             score = th.cat(score, dim=0)
             return score
@@ -672,8 +672,11 @@ class BasicGEModel(object):
                 score.append(sim_func(sh_emb, st_emb, pw=True).to(th.device('cpu')))
             score = th.cat(score, dim=0)
 
-            sidx = th.argsort(score, dim=0, descending=True)
-            sidx = sidx[:topk]
+            topk_score, topk_sidx = th.topk(score,
+                                            k=topk if score.shape[0] > topk else score.shape[0],
+                                            dim=0)
+            sidx = th.argsort(topk_score, dim=0, descending=True)
+            sidx = topk_sidx[sidx]
             score = score[sidx]
             result.append((head[sidx],
                            tail[sidx],
@@ -704,10 +707,12 @@ class BasicGEModel(object):
                 idx = th.arange(0, num_head * num_tail)
                 score = th.reshape(score, (num_head * num_tail, ))
 
-                sidx = th.argsort(score, dim=0, descending=True)
-                sidx = sidx[:topk]
-                score = score[sidx]
-                sidx = sidx
+                topk_score, topk_sidx = th.topk(score,
+                                                k=topk if score.shape[0] > topk else score.shape[0],
+                                                dim=0)
+                sidx = th.argsort(topk_score, dim=0, descending=True)
+                score = topk_score[sidx]
+                sidx = topk_sidx[sidx]
                 idx = idx[sidx]
                 tail_idx = idx % num_tail
                 idx = floor_divide(idx, num_tail)
@@ -722,11 +727,12 @@ class BasicGEModel(object):
                 for i in range(num_head):
                     i_score = score[i]
 
-                    sidx = th.argsort(i_score, dim=0, descending=True)
-                    idx = th.arange(0, num_tail)
-                    i_idx = sidx[:topk]
-                    i_score = i_score[i_idx]
-                    idx = idx[i_idx]
+                    topk_score, topk_sidx = th.topk(i_score,
+                                                    k=topk if i_score.shape[0] > topk else i_score.shape[0],
+                                                    dim=0)
+                    sidx = th.argsort(topk_score, dim=0, descending=True)
+                    i_score = topk_score[sidx]
+                    idx = topk_sidx[sidx]
 
                     result.append((th.full((topk,), head[i], dtype=head[i].dtype),
                                   tail[idx],

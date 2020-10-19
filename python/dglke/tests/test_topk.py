@@ -968,57 +968,57 @@ def _check_topk_score2(score_model, g, num_entity, num_rels, exclude_mode):
             assert r1_mask is None
             assert r2_mask is None
 
-def test_transe_model_topk():
+def test_transe_model_topk(device='cpu'):
     gamma = 12.0
-    transe_model = TransEModel('cpu', gamma)
+    transe_model = TransEModel(device, gamma)
     check_topk_score2(transe_model, exclude_mode=None)
     check_topk_score2(transe_model, exclude_mode='mask')
     check_topk_score2(transe_model, exclude_mode='exclude')
-    transe_model = TransE_l2Model('cpu', gamma)
+    transe_model = TransE_l2Model(device, gamma)
     check_topk_score2(transe_model, exclude_mode=None)
     check_topk_score2(transe_model, exclude_mode='mask')
     check_topk_score2(transe_model, exclude_mode='exclude')
-    transe_model = TransE_l1Model('cpu', gamma)
+    transe_model = TransE_l1Model(device, gamma)
     check_topk_score2(transe_model, exclude_mode=None)
     check_topk_score2(transe_model, exclude_mode='mask')
     check_topk_score2(transe_model, exclude_mode='exclude')
 
-def test_distmult_model_topk():
-    model = DistMultModel('cpu')
+def test_distmult_model_topk(device='cpu'):
+    model = DistMultModel(device)
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
 
-def test_complex_model_topk():
-    model = ComplExModel('cpu')
+def test_complex_model_topk(device='cpu'):
+    model = ComplExModel(device)
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
 
-def test_rescal_model_topk():
-    model = RESCALModel('cpu')
+def test_rescal_model_topk(device='cpu'):
+    model = RESCALModel(device)
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
 
-def test_rotate_model_topk():
+def test_rotate_model_topk(device='cpu'):
     gamma = 12.0
-    model = RotatEModel('cpu', gamma)
+    model = RotatEModel(device, gamma)
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
 
-def test_gnn_model_topk():
+def test_gnn_model_topk(device='cpu'):
     gamma = 12.0
-    model = GNNModel('cpu', 'TransE', gamma)
+    model = GNNModel(device, 'TransE', gamma)
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
-    model = GNNModel('cpu', 'TransE_l1', gamma)
+    model = GNNModel(device, 'TransE_l1', gamma)
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
-    model = GNNModel('cpu', 'DistMult')
+    model = GNNModel(device, 'DistMult')
     check_topk_score2(model, exclude_mode=None)
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
@@ -1178,39 +1178,39 @@ def test_extended_jaccard_topk_emb2(emb_model):
     run_topk_emb2('ext_jaccard', extended_jaccard_func, emb_model=emb_model)
 
 
-def test_transe_model_topk_emb():
+def test_transe_model_topk_emb(device='cpu'):
     gamma = 12.0
-    transe_model = TransEModel('cpu', gamma)
+    transe_model = TransEModel(device, gamma)
     test_cosine_topk_emb2(transe_model)
-    transe_model = TransE_l2Model('cpu', gamma)
+    transe_model = TransE_l2Model(device, gamma)
     test_cosine_topk_emb2(transe_model)
-    transe_model = TransE_l1Model('cpu', gamma)
+    transe_model = TransE_l1Model(device, gamma)
     test_cosine_topk_emb2(transe_model)
 
-def test_distmult_model_topk_emb():
-    model = DistMultModel('cpu')
+def test_distmult_model_topk_emb(device='cpu'):
+    model = DistMultModel(device)
     test_l2_topk_emb2(model)
 
-def test_complex_model_topk_emb():
-    model = ComplExModel('cpu')
+def test_complex_model_topk_emb(device='cpu'):
+    model = ComplExModel(device)
     test_l1_topk_emb2(model)
 
-def test_rescal_model_topk_emb():
-    model = RESCALModel('cpu')
+def test_rescal_model_topk_emb(device='cpu'):
+    model = RESCALModel(device)
     test_dot_topk_emb2(model)
 
-def test_rotate_model_topk_emb():
+def test_rotate_model_topk_emb(device='cpu'):
     gamma = 12.0
-    model = RotatEModel('cpu', gamma)
+    model = RotatEModel(device, gamma)
     test_extended_jaccard_topk_emb2(model)
 
-def test_gnn_model_topk_emb():
+def test_gnn_model_topk_emb(device='cpu'):
     gamma = 12.0
-    model = GNNModel('cpu', 'TransE', gamma)
+    model = GNNModel(device, 'TransE', gamma)
     test_cosine_topk_emb2(model)
-    model = GNNModel('cpu', 'TransE_l1', gamma)
+    model = GNNModel(device, 'TransE_l1', gamma)
     test_l2_topk_emb2(model)
-    model = GNNModel('cpu', 'DistMult')
+    model = GNNModel(device, 'DistMult')
     test_l1_topk_emb2(model)
 
 if __name__ == '__main__':
@@ -1241,3 +1241,19 @@ if __name__ == '__main__':
     #test_transr_model_topk_emb()
     test_rotate_model_topk_emb()
     test_gnn_model_topk_emb()
+
+    test_transe_model_topk(device=0)
+    test_distmult_model_topk(device=0)
+    test_complex_model_topk(device=0)
+    test_rescal_model_topk(device=0)
+    #test_transr_model_topk()
+    test_rotate_model_topk(device=0)
+    test_gnn_model_topk(device=0)
+
+    test_transe_model_topk_emb(device=0)
+    test_distmult_model_topk_emb(device=0)
+    test_complex_model_topk_emb(device=0)
+    test_rescal_model_topk_emb(device=0)
+    #test_transr_model_topk_emb()
+    test_rotate_model_topk_emb(device=0)
+    test_gnn_model_topk_emb(device=0)
