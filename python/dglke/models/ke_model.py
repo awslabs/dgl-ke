@@ -135,6 +135,9 @@ class BasicGEModel(object):
 
         score = []
         if triplet_wise:
+            # triplet wise score: head, relation and tail tensor have the same length N,
+            # for i in range(N):
+            #     result.append(score(head[i],rel[i],tail[i]))
             class FakeEdge(object):
                 def __init__(self, head_emb, rel_emb, tail_emb, device=-1):
                     self._hobj = {}
@@ -171,7 +174,16 @@ class BasicGEModel(object):
             score = th.cat(score, dim=0)
             return score
         else:
+            # head, relation and tail tensors has different size
+            # for h_i in range(head):
+            #     for r_j in range(relation):
+            #         for t_k in range(tail):
+            #             result.append(score(h_i, r_j, t_k))
+            # The result will have shape (len(head), len(relation), len(tail))
             rel_emb = rel_emb.to(self._device)
+
+            # calculating scores using mini-batch, the default batchsize if 1024
+            # This can avoid OOM when using GPU
             for i in range((num_head + batch_size - 1) // batch_size):
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
                                                    if (i + 1) * batch_size < num_head \
@@ -398,8 +410,16 @@ class BasicGEModel(object):
         return result
 
     def _topk_exclude_pos(self, score, idx, head, rel, tail, topk, exec_mode, exclude_mode):
+        """ Generate topk most relevent triplets and corresponding scores.
+
+            It takes following steps:
+
+              1) find topk elements
+              2) sort topk elements in descending order
+              3) call _exclude_pos if figure out existing edges
+        """
         if exclude_mode == 'exclude':
-            if idx.shape[0] < topk * 4: # TODO(xiangsx): Find a better value of topk * n
+            if idx.shape[0] < topk * 2: # TODO(xiangsx): Find a better value of topk * n
                 topk_score, topk_sidx = th.topk(score, k=idx.shape[0], dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
@@ -413,7 +433,7 @@ class BasicGEModel(object):
                                            exec_mode=exec_mode,
                                            exclude_mode=exclude_mode)
             else:
-                topk_score, topk_sidx = th.topk(score, k= topk * 4, dim=0)
+                topk_score, topk_sidx = th.topk(score, k= topk * 2, dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
                 result = self._exclude_pos(sidx=sidx,
@@ -663,6 +683,9 @@ class BasicGEModel(object):
             score = []
             num_head = head.shape[0]
             num_tail = tail.shape[0]
+
+            # calculating scores using mini-batch, the default batchsize if 1024
+            # This can avoid OOM when using GPU
             for i in range((num_head + batch_size - 1) // batch_size):
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
                                                    if (i + 1) * batch_size < num_head \
@@ -688,7 +711,8 @@ class BasicGEModel(object):
             num_head = head.shape[0]
             num_tail = tail.shape[0]
 
-            # chunked cal score
+            # calculating scores using mini-batch, the default batchsize if 1024
+            # This can avoid OOM when using GPU
             score = []
             for i in range((num_head + batch_size - 1) // batch_size):
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
