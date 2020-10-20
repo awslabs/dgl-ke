@@ -170,7 +170,7 @@ class BasicGEModel(object):
                                                    if (i + 1) * batch_size < num_head \
                                                    else num_head]
                 edata = FakeEdge(sh_emb, sr_emb, st_emb, self._device)
-                score.append(self._score_func.edge_func(edata)['score'].to(th.device('cpu')))
+                score.append(self._score_func.edge_func(edata)['score'])
             score = th.cat(score, dim=0)
             return score
         else:
@@ -195,7 +195,7 @@ class BasicGEModel(object):
                                                        if (j + 1) * batch_size < num_tail \
                                                        else num_tail]
                     st_emb = st_emb.to(self._device)
-                    s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb).to(th.device('cpu')))
+                    s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb))
                 score.append(th.cat(s_score, dim=2))
             score = th.cat(score, dim=0)
             return th.reshape(score, (num_head, num_rel, num_tail))
@@ -218,7 +218,7 @@ class BasicGEModel(object):
             batch_size = topk
             while (cur_k < num_triples):
                 cur_sidx = sidx[cur_k:cur_k + batch_size if cur_k + batch_size < num_triples else num_triples]
-                cur_score = score[cur_sidx]
+                cur_score = score[cur_k:cur_k + batch_size if cur_k + batch_size < num_triples else num_triples]
                 cur_idx = idx[cur_sidx]
 
                 if exec_mode == 'triplet_wise':
@@ -323,7 +323,6 @@ class BasicGEModel(object):
             # including the existing edges in the result
             topk = topk if topk < num_triples else num_triples
             sidx = sidx[:topk]
-            score = score[sidx]
             idx = idx[sidx]
 
             if exec_mode == 'triplet_wise':
@@ -419,12 +418,12 @@ class BasicGEModel(object):
               3) call _exclude_pos if figure out existing edges
         """
         if exclude_mode == 'exclude':
-            if idx.shape[0] < topk * 2: # TODO(xiangsx): Find a better value of topk * n
+            if idx.shape[0] < topk * 4: # TODO(xiangsx): Find a better value of topk * n
                 topk_score, topk_sidx = th.topk(score, k=idx.shape[0], dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
-                result = self._exclude_pos(sidx=sidx,
-                                           score=score,
+                result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
+                                           score=topk_score.to(th.device('cpu')),
                                            idx=idx,
                                            head=head,
                                            rel=rel,
@@ -433,11 +432,11 @@ class BasicGEModel(object):
                                            exec_mode=exec_mode,
                                            exclude_mode=exclude_mode)
             else:
-                topk_score, topk_sidx = th.topk(score, k= topk * 2, dim=0)
+                topk_score, topk_sidx = th.topk(score, k= topk * 4, dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
-                result = self._exclude_pos(sidx=sidx,
-                                           score=score,
+                result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
+                                           score=topk_score.to(th.device('cpu')),
                                            idx=idx,
                                            head=head,
                                            rel=rel,
@@ -447,8 +446,8 @@ class BasicGEModel(object):
                                            exclude_mode=exclude_mode)
                 if len(result) < topk:
                     sidx = th.argsort(score, dim=0, descending=True)
-                    result = self._exclude_pos(sidx=sidx,
-                                               score=score,
+                    result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
+                                               score=score[sidx].to(th.device('cpu')),
                                                idx=idx,
                                                head=head,
                                                rel=rel,
@@ -461,8 +460,8 @@ class BasicGEModel(object):
             topk_score, topk_sidx = th.topk(score, k=topk, dim=0)
             sidx = th.argsort(topk_score, dim=0, descending=True)
             sidx = topk_sidx[sidx]
-            result = self._exclude_pos(sidx=sidx,
-                                       score=score,
+            result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
+                                       score=topk_score.to(th.device('cpu')),
                                        idx=idx,
                                        head=head,
                                        rel=rel,
@@ -570,9 +569,10 @@ class BasicGEModel(object):
             assert num_head == num_tail, \
                 'For triplet wise exection mode, head, relation and tail lists should have same length'
 
-            raw_score = self._infer_score_func(head, rel, tail, triplet_wise=True, batch_size=batch_size)
-            score = sfunc(raw_score)
-            idx = th.arange(0, num_head)
+            with th.no_grad():
+                raw_score = self._infer_score_func(head, rel, tail, triplet_wise=True, batch_size=batch_size)
+                score = sfunc(raw_score)
+                idx = th.arange(0, num_head)
 
             result = self._topk_exclude_pos(score=score,
                                             idx=idx,
@@ -584,9 +584,10 @@ class BasicGEModel(object):
                                             exclude_mode=exclude_mode)
         elif exec_mode == 'all':
             result = []
-            raw_score = self._infer_score_func(head, rel, tail)
-            raw_score = th.reshape(raw_score, (head.shape[0]*rel.shape[0]*tail.shape[0],))
-            score = sfunc(raw_score)
+            with th.no_grad():
+                raw_score = self._infer_score_func(head, rel, tail)
+                raw_score = th.reshape(raw_score, (head.shape[0]*rel.shape[0]*tail.shape[0],))
+                score = sfunc(raw_score)
             idx = th.arange(0, num_head * num_rel * num_tail)
 
             result = self._topk_exclude_pos(score=score,
@@ -599,7 +600,8 @@ class BasicGEModel(object):
                                             exclude_mode=exclude_mode)
         elif exec_mode == 'batch_head':
             result = []
-            raw_score = self._infer_score_func(head, rel, tail)
+            with th.no_grad():
+                raw_score = self._infer_score_func(head, rel, tail)
             for i in range(num_head):
                 score = sfunc(th.reshape(raw_score[i,:,:], (rel.shape[0]*tail.shape[0],)))
                 idx = th.arange(0, num_rel * num_tail)
@@ -616,7 +618,8 @@ class BasicGEModel(object):
                 result.append(res[0])
         elif exec_mode == 'batch_rel':
             result = []
-            raw_score = self._infer_score_func(head, rel, tail)
+            with th.no_grad():
+                raw_score = self._infer_score_func(head, rel, tail)
             for i in range(num_rel):
                 score = sfunc(th.reshape(raw_score[:,i,:], (head.shape[0]*tail.shape[0],)))
                 idx = th.arange(0, num_head * num_tail)
@@ -633,7 +636,8 @@ class BasicGEModel(object):
                 result.append(res[0])
         elif exec_mode == 'batch_tail':
             result = []
-            raw_score = self._infer_score_func(head, rel, tail)
+            with th.no_grad():
+                raw_score = self._infer_score_func(head, rel, tail)
             for i in range(num_tail):
                 score = sfunc(th.reshape(raw_score[:,:,i], (head.shape[0]*rel.shape[0],)))
                 idx = th.arange(0, num_head * num_rel)
