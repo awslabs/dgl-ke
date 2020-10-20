@@ -24,16 +24,17 @@ Graph Embedding Model
 4. DistMult
 5. ComplEx
 6. RotatE
+7. SimplE
 """
 import os
 import numpy as np
 import math
 import dgl.backend as F
 
-backend = os.environ.get('dglbackend', 'pytorch')
+backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import logsigmoid
-    from .mxnet.tensor_models import get_device, get_dev
+    from .mxnet.tensor_models import get_device
     from .mxnet.tensor_models import norm
     from .mxnet.tensor_models import get_scalar
     from .mxnet.tensor_models import reshape
@@ -44,7 +45,7 @@ if backend.lower() == 'mxnet':
     DEFAULT_INFER_BATCHSIZE = 1024
 else:
     from .pytorch.tensor_models import logsigmoid
-    from .pytorch.tensor_models import get_device, get_dev
+    from .pytorch.tensor_models import get_device
     from .pytorch.tensor_models import norm
     from .pytorch.tensor_models import get_scalar
     from .pytorch.tensor_models import reshape
@@ -88,8 +89,6 @@ class InferModel(object):
             self.score_func = RotatEScore(gamma, emb_init)
         elif model_name == 'SimplE':
             self.score_func = SimplEScore()
-        elif model_name == 'SimplE_ignr':
-            self.score_func = SimplEScore(ignr=True)
 
     def load_emb(self, path, dataset):
         """Load the model.
@@ -205,7 +204,6 @@ class KEModel(object):
                  double_entity_emb=False, double_relation_emb=False):
         super(KEModel, self).__init__()
         self.args = args
-        self.has_edge_importance = args.has_edge_importance
         self.n_entities = n_entities
         self.n_relations = n_relations
         self.model_name = model_name
@@ -256,9 +254,7 @@ class KEModel(object):
         elif model_name == 'RotatE':
             self.score_func = RotatEScore(gamma, self.emb_init)
         elif model_name == 'SimplE':
-            self.score_func = SimplEScore(ignr=False)
-        elif model_name == 'SimplE_ignr':
-            self.score_func = SimplEScore(ignr=True)
+            self.score_func = SimplEScore()
 
         self.model_name = model_name
         self.head_neg_score = self.score_func.create_neg(True)
@@ -294,7 +290,7 @@ class KEModel(object):
         if self.strict_rel_part or self.soft_rel_part:
             self.global_relation_emb.save(path, dataset+'_'+self.model_name+'_relation')
         else:
-            self.relation_emb.save(path, dataset+'_'+self.model_name+'_relation')
+            self.relation_emb.save(path, dataset+'_'+self.model_name+'_relation')   
 
         self.score_func.save(path, dataset+'_'+self.model_name)
 
@@ -502,8 +498,6 @@ class KEModel(object):
 
         pos_score = self.predict_score(pos_g)
         pos_score = logsigmoid(pos_score)
-        if self.has_edge_importance:
-            pos_score = pos_score * F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
         if gpu_id >= 0:
             neg_score = self.predict_neg_score(pos_g, neg_g, to_device=cuda,
                                                gpu_id=gpu_id, trace=True,
@@ -527,13 +521,8 @@ class KEModel(object):
         #    pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()
         #    neg_score = (neg_score * subsampling_weight).sum() / subsampling_weight.sum()
         #else:
-        if self.has_edge_importance:
-            edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
-            pos_score = (pos_score * edge_weight).mean()
-            neg_score = (neg_score * edge_weight).mean()
-        else:
-            pos_score = pos_score.mean()
-            neg_score = neg_score.mean()
+        pos_score = pos_score.mean()
+        neg_score = neg_score.mean()
 
         # compute loss
         loss = -(pos_score + neg_score) / 2

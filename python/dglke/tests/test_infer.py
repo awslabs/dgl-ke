@@ -68,8 +68,6 @@ def generate_rand_emb(func_name, bcast):
         rel_emb = F.uniform((num_rels, dim//2), F.float32, F.cpu(), -1, 1)
     if func_name == 'RESCAL':
         rel_emb = F.uniform((num_rels, dim * dim), F.float32, F.cpu(), -1, 1)
-    if func_name == 'SimplE_ignr':
-        rel_emb = F.uniform((num_rels, dim//2), F.float32, F.cpu(), -1, 1)
 
     if func_name == 'TransE':
         return head_emb, rel_emb, tail_emb, (12.0)
@@ -82,9 +80,7 @@ def generate_rand_emb(func_name, bcast):
     elif func_name == 'RotatE':
         return head_emb, rel_emb, tail_emb, (12.0, 1.0)
     elif func_name == 'SimplE':
-        return head_emb, rel_emb, tail_emb, (False)
-    elif func_name == 'SimplE_ignr':
-        return head_emb, rel_emb, tail_emb, (True)
+        return head_emb, rel_emb, tail_emb, None
     else:
         return head_emb, rel_emb, tail_emb, None
 
@@ -96,8 +92,7 @@ ke_infer_funcs = {'TransE': TransEScore,
                   'RESCAL': RESCALScore,
                   'TransR': TransRScore,
                   'RotatE': RotatEScore,
-                  'SimplE': SimplEScore,
-                  'SimplE_ignr': SimplEScore}
+                  'SimplE': SimplEScore}
 
 class FakeEdge:
     def __init__(self, hemb, temb, remb):
@@ -271,7 +266,6 @@ def test_score_func_rotate():
 
 def test_score_func_simple():
     check_infer_score('SimplE')
-    check_infer_score('SimplE_ignr')
 
 if __name__ == '__main__':
     test_score_func_transe()

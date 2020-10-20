@@ -58,8 +58,6 @@ def generate_rand_graph(n, func_name):
     rel_emb = F.uniform((num_rels, 10), F.float32, F.cpu(), -1, 1)
     if func_name == 'RESCAL':
         rel_emb = F.uniform((num_rels, 10*10), F.float32, F.cpu(), 0, 1)
-    if func_name == 'SimplE_ignr':
-        rel_emb = F.uniform((num_rels, 10 // 2), F.float32, F.cpu(), 0, 1)
     g.ndata['id'] = F.arange(0, g.number_of_nodes())
     rel_ids = np.random.randint(0, num_rels, g.number_of_edges(), dtype=np.int64)
     g.edata['id'] = F.tensor(rel_ids, F.int64)
@@ -80,9 +78,7 @@ def generate_rand_graph(n, func_name):
     elif (func_name == 'RotatE'):
         return g, entity_emb, rel_emb, (12.0, 1.0)
     elif (func_name == 'SimplE'):
-        return g, entity_emb, rel_emb, (False)
-    elif (func_name == 'SimplE_ignr'):
-        return g, entity_emb, rel_emb, (True)
+        return g, entity_emb, rel_emb, None
     else:
         return g, entity_emb, rel_emb, None
 
@@ -94,8 +90,7 @@ ke_score_funcs = {'TransE': TransEScore,
                   'RESCAL': RESCALScore,
                   'TransR': TransRScore,
                   'RotatE': RotatEScore,
-                  'SimplE': SimplEScore,
-                  'SimplE_ignr': SimplEScore}
+                  'SimplE': SimplEScore}
 
 class BaseKEModel:
     def __init__(self, score_func, entity_emb, rel_emb):
@@ -208,7 +203,6 @@ def test_score_func_rotate():
 
 def test_score_func_simple():
     check_score_func('SimplE')
-    check_score_func('SimplE_ignr')
 
 if __name__ == '__main__':
     test_score_func_transe()

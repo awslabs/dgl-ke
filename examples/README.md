@@ -30,7 +30,6 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | TransR     | 59.99 | 0.670 | 0.585  | 0.728  | 0.808   | 530  |
 | RotatE     | 43.85 | 0.726 | 0.632  | 0.799  | 0.873   | 1405 |
 | SimplE     | 58.85 | 0.709 | 0.619  | 0.773  | 0.862   | 194  |
-| SimplE_ignr| 45.07 | 0.675 | 0.568  | 0.753  | 0.862   | 190  |
 
 #### 8-GPU training
 
@@ -44,7 +43,6 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | TransR     | 66.51 | 0.666 | 0.581  | 0.724  |  0.803  | 90   |
 | RotatE     | 50.04 | 0.685 | 0.581  | 0.763  |  0.851  | 120  |
 | SimplE     | 64.74 | 0.743 | 0.666  | 0.797  |  0.873  | 72   |
-| SimplE_ignr| 48.30 | 0.656 | 0.539  | 0.741  |  0.860  | 71   |
 
 #### Multi-CPU training
 
@@ -78,7 +76,6 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | TransR     | 432.8 | 0.609 | 0.452  | 0.736  |  0.850  | 906  |
 | RotatE     | 451.6 | 0.944 | 0.940  | 0.945  |  0.950  | 671  |
 | SimplE     | 370.2 | 0.938 | 0.925  | 0.949  | 0.956   | 151  |
-| SimplE_ignr| 440.0 | 0.800 | 0.675  | 0.918  | 0.953   | 189  |
 
 #### 8-GPU training
 
@@ -90,7 +87,6 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | ComplEx    | 535.0 | 0.938 | 0.931  | 0.944  | 0.949   | 53   |
 | RotatE     | 487.7 | 0.943 | 0.939  | 0.945  | 0.951   | 127  |
 | SimplE     | 513.4 | 0.945 | 0.940  | 0.950  | 0.953   | 121  |
-| SimplE_ignr| 421.9 | 0.800 | 0.674  | 0.920  | 0.951   | 113  |
 #### Multi-CPU training
 
 |  Models   |  MR   |  MRR  | HITS@1 | HITS@3 | HITS@10 | TIME |

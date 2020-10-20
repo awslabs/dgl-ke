@@ -557,37 +557,24 @@ class SimplEScore(nn.Module):
     """SimplE score function
     Paper link: http://papers.nips.cc/paper/7682-simple-embedding-for-link-prediction-in-knowledge-graphs.pdf
     """
-    def __init__(self, ignr=False):
+    def __init__(self):
         super(SimplEScore, self).__init__()
-        self.ignr = ignr
 
     def edge_func(self, edges):
-        ignr = self.ignr
         head_i, head_j = th.chunk(edges.src['emb'], 2, dim=-1)
         tail_i, tail_j = th.chunk(edges.dst['emb'], 2, dim=-1)
-        if not ignr:
-            rel, rel_inv = th.chunk(edges.data['emb'], 2, dim=-1)
-            forward_score = head_i * rel * tail_j
-            backward_score = tail_i * rel_inv * head_j
-        else:
-            rel = edges.data['emb']
-            forward_score = head_i * rel * tail_j
-            backward_score = tail_i * rel * head_j
+        rel, rel_inv = th.chunk(edges.data['emb'], 2, dim=-1)
+        forward_score = head_i * rel * tail_j
+        backward_score = tail_i * rel_inv * head_j
         # clamp as official implementation does to avoid NaN output
         # might because of gradient explode
         score = th.clamp(1 / 2 * (forward_score + backward_score).sum(-1), -20, 20)
         return {'score': score}
 
     def infer(self, head_emb, rel_emb, tail_emb):
-        ignr = self.ignr
         head_i, head_j = th.chunk(head_emb.unsqueeze(1), 2, dim=-1)
         tail_i, tail_j = th.chunk(tail_emb.unsqueeze(0).unsqueeze(0), 2, dim=-1)
-        if ignr:
-            rel_emb = rel_emb.unsqueeze(0)
-            rel = rel_emb
-            rel_inv = rel_emb
-        else:
-            rel, rel_inv = th.chunk(rel_emb.unsqueeze(0), 2, dim=-1)
+        rel, rel_inv = th.chunk(rel_emb.unsqueeze(0), 2, dim=-1)
         forward_tmp = (head_i * rel).unsqueeze(2) * tail_j
         backward_tmp = (head_j * rel_inv).unsqueeze(2) * tail_i
         score = (forward_tmp + backward_tmp) * 1 / 2
@@ -618,18 +605,13 @@ class SimplEScore(nn.Module):
         pass
 
     def create_neg(self, neg_head):
-        ignr = self.ignr
         if neg_head:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
                 hidden_dim = tails.shape[1]
                 tail_i = tails[..., :hidden_dim // 2]
                 tail_j = tails[..., hidden_dim // 2:]
-                if not ignr:
-                    rel = relations[..., : hidden_dim // 2]
-                    rel_inv = relations[..., hidden_dim // 2:]
-                else:
-                    rel = relations
-                    rel_inv = relations
+                rel = relations[..., : hidden_dim // 2]
+                rel_inv = relations[..., hidden_dim // 2:]
                 forward_tmp = (rel * tail_j).reshape(num_chunks, chunk_size, hidden_dim//2)
                 backward_tmp = (rel_inv * tail_i).reshape(num_chunks, chunk_size, hidden_dim//2)
                 heads = heads.reshape(num_chunks, neg_sample_size, hidden_dim)
@@ -645,12 +627,8 @@ class SimplEScore(nn.Module):
                 hidden_dim = heads.shape[1]
                 head_i = heads[..., :hidden_dim // 2]
                 head_j = heads[..., hidden_dim // 2:]
-                if not ignr:
-                    rel = relations[..., :hidden_dim // 2]
-                    rel_inv = relations[..., hidden_dim // 2:]
-                else:
-                    rel = relations
-                    rel_inv = relations
+                rel = relations[..., :hidden_dim // 2]
+                rel_inv = relations[..., hidden_dim // 2:]
                 forward_tmp = (head_i * rel).reshape(num_chunks, chunk_size, hidden_dim//2)
                 backward_tmp = (rel_inv * head_j).reshape(num_chunks, chunk_size, hidden_dim//2)
                 tails = tails.reshape(num_chunks, neg_sample_size, hidden_dim)

@@ -45,7 +45,7 @@ class ArgParser(argparse.ArgumentParser):
         self.add_argument('--model_name', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
                                    'RESCAL', 'DistMult', 'ComplEx', 'RotatE',
-                                   'SimplE', 'SimplE_ignr'],
+                                   'SimplE'],
                           help='The models provided by DGL-KE.')
         self.add_argument('--data_path', type=str, default='data',
                           help='The path of the directory where DGL-KE loads knowledge graph data.')
@@ -124,7 +124,6 @@ def main():
     args.strict_rel_part = False
     args.soft_rel_part = False
     args.async_update = False
-    args.has_edge_importance = False
     if len(args.gpu) > 1:
         args.mix_cpu_gpu = True
         if args.num_proc < len(args.gpu):

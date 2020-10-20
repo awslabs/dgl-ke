@@ -62,8 +62,6 @@ def generate_rand_emb(func_name, num_entity, num_rels, dim, bcast):
         rel_emb = F.uniform((num_rels, dim//2), F.float32, F.cpu(), -1, 1)
     if func_name == 'RESCAL':
         rel_emb = F.uniform((num_rels, dim * dim), F.float32, F.cpu(), -1, 1)
-    if func_name == 'SimplE_ignr':
-        rel_emb = F.uniform((num_rels, dim//2), F.float32, F.cpu(), -1, 1)
     if func_name == 'TransE':
         return entity_emb, rel_emb
     elif func_name == 'TransE_l1':
@@ -123,8 +121,6 @@ def check_topk_score(model_name):
         model = InferModel('cpu', model_name, hidden_dim, double_entity_emb=True)
     elif model_name == 'SimplE':
         model = InferModel('cpu', model_name, hidden_dim, double_entity_emb=True, double_relation_emb=True)
-    elif model_name == 'SimplE_ignr':
-        model = InferModel('cpu', model_name, hidden_dim, double_entity_emb=True, double_relation_emb=False)
 
     entity_emb, rel_emb = generate_rand_emb(model_name, num_entity, num_rels, hidden_dim, 'none')
     model.entity_emb = InferEmbedding('cpu')
@@ -381,7 +377,6 @@ def test_topk_rotate():
 
 def test_topk_simple():
     check_topk_score('SimplE')
-    check_topk_score('SimplE_ignr')
 
 def run_topk_emb(sfunc, sim_func):
     hidden_dim = 32
