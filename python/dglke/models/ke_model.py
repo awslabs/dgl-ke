@@ -170,7 +170,7 @@ class BasicGEModel(object):
                                                    if (i + 1) * batch_size < num_head \
                                                    else num_head]
                 edata = FakeEdge(sh_emb, sr_emb, st_emb, self._device)
-                score.append(self._score_func.edge_func(edata)['score'])
+                score.append(self._score_func.edge_func(edata)['score'].to(th.device('cpu')))
             score = th.cat(score, dim=0)
             return score
         else:
@@ -195,7 +195,7 @@ class BasicGEModel(object):
                                                        if (j + 1) * batch_size < num_tail \
                                                        else num_tail]
                     st_emb = st_emb.to(self._device)
-                    s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb))
+                    s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb).to(th.device('cpu')))
                 score.append(th.cat(s_score, dim=2))
             score = th.cat(score, dim=0)
             return th.reshape(score, (num_head, num_rel, num_tail))
@@ -422,8 +422,8 @@ class BasicGEModel(object):
                 topk_score, topk_sidx = th.topk(score, k=idx.shape[0], dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
-                result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
-                                           score=topk_score.to(th.device('cpu')),
+                result = self._exclude_pos(sidx=sidx,
+                                           score=topk_score,
                                            idx=idx,
                                            head=head,
                                            rel=rel,
@@ -435,8 +435,8 @@ class BasicGEModel(object):
                 topk_score, topk_sidx = th.topk(score, k= topk * 4, dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
-                result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
-                                           score=topk_score.to(th.device('cpu')),
+                result = self._exclude_pos(sidx=sidx,
+                                           score=topk_score,
                                            idx=idx,
                                            head=head,
                                            rel=rel,
@@ -446,8 +446,8 @@ class BasicGEModel(object):
                                            exclude_mode=exclude_mode)
                 if len(result) < topk:
                     sidx = th.argsort(score, dim=0, descending=True)
-                    result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
-                                               score=score[sidx].to(th.device('cpu')),
+                    result = self._exclude_pos(sidx=sidx,
+                                               score=score[sidx],
                                                idx=idx,
                                                head=head,
                                                rel=rel,
@@ -460,8 +460,8 @@ class BasicGEModel(object):
             topk_score, topk_sidx = th.topk(score, k=topk, dim=0)
             sidx = th.argsort(topk_score, dim=0, descending=True)
             sidx = topk_sidx[sidx]
-            result = self._exclude_pos(sidx=sidx.to(th.device('cpu')),
-                                       score=topk_score.to(th.device('cpu')),
+            result = self._exclude_pos(sidx=sidx,
+                                       score=topk_score,
                                        idx=idx,
                                        head=head,
                                        rel=rel,
