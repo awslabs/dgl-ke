@@ -86,10 +86,10 @@ The command line provides the following arguments:
     The margin value in the score function. It is used by *TransX* and *RotatE*.
 
   - ``-de`` or ``--double_ent``
-    Double entitiy dim for complex number or canonical Polyadic. It is used by *RotatE* and *SimplE*.
+    Double entitiy dim for complex number or canonical polyadic. It is used by *RotatE* and *SimplE*.
 
   - ``-dr`` or ``--double_rel``
-    Double relation dim for complex number or canonical Polyadic.
+    Double relation dim for complex number or canonical polyadic.
 
   - ``-adv`` or ``--neg_adversarial_sampling``
     Indicate whether to use negative adversarial sampling.It will weight negative samples with higher scores more.

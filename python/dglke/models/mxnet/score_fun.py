@@ -574,3 +574,48 @@ class RotatEScore(nn.Block):
  
                 return gamma - score
             return fn
+class SimplE(nn.Block):
+    """SimplE score function
+    Paper link: http://papers.nips.cc/paper/7682-simple-embedding-for-link-prediction-in-knowledge-graphs.pdf
+    """
+    def __init__(self):
+        assert False
+
+    def edge_func(self, edges):
+        pass
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        pass
+
+    def prepare(self, g, gpu_id, trace=False):
+        pass
+
+    def create_neg_prepare(self, neg_head):
+        def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+            pass
+        return fn
+
+    def update(self, gpu_id=-1):
+        pass
+
+    def reset_parameters(self):
+        pass
+
+    def save(self, path, name):
+        pass
+
+    def load(self, path, name):
+        pass
+
+    def forward(self, g):
+        g.apply_edges(lambda edges: self.edge_func(edges))
+
+    def create_neg(self, neg_head):
+        if neg_head:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                pass
+            return fn
+        else:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                pass
+            return fn
