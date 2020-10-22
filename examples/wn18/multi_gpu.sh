@@ -219,7 +219,7 @@ dglke_train --model_name RotatE --dataset wn18 --batch_size 2048 --log_interval 
 # SimplE 1 GPU training
 dglke_train --model_name SimplE --dataset wn18 --batch_size 2048 --log_interval 1000 \
 --neg_sample_size 128 --regularization_coef 2e-06 --hidden_dim 512 --gamma 300.0 \
---lr 0.2 --batch_size_eval 16 --test -adv --gpu 0 --max_step 20000 --double_ent;
+--lr 0.2 --batch_size_eval 16 --test -adv --gpu 0 --max_step 20000 --double_ent
 
 ################## Script Result #################
 # training takes 151.13316130638123 seconds
@@ -236,7 +236,7 @@ dglke_train --model_name SimplE --dataset wn18 --batch_size 2048 --log_interval 
 dglke_train --model_name SimplE --dataset wn18 --batch_size 2048 --log_interval 1000 \
 --neg_sample_size 128 --regularization_coef 2e-06 --hidden_dim 512 --gamma 300.0 \
 --lr 0.2 --batch_size_eval 16 --test -adv --max_step 2500 --num_thread 4 \
---mix_cpu_gpu --num_proc 8 --gpu 0 1 2 3 4 5 6 7 --async_update --force_sync_interval 1000 --double_ent --double_rel;
+--mix_cpu_gpu --num_proc 8 --gpu 0 1 2 3 4 5 6 7 --async_update --force_sync_interval 1000 --double_ent --double_rel
 
 ################## Script Result #################
 # training takes 121.00198698043823 seconds

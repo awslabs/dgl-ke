@@ -216,7 +216,6 @@ class KEModel(object):
         relation_dim = 2 * hidden_dim if double_relation_emb else hidden_dim
 
         device = get_device(args)
-        # simpleE modification: TODO(lingfei)
         self.entity_emb = ExternalEmbedding(args, n_entities, entity_dim,
                                             F.cpu() if args.mix_cpu_gpu else device)
         # For RESCAL, relation_emb = relation_dim * entity_dim

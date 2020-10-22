@@ -75,7 +75,7 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | RESCAL     | 563.6 | 0.848 | 0.792  | 0.898  |  0.928  | 308  |
 | TransR     | 432.8 | 0.609 | 0.452  | 0.736  |  0.850  | 906  |
 | RotatE     | 451.6 | 0.944 | 0.940  | 0.945  |  0.950  | 671  |
-| SimplE     | 370.2 | 0.938 | 0.925  | 0.949  | 0.956   | 151  |
+| SimplE     | 370.2 | 0.938 | 0.925  | 0.949  |  0.956  | 151  |
 
 #### 8-GPU training
 
