@@ -24,9 +24,11 @@ Graph Embedding Model
 4. DistMult
 5. ComplEx
 6. RotatE
+7. SimplE
 """
 import os
 import numpy as np
+import math
 import dgl.backend as F
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
@@ -85,6 +87,8 @@ class InferModel(object):
         elif model_name == 'RotatE':
             emb_init = (gamma + EMB_INIT_EPS) / hidden_dim
             self.score_func = RotatEScore(gamma, emb_init)
+        elif model_name == 'SimplE':
+            self.score_func = SimplEScore()
 
     def load_emb(self, path, dataset):
         """Load the model.
@@ -186,7 +190,7 @@ class KEModel(object):
     n_relations : int
         Num of relations.
     hidden_dim : int
-        Dimetion size of embedding.
+        Dimension size of embedding.
     gamma : float
         Gamma for score function.
     double_entity_emb : bool
@@ -249,6 +253,8 @@ class KEModel(object):
             self.score_func = RESCALScore(relation_dim, entity_dim)
         elif model_name == 'RotatE':
             self.score_func = RotatEScore(gamma, self.emb_init)
+        elif model_name == 'SimplE':
+            self.score_func = SimplEScore()
 
         self.model_name = model_name
         self.head_neg_score = self.score_func.create_neg(True)

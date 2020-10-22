@@ -7,7 +7,7 @@ Arguments
 ^^^^^^^^^
 The command line provides the following arguments:
 
-  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE}``
+  - ``--model_name {TransE, TransE_l1, TransE_l2, TransR, RESCAL, DistMult, ComplEx, RotatE, SimplE}``
     The models provided by DGL-KE.
 
   - ``--data_path DATA_PATH``
@@ -86,10 +86,10 @@ The command line provides the following arguments:
     The margin value in the score function. It is used by *TransX* and *RotatE*.
 
   - ``-de`` or ``--double_ent``
-    Double entitiy dim for complex number It is used by *RotatE*.
+    Double entitiy dim for complex number or canonical polyadic. It is used by *RotatE* and *SimplE*.
 
   - ``-dr`` or ``--double_rel``
-    Double relation dim for complex number.
+    Double relation dim for complex number or canonical polyadic.
 
   - ``-adv`` or ``--neg_adversarial_sampling``
     Indicate whether to use negative adversarial sampling.It will weight negative samples with higher scores more.

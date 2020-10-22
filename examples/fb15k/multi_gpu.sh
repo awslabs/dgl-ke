@@ -409,3 +409,72 @@ dglke_eval --model_name TransR --dataset FB15k --hidden_dim 200 --gamma 8.0 --ba
 # -----------------------------------------
 # Test takes 42.986 seconds
 ##################################################
+
+# SimplE 1 GPU training
+dglke_train --model_name SimplE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 295 \
+--lr 0.82 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000 \
+--double_ent --double_rel --regularization_coef 1e-06
+
+################## Script Result #################
+# training takes 193.98580360412598 seconds
+# -------------- Test result --------------
+# [0]Test average MRR: 0.7087428847978637
+# [0]Test average MR: 58.852601107142256
+# [0]Test average HITS@1: 0.6189416126356418
+# [0]Test average HITS@3: 0.7726464762743139
+# [0]Test average HITS@10: 0.8622674408762336
+# -----------------------------------------
+# testing takes 200.421 seconds
+##################################################
+
+# SimplE 1 GPU eval
+dglke_eval --model_name SimplE --dataset FB15k --hidden_dim 400 --gamma 295 --batch_size_eval 16 \
+--gpu 0 --model_path ~/dglke/ckpts/SimplE_13/ --double_ent --double_rel
+
+################## Script Result #################
+# training takes 193.98580360412598 seconds
+# -------------- Test result --------------
+# [0]Test average MRR: 0.7087428847978637
+# [0]Test average MR: 58.852601107142256
+# [0]Test average HITS@1: 0.6189416126356418
+# [0]Test average HITS@3: 0.7726464762743139
+# [0]Test average HITS@10: 0.8622674408762336
+# -----------------------------------------
+# testing takes 200.421 seconds
+##################################################
+
+# SimplE 8 GPU training
+dglke_train --model_name SimplE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 295 --lr 0.82 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 \
+--double_ent --double_rel --regularization_coef 1e-06
+
+################## Script Result #################
+# training takes 72.49912905693054 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.742840211912461
+# Test average MR : 64.74111662236969
+# Test average HITS@1 : 0.6662152325168018
+# Test average HITS@3 : 0.7969138832929864
+# Test average HITS@10 : 0.8731526468148499
+# -----------------------------------------
+# testing takes 61.748 seconds
+##################################################
+
+# SimplE 8 GPU eval
+dglke_eval --model_name SimplE --dataset FB15k --hidden_dim 400 --gamma 295 --batch_size_eval 16 \
+--gpu 0 1 2 3 4 5 6 7 --model_path ~/dglke/ckpts/SimplE_4/ --double_ent --double_rel
+################## Script Result #################
+# training takes 72.49912905693054 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.742840211912461
+# Test average MR : 64.74111662236969
+# Test average HITS@1 : 0.6662152325168018
+# Test average HITS@3 : 0.7969138832929864
+# Test average HITS@10 : 0.8731526468148499
+# -----------------------------------------
+# testing takes 61.748 seconds
+##################################################
+
