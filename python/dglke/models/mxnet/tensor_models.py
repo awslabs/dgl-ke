@@ -34,6 +34,12 @@ def logsigmoid(val):
     z = nd.exp(-max_elem) + nd.exp(-val - max_elem)
     return -(max_elem + nd.log(z))
 
+def abs(val):
+    return nd.abs(val)
+
+def masked_select(input, mask):
+    assert False, 'masked select for MXNet is not implemented'
+
 none = lambda x : x
 get_dev = lambda gpu : mx.gpu(gpu) if gpu >= 0 else mx.cpu()
 get_device = lambda args : mx.gpu(args.gpu[0]) if args.gpu[0] >= 0 else mx.cpu()
