@@ -294,7 +294,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           choices=['Hinge', 'Logistic', 'Softplus', 'Logsigmoid', 'BCE' ],
                           help='The loss function used to train KGEM.')
         self.add_argument('--neg_label', type=int, default=-1,
-                          choices=[0, 1],
+                          choices=[0, -1],
                           help='The label for negative sample.')
         self.add_argument('-m', '--margin', type=float, default=1.0,
                           help='hyper-parameter for hinge loss and ranking loss.')
