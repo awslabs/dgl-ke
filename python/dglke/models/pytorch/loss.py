@@ -64,14 +64,57 @@ class LossGenerator(BaseLossGenerator):
             raise ValueError('loss genre %s is not support' % self.loss_genre)
 
     def _get_pos_loss(self, pos_score):
+        """ Predict loss for positive labels
+
+        Parameters
+        ----------
+        pos_score : tensor
+                    Score calculated from positive triples
+
+        Returns
+        -------
+        tensor
+                positive loss calculated with specific loss criterion
+        """
         return self.loss_criterion(pos_score, 1)
 
     def _get_neg_loss(self, neg_score):
+        """ Predict loss for negative triples
+
+        Parameters
+        ----------
+        neg_score: tensor
+                   Score calculated from positive triples
+
+        Returns
+        -------
+        tensor
+                Negative loss calculated with specific loss criterion
+        """
         return self.loss_criterion(neg_score, self.neg_label)
 
     def get_total_loss(self, pos_score, neg_score):
+        """ Calculate total loss for a batch of positive triples and negative triples. The total loss can be
+            point-wise and pairwise. For pairwise, it is average of the relative loss from positive score to negative
+            score. For point-wise, it can be average of the positive loss and negative loss or negative loss
+            weighted by its negative score and adversarial_temperature.
+
+        Parameters
+        ----------
+        pos_score : tensor
+                    Score calculated from positive triples
+        neg_score : tensor
+                    Score calculated from negative triples
+
+        Returns
+        -------
+        tensor
+            Total loss by aggregate positive score and negative score.
+        log
+            log to record scalar value of negative loss, positive loss and/or total loss
+        """
         log = {}
-        if self.pair_wise:
+        if self.pairwise:
             pos_score = pos_score.unsqueeze(-1)
             loss = th.mean(self.loss_criterion(pos_score - neg_score, 1))
             log['loss'] = get_scalar(loss)

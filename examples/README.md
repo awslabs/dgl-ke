@@ -62,6 +62,7 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | DistMult  | 51.85 | 0.661 | 0.532  | 0.762  |  0.864  | 57   |
 | ComplEx   | 62.52 | 0.667 | 0.567  | 0.737  |  0.836  | 65   |
 
+
 ### wn18
 
 #### One-GPU training

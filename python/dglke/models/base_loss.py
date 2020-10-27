@@ -42,7 +42,7 @@ class BaseLogsigmoidLoss(BaseLoss):
 
 class BaseLossGenerator(object):
     def __init__(self, args):
-        self.pair_wise = args.pair_wise
+        self.pairwise = args.pairwise
         self.neg_adversarial_sampling = args.neg_adversarial_sampling
         if self.neg_adversarial_sampling:
             self.adversarial_temperature = args.adversarial_temperature
@@ -50,10 +50,10 @@ class BaseLossGenerator(object):
             self.adversarial_temperature = 0
         self.loss_genre = args.loss_genre
         self.neg_label = args.neg_label
-        if self.pair_wise == self.neg_adversarial_sampling == True:
-            raise ValueError('loss cannot be pair wise and adversarial sampled')
-        if self.pair_wise and self.loss_genre == 'Ranking':
-            raise ValueError('Ranking loss cannot be applied to pair wise loss function')
+        if self.pairwise == self.neg_adversarial_sampling == True:
+            raise ValueError('loss cannot be pairwise and adversarial sampled')
+        if self.pairwise and self.loss_genre == 'Ranking':
+            raise ValueError('Ranking loss cannot be applied to pairwise loss function')
 
     def get_pos_loss(self, pos_score):
         pass

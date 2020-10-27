@@ -40,24 +40,13 @@ def save_model(args, model, emap_file=None, rmap_file=None):
 
     # We need to save the model configurations as well.
     conf_file = os.path.join(args.save_path, 'config.json')
+    dict = {}
+    config = args
+    dict.update(vars(config))
+    dict.update({'emp_file': emap_file,
+                  'rmap_file': rmap_file})
     with open(conf_file, 'w') as outfile:
-        json.dump({'dataset': args.dataset,
-                   'model': args.model_name,
-                   'emb_size': args.hidden_dim,
-                   'max_train_step': args.max_step,
-                   'batch_size': args.batch_size,
-                   'neg_sample_size': args.neg_sample_size,
-                   'lr': args.lr,
-                   'gamma': args.gamma,
-                   'double_ent': args.double_ent,
-                   'double_rel': args.double_rel,
-                   'neg_adversarial_sampling': args.neg_adversarial_sampling,
-                   'adversarial_temperature': args.adversarial_temperature,
-                   'regularization_coef': args.regularization_coef,
-                   'regularization_norm': args.regularization_norm,
-                   'emap_file':emap_file,
-                   'rmap_file':rmap_file},
-                   outfile, indent=4)
+        json.dump(dict, outfile, indent=4)
 
 def load_model_config(config_f):
     print(config_f)
@@ -298,3 +287,14 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='The coefficient for regularization.')
         self.add_argument('-rn', '--regularization_norm', type=int, default=3,
                           help='norm used in regularization.')
+        self.add_argument('-pw', '--pairwise', action='store_true',
+                          help='Indicate whether to use pairwise loss function. '
+                               'It compares the scores of a positive triple and a negative triple')
+        self.add_argument('--loss_genre', default='Logistic',
+                          choices=['Hinge', 'Logistic', 'Softplus', 'Logsigmoid', 'BCE' ],
+                          help='The loss function used to train KGEM.')
+        self.add_argument('--neg_label', type=int, default=-1,
+                          choices=[0, 1],
+                          help='The label for negative sample.')
+        self.add_argument('-m', '--margin', type=float, default=1.0,
+                          help='hyper-parameter for hinge loss and ranking loss.')
