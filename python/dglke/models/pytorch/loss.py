@@ -5,6 +5,7 @@ import torch.nn.functional as functional
 
 logsigmoid = functional.logsigmoid
 softplus  = functional.softplus
+sigmoid = functional.sigmoid
 
 class HingeLoss(BaseHingeLoss):
     def __init__(self, args):
@@ -27,8 +28,7 @@ class BCELoss(BaseBCELoss):
         super(BCELoss, self).__init__(args)
 
     def __call__(self, score: th.Tensor, label):
-        return -(label * th.log(th.sigmoid(score))) + \
-               (1 - label) * th.log(1 - th.sigmoid(score))
+        return -(label * th.log(sigmoid(score)) + (1 - label) * th.log(1 - sigmoid(score)))
 
 class LogsigmoidLoss(BaseLogsigmoidLoss):
     def __init__(self, args):

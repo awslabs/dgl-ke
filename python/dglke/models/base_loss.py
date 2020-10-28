@@ -4,7 +4,7 @@ class BaseLoss(object):
 
 class BaseLogisticLoss(BaseLoss):
     """ Logistic Loss
-    log(1 + exp(-l_i * f(t_i)))
+    \log(1 + \exp(-l_i \cdot f(t_i)))
     l_i         -> label i from {-1, 1}
     f           -> score function
     t_i         -> triple i
@@ -18,10 +18,10 @@ class BaseLogisticLoss(BaseLoss):
 
 class BaseBCELoss(BaseLoss):
     """ Binary Cross Entropy Loss
-    -(l_i * log(actv(f(t_i))) + (1 - l_i) * log(1 - actv(f(t_i)))
+    -(l_i \cdot log(\sigma(f(t_i))) + (1 - l_i) \cdot \log(1 - \sigma(f(t_i))))
     l_i         -> label i from {0, 1}
     f           -> score function
-    actv        -> logistic sigmoid function
+    \sigma      -> logistic sigmoid function
     t_i         -> triple i
     """
     def __init__(self, args):
@@ -32,8 +32,8 @@ class BaseBCELoss(BaseLoss):
 
 class BaseHingeLoss(BaseLoss):
     """ Hinge Loss
-    max(0, m - l_i * f(t_i))
-    m           -> margin value (hyper-parameter)
+    \max(0, \lambda - l_i \cdot f(t_i))
+    \lambda     -> margin value (hyper-parameter)
     l_i         -> label i
     f           -> score function
     t_i         -> triple i
@@ -47,7 +47,7 @@ class BaseHingeLoss(BaseLoss):
 
 class BaseLogsigmoidLoss(BaseLoss):
     """ Logsigmoid Loss
-    -log(1 / (1 + exp(-l_i * f(t_i))))
+    -\log(\frac{1}{1 + \exp(-l_i \cdot f(t_i))})
     l_i         -> label i from {-1, 1}
     f           -> score
     t_i         -> triple i
@@ -110,16 +110,18 @@ class BaseLossGenerator(object):
         weighted by its negative score and adversarial_temperature.
 
         If pairwise:
-        L_{total} = mean(L(f(t_i^-) - f(t_i^+)))
-        L_{total}   -> total loss
+        \mathcal{L} = \frac{1}{|B|} \sum_{(t_i^+, t_i^-) \in B} L(f(t_i^-) - f(t_i^+))
+        \mathcal{L} -> total loss
+        B           -> batch
         L           -> local loss criterion
         f           -> score function
         t_i^-       -> negative sample for triple i
         t_i^+       -> positive sample for triple i
 
         If neg_adversarial_sampling:
-        L_{adv_neg} = sum(softmax(f(t_i^-) * T) * L_{neg})
-        L_{adv_neg} -> adversarial weighed negative loss
+        L_{adv\_neg} = \sum_{t_i^- \in B} softmax(f(t_i^-) \cdot T) \cdot L_{neg}
+        B           -> batch
+        L_{adv\_neg}-> adversarial weighed negative loss
         L_{neg}     -> negative loss
         f           -> score function
         t_i^-       -> negative sample for triple i

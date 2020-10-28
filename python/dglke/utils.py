@@ -297,4 +297,4 @@ class CommonArgParser(argparse.ArgumentParser):
                           choices=[0, -1],
                           help='The label for negative sample.')
         self.add_argument('-m', '--margin', type=float, default=1.0,
-                          help='hyper-parameter for hinge loss and ranking loss.')
+                          help='hyper-parameter for hinge loss.')
