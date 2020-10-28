@@ -22,24 +22,20 @@ class LogisticLoss(BaseLogisticLoss):
     def __call__(self, score: th.Tensor, label):
         return softplus(-label * score)
 
+class BCELoss(BaseBCELoss):
+    def __init__(self, args):
+        super(BCELoss, self).__init__(args)
+
+    def __call__(self, score: th.Tensor, label):
+        return -(label * th.log(th.sigmoid(score))) + \
+               (1 - label) * th.log(1 - th.sigmoid(score))
+
 class LogsigmoidLoss(BaseLogsigmoidLoss):
     def __init__(self, args):
         super(LogsigmoidLoss, self).__init__(args)
 
     def __call__(self, score: th.Tensor, label):
         return - logsigmoid(label * score)
-
-class RankingLoss(BaseRankingLoss):
-    def __init__(self, args):
-        super(RankingLoss, self).__init__(args)
-
-    def __call__(self, score: th.Tensor, label):
-        if label == 1:
-            return score
-        else:
-            loss = self.margin - score
-            loss[loss < 0] = 0
-            return loss
 
 
 class LossGenerator(BaseLossGenerator):
@@ -56,63 +52,17 @@ class LossGenerator(BaseLossGenerator):
             self.loss_criterion = LogsigmoidLoss(args)
         elif self.loss_genre == 'BCE':
             self.neg_label = 0
-            pass
-        elif self.loss_genre == 'Ranking':
-            self.neg_label = -1
-            self.loss_criterion = RankingLoss(args)
+            self.loss_criterion = BCELoss(args)
         else:
             raise ValueError('loss genre %s is not support' % self.loss_genre)
 
     def _get_pos_loss(self, pos_score):
-        """ Predict loss for positive labels
-
-        Parameters
-        ----------
-        pos_score : tensor
-                    Score calculated from positive triples
-
-        Returns
-        -------
-        tensor
-                positive loss calculated with specific loss criterion
-        """
         return self.loss_criterion(pos_score, 1)
 
     def _get_neg_loss(self, neg_score):
-        """ Predict loss for negative triples
-
-        Parameters
-        ----------
-        neg_score: tensor
-                   Score calculated from positive triples
-
-        Returns
-        -------
-        tensor
-                Negative loss calculated with specific loss criterion
-        """
         return self.loss_criterion(neg_score, self.neg_label)
 
     def get_total_loss(self, pos_score, neg_score):
-        """ Calculate total loss for a batch of positive triples and negative triples. The total loss can be
-            point-wise and pairwise. For pairwise, it is average of the relative loss from positive score to negative
-            score. For point-wise, it can be average of the positive loss and negative loss or negative loss
-            weighted by its negative score and adversarial_temperature.
-
-        Parameters
-        ----------
-        pos_score : tensor
-                    Score calculated from positive triples
-        neg_score : tensor
-                    Score calculated from negative triples
-
-        Returns
-        -------
-        tensor
-            Total loss by aggregate positive score and negative score.
-        log
-            log to record scalar value of negative loss, positive loss and/or total loss
-        """
         log = {}
         if self.pairwise:
             pos_score = pos_score.unsqueeze(-1)
