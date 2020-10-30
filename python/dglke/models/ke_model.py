@@ -270,37 +270,28 @@ class BasicGEModel(object):
                 #                 will take only O(n+m)
                 #              5) sort the score again it taks O(klog(k))
                 uid, vid, eid = g.edge_ids(cur_head, cur_tail, return_uv=True)
-                sort_idx = th.argsort(uid, dim=0)
-                uid = uid[sort_idx]
-                vid = vid[sort_idx]
-                eid = eid[sort_idx]
                 rid = g.edata[self._etid_field][eid]
-                s_head_idx = th.argsort(cur_head, dim=0)
 
-                start_idx = 0
                 for i in range(cur_head.shape[0]):
-                    h = cur_head[s_head_idx[i]]
-                    t = cur_tail[s_head_idx[i]]
-                    r = cur_rel[s_head_idx[i]]
-                    while(start_idx < len(uid) and uid[start_idx] < h):
-                        start_idx += 1
+                    h = cur_head[i]
+                    r = cur_rel[i]
+                    t = cur_tail[i]
 
+                    h_where = uid == h
+                    t_where = vid[h_where] == t
+                    r_where = rid[h_where][t_where]
                     edge_exist = False
-                    # check existing edges
-                    if start_idx < len(uid):
-                        # uid[start_idx] == h
-                        cur_idx = 0
-                        while(start_idx + cur_idx < len(uid) and uid[start_idx + cur_idx] == h):
-                            if vid[start_idx + cur_idx] == t and rid[start_idx + cur_idx] == r:
+                    if r_where.shape[0] > 0:
+                        for c_r in r_where:
+                            if c_r == r:
                                 edge_exist = True
                                 break
-                            cur_idx += 1
 
                     if edge_exist is False:
                         res_head.append(h)
                         res_rel.append(r)
                         res_tail.append(t)
-                        res_score.append(cur_score[s_head_idx[i]])
+                        res_score.append(cur_score[i])
 
                 if len(res_head) >= topk:
                     break
@@ -374,34 +365,24 @@ class BasicGEModel(object):
                 #                 as both edges and candidate triples are sorted. filtering edges out
                 #                 will take only O(n+m)
                 uid, vid, eid = g.edge_ids(head, tail, return_uv=True)
-                mask = th.full((head.shape[0],), False, dtype=th.bool)
-                sort_idx = th.argsort(uid, dim=0)
-                uid = uid[sort_idx]
-                vid = vid[sort_idx]
-                eid = eid[sort_idx]
                 rid = g.edata[self._etid_field][eid]
-                s_head_idx = th.argsort(head, dim=0)
+                mask = th.full((head.shape[0],), False, dtype=th.bool)
 
                 if len(uid) > 0:
-                    start_idx = 0
                     for i in range(head.shape[0]):
-                        h = head[s_head_idx[i]]
-                        t = tail[s_head_idx[i]]
-                        r = rel[s_head_idx[i]]
+                        h = head[i]
+                        r = rel[i]
+                        t = tail[i]
 
-                        while(start_idx < len(uid) and uid[start_idx] < h):
-                            start_idx += 1
-                        # no more edges
-                        if start_idx == len(uid):
-                            break
+                        h_where = uid == h
+                        t_where = vid[h_where] == t
+                        r_where = rid[h_where][t_where]
+                        if r_where.shape[0] > 0:
+                            for c_r in r_where:
+                                if c_r == r:
+                                    mask[i] = True
+                                    break
 
-                        # uid[start_idx] == h
-                        cur_idx = 0
-                        while(start_idx + cur_idx < len(uid) and uid[start_idx + cur_idx] == h):
-                            if vid[start_idx + cur_idx] == t and rid[start_idx + cur_idx] == r:
-                                mask[s_head_idx[i]] = True
-                                break
-                            cur_idx += 1
                 result.append((head, rel, tail, score, mask))
             else:
                 result.append((head, rel, tail, score, None))
