@@ -47,7 +47,7 @@ class TransEScore(nn.Module):
         if dist_func == 'l1':
             self.neg_dist_func = batched_l1_dist
             self.dist_ord = 1
-        else: # default use l2
+        else:  # default use l2
             self.neg_dist_func = batched_l2_dist
             self.dist_ord = 2
 
@@ -177,10 +177,10 @@ class TransRScore(nn.Module):
         self.projection_emb.update(gpu_id)
 
     def save(self, path, name):
-        self.projection_emb.save(path, name+'projection')
+        self.projection_emb.save(path, name + 'projection')
 
     def load(self, path, name):
-        self.projection_emb.load(path, name+'projection')
+        self.projection_emb.load(path, name + 'projection')
 
     def prepare_local_emb(self, projection_emb):
         self.global_projection_emb = self.projection_emb
@@ -247,6 +247,7 @@ class DistMultScore(nn.Module):
     def create_neg_prepare(self, neg_head):
         def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
             return head, tail
+
         return fn
 
     def update(self, gpu_id=-1):
@@ -272,6 +273,7 @@ class DistMultScore(nn.Module):
                 heads = th.transpose(heads, 1, 2)
                 tmp = (tails * relations).reshape(num_chunks, chunk_size, hidden_dim)
                 return th.bmm(tmp, heads)
+
             return fn
         else:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
@@ -280,12 +282,15 @@ class DistMultScore(nn.Module):
                 tails = th.transpose(tails, 1, 2)
                 tmp = (heads * relations).reshape(num_chunks, chunk_size, hidden_dim)
                 return th.bmm(tmp, tails)
+
             return fn
+
 
 class ComplExScore(nn.Module):
     """ComplEx score function
     Paper link: https://arxiv.org/abs/1606.06357
     """
+
     def __init__(self):
         super(ComplExScore, self).__init__()
 
@@ -319,6 +324,7 @@ class ComplExScore(nn.Module):
     def create_neg_prepare(self, neg_head):
         def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
             return head, tail
+
         return fn
 
     def update(self, gpu_id=-1):
@@ -351,6 +357,7 @@ class ComplExScore(nn.Module):
                 heads = heads.reshape(num_chunks, neg_sample_size, hidden_dim)
                 heads = th.transpose(heads, 1, 2)
                 return th.bmm(tmp, heads)
+
             return fn
         else:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
@@ -544,4 +551,91 @@ class RotatEScore(nn.Module):
 
                 return gamma - score.sum(-1)
 
+            return fn
+
+class SimplEScore(nn.Module):
+    """SimplE score function
+    Paper link: http://papers.nips.cc/paper/7682-simple-embedding-for-link-prediction-in-knowledge-graphs.pdf
+    """
+    def __init__(self):
+        super(SimplEScore, self).__init__()
+
+    def edge_func(self, edges):
+        head_i, head_j = th.chunk(edges.src['emb'], 2, dim=-1)
+        tail_i, tail_j = th.chunk(edges.dst['emb'], 2, dim=-1)
+        rel, rel_inv = th.chunk(edges.data['emb'], 2, dim=-1)
+        forward_score = head_i * rel * tail_j
+        backward_score = tail_i * rel_inv * head_j
+        # clamp as official implementation does to avoid NaN output
+        # might because of gradient explode
+        score = th.clamp(1 / 2 * (forward_score + backward_score).sum(-1), -20, 20)
+        return {'score': score}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        head_i, head_j = th.chunk(head_emb.unsqueeze(1), 2, dim=-1)
+        tail_i, tail_j = th.chunk(tail_emb.unsqueeze(0).unsqueeze(0), 2, dim=-1)
+        rel, rel_inv = th.chunk(rel_emb.unsqueeze(0), 2, dim=-1)
+        forward_tmp = (head_i * rel).unsqueeze(2) * tail_j
+        backward_tmp = (head_j * rel_inv).unsqueeze(2) * tail_i
+        score = (forward_tmp + backward_tmp) * 1 / 2
+        return th.sum(score, dim=-1)
+
+    def update(self, gpu_id=-1):
+        pass
+
+    def reset_parameters(self):
+        pass
+
+    def save(self, path, name):
+        pass
+
+    def load(self, path, name):
+        pass
+
+    def forward(self, g):
+        g.apply_edges(lambda edges: self.edge_func(edges))
+
+    def create_neg_prepare(self, neg_head):
+        def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+            return head, tail
+        return fn
+
+
+    def prepare(self, g, gpu_id, trace=False):
+        pass
+
+    def create_neg(self, neg_head):
+        if neg_head:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                hidden_dim = tails.shape[1]
+                tail_i = tails[..., :hidden_dim // 2]
+                tail_j = tails[..., hidden_dim // 2:]
+                rel = relations[..., : hidden_dim // 2]
+                rel_inv = relations[..., hidden_dim // 2:]
+                forward_tmp = (rel * tail_j).reshape(num_chunks, chunk_size, hidden_dim//2)
+                backward_tmp = (rel_inv * tail_i).reshape(num_chunks, chunk_size, hidden_dim//2)
+                heads = heads.reshape(num_chunks, neg_sample_size, hidden_dim)
+                heads = th.transpose(heads, 1, 2)
+                head_i = heads[..., :hidden_dim // 2, :]
+                head_j = heads[..., hidden_dim // 2:, :]
+                tmp = 1 / 2 * (th.bmm(forward_tmp, head_i) + th.bmm(backward_tmp, head_j))
+                score = th.clamp(tmp, -20, 20)
+                return score
+            return fn
+        else:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                hidden_dim = heads.shape[1]
+                head_i = heads[..., :hidden_dim // 2]
+                head_j = heads[..., hidden_dim // 2:]
+                rel = relations[..., :hidden_dim // 2]
+                rel_inv = relations[..., hidden_dim // 2:]
+                forward_tmp = (head_i * rel).reshape(num_chunks, chunk_size, hidden_dim//2)
+                backward_tmp = (rel_inv * head_j).reshape(num_chunks, chunk_size, hidden_dim//2)
+                tails = tails.reshape(num_chunks, neg_sample_size, hidden_dim)
+                tails = th.transpose(tails, 1, 2)
+                tail_i = tails[..., :hidden_dim // 2, :]
+                tail_j = tails[..., hidden_dim // 2:, :]
+                tmp = 1 / 2 * (th.bmm(forward_tmp, tail_j) + th.bmm(backward_tmp, tail_i))
+                score = th.clamp(tmp, -20, 20)
+                return score
             return fn

@@ -61,12 +61,16 @@ Learn more details with our [documentation](https://aws-dglke.readthedocs.io/en/
 If you use DGL-KE in a scientific publication, we would appreciate citations to the following paper:
 
 ```
-@misc{zheng2020dglke,
-    title={DGL-KE: Training Knowledge Graph Embeddings at Scale},
-    author={Da Zheng and Xiang Song and Chao Ma and Zeyuan Tan and Zihao Ye and Jin Dong and Hao Xiong and Zheng Zhang and George Karypis},
-    year={2020},
-    eprint={2004.08532},
-    archivePrefix={arXiv},
+@inproceedings{DGL-KE,
+author = {Zheng, Da and Song, Xiang and Ma, Chao and Tan, Zeyuan and Ye, Zihao and Dong, Jin and Xiong, Hao and Zhang, Zheng and Karypis, George},
+title = {DGL-KE: Training Knowledge Graph Embeddings at Scale},
+year = {2020},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+booktitle = {Proceedings of the 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval},
+pages = {739–748},
+numpages = {10},
+series = {SIGIR '20}
 }
 ```
 

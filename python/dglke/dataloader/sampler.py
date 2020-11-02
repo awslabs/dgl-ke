@@ -29,7 +29,7 @@ import time
 
 from dgl.base import NID, EID
 
-def SoftRelationPartition(edges, n, threshold=0.05):
+def SoftRelationPartition(edges, n, has_importance=False, threshold=0.05):
     """This partitions a list of edges to n partitions according to their
     relation types. For any relation with number of edges larger than the
     threshold, its edges will be evenly distributed into all partitions.
@@ -38,10 +38,10 @@ def SoftRelationPartition(edges, n, threshold=0.05):
 
     Algo:
     For r in relations:
-        if r.size() > threadold
+        if r.size() > threshold
             Evenly divide edges of r into n parts and put into each relation.
         else
-            Find partition with fewest edges, and put edges of r into 
+            Find partition with fewest edges, and put edges of r into
             this partition.
 
     Parameters
@@ -63,7 +63,10 @@ def SoftRelationPartition(edges, n, threshold=0.05):
     bool
         Whether there exists some relations belongs to multiple partitions
     """
-    heads, rels, tails = edges
+    if has_importance:
+        heads, rels, tails, e_impts = edges
+    else:
+        heads, rels, tails = edges
     print('relation partition {} edges into {} parts'.format(len(heads), n))
     uniq, cnts = np.unique(rels, return_counts=True)
     idx = np.flip(np.argsort(cnts))
@@ -133,6 +136,8 @@ def SoftRelationPartition(edges, n, threshold=0.05):
     heads[:] = heads[shuffle_idx]
     rels[:] = rels[shuffle_idx]
     tails[:] = tails[shuffle_idx]
+    if has_importance:
+        e_impts[:] = e_impts[shuffle_idx]
 
     off = 0
     for i, part in enumerate(parts):
@@ -142,7 +147,7 @@ def SoftRelationPartition(edges, n, threshold=0.05):
 
     return parts, rel_parts, num_cross_part > 0, cross_rel_part
 
-def BalancedRelationPartition(edges, n):
+def BalancedRelationPartition(edges, n, has_importance=False):
     """This partitions a list of edges based on relations to make sure
     each partition has roughly the same number of edges and relations.
     Algo:
@@ -170,7 +175,10 @@ def BalancedRelationPartition(edges, n):
     bool
         Whether there exists some relations belongs to multiple partitions
     """
-    heads, rels, tails = edges
+    if has_importance:
+        heads, rels, tails, e_impts = edges
+    else:
+        heads, rels, tails = edges
     print('relation partition {} edges into {} parts'.format(len(heads), n))
     uniq, cnts = np.unique(rels, return_counts=True)
     idx = np.flip(np.argsort(cnts))
@@ -235,6 +243,8 @@ def BalancedRelationPartition(edges, n):
     heads[:] = heads[shuffle_idx]
     rels[:] = rels[shuffle_idx]
     tails[:] = tails[shuffle_idx]
+    if has_importance:
+        e_impts[:] = e_impts[shuffle_idx]
 
     off = 0
     for i, part in enumerate(parts):
@@ -243,7 +253,7 @@ def BalancedRelationPartition(edges, n):
 
     return parts, rel_parts, num_cross_part > 0
 
-def RandomPartition(edges, n):
+def RandomPartition(edges, n, has_importance=False):
     """This partitions a list of edges randomly across n partitions
 
     Parameters
@@ -258,12 +268,17 @@ def RandomPartition(edges, n):
     List of np.array
         Edges of each partition
     """
-    heads, rels, tails = edges
+    if has_importance:
+        heads, rels, tails, e_impts = edges
+    else:
+        heads, rels, tails = edges
     print('random partition {} edges into {} parts'.format(len(heads), n))
     idx = np.random.permutation(len(heads))
     heads[:] = heads[idx]
     rels[:] = rels[idx]
     tails[:] = tails[idx]
+    if has_importance:
+        e_impts[:] = e_impts[idx]
 
     part_size = int(math.ceil(len(idx) / n))
     parts = []
@@ -286,10 +301,15 @@ def ConstructGraph(edges, n_entities, args):
     args :
         Global configs.
     """
-    src, etype_id, dst = edges
+    if args.has_edge_importance:
+        src, etype_id, dst, e_impts = edges
+    else:
+        src, etype_id, dst = edges
     coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
     g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
     g.edata['tid'] = F.tensor(etype_id, F.int64)
+    if args.has_edge_importance:
+        g.edata['impts'] = F.tensor(e_impts, F.float32)
     return g
 
 class TrainDataset(object):
@@ -304,16 +324,16 @@ class TrainDataset(object):
     ranks:
         Number of partitions.
     """
-    def __init__(self, dataset, args, ranks=64):
+    def __init__(self, dataset, args, ranks=64, has_importance=False):
         triples = dataset.train
         num_train = len(triples[0])
         print('|Train|:', num_train)
 
         if ranks > 1 and args.rel_part:
             self.edge_parts, self.rel_parts, self.cross_part, self.cross_rels = \
-            SoftRelationPartition(triples, ranks)
+            SoftRelationPartition(triples, ranks, has_importance=has_importance)
         elif ranks > 1:
-            self.edge_parts = RandomPartition(triples, ranks)
+            self.edge_parts = RandomPartition(triples, ranks, has_importance=has_importance)
             self.cross_part = True
         else:
             self.edge_parts = [np.arange(num_train)]
@@ -523,11 +543,11 @@ class EvalSampler(object):
             pos_g, neg_g = next(self.sampler_iter)
             if self.filter_false_neg:
                 neg_positive = neg_g.edata['false_neg']
-            neg_g = create_neg_subgraph(pos_g, neg_g, 
-                                        self.neg_chunk_size, 
-                                        self.neg_sample_size, 
-                                        'chunk' in self.mode, 
-                                        self.neg_head, 
+            neg_g = create_neg_subgraph(pos_g, neg_g,
+                                        self.neg_chunk_size,
+                                        self.neg_sample_size,
+                                        'chunk' in self.mode,
+                                        self.neg_head,
                                         self.g.number_of_nodes())
             if neg_g is not None:
                 break
@@ -659,7 +679,7 @@ class EvalDataset(object):
                            mode, num_workers, filter_false_neg)
 
 class NewBidirectionalOneShotIterator:
-    """Grouped samper iterator
+    """Grouped sampler iterator
 
     Parameters
     ----------
@@ -677,15 +697,15 @@ class NewBidirectionalOneShotIterator:
         Total number of nodes in the whole graph.
     """
     def __init__(self, dataloader_head, dataloader_tail, neg_chunk_size, neg_sample_size,
-                 is_chunked, num_nodes):
+                 is_chunked, num_nodes, has_edge_importance=False):
         self.sampler_head = dataloader_head
         self.sampler_tail = dataloader_tail
         self.iterator_head = self.one_shot_iterator(dataloader_head, neg_chunk_size,
                                                     neg_sample_size, is_chunked,
-                                                    True, num_nodes)
+                                                    True, num_nodes, has_edge_importance)
         self.iterator_tail = self.one_shot_iterator(dataloader_tail, neg_chunk_size,
                                                     neg_sample_size, is_chunked,
-                                                    False, num_nodes)
+                                                    False, num_nodes, has_edge_importance)
         self.step = 0
 
     def __next__(self):
@@ -698,7 +718,7 @@ class NewBidirectionalOneShotIterator:
 
     @staticmethod
     def one_shot_iterator(dataloader, neg_chunk_size, neg_sample_size, is_chunked,
-                          neg_head, num_nodes):
+                          neg_head, num_nodes, has_edge_importance=False):
         while True:
             for pos_g, neg_g in dataloader:
                 neg_g = create_neg_subgraph(pos_g, neg_g, neg_chunk_size, neg_sample_size,
@@ -709,4 +729,6 @@ class NewBidirectionalOneShotIterator:
                 pos_g.ndata['id'] = pos_g.parent_nid
                 neg_g.ndata['id'] = neg_g.parent_nid
                 pos_g.edata['id'] = pos_g._parent.edata['tid'][pos_g.parent_eid]
+                if has_edge_importance:
+                    pos_g.edata['impts'] = pos_g._parent.edata['impts'][pos_g.parent_eid]
                 yield pos_g, neg_g

@@ -55,6 +55,10 @@ class ArgParser(CommonArgParser):
         self.add_argument('--async_update', action='store_true',
                           help='Allow asynchronous update on node embedding for multi-GPU training.'\
                                   'This overlaps CPU and GPU computation to speed up.')
+        self.add_argument('--has_edge_importance', action='store_true',
+                          help='Allow providing edge importance score for each edge during training.'\
+                                  'The positive score will be adjusted '\
+                                  'as pos_score = pos_score * edge_importance')
 
 def prepare_save_path(args):
     if not os.path.exists(args.save_path):
@@ -78,7 +82,8 @@ def main():
                           args.dataset,
                           args.format,
                           args.delimiter,
-                          args.data_files)
+                          args.data_files,
+                          args.has_edge_importance)
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = dataset.n_entities
@@ -102,7 +107,7 @@ def main():
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
     args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
-    train_data = TrainDataset(dataset, args, ranks=args.num_proc)
+    train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
     # if there is no cross partition relaiton, we fall back to strict_rel_part
     args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
     args.num_workers = 8 # fix num_worker to 8
@@ -128,11 +133,13 @@ def main():
                                                            rank=i)
             train_samplers.append(NewBidirectionalOneShotIterator(train_sampler_head, train_sampler_tail,
                                                                   args.neg_sample_size, args.neg_sample_size,
-                                                                  True, dataset.n_entities))
+                                                                  True, dataset.n_entities,
+                                                                  args.has_edge_importance))
 
         train_sampler = NewBidirectionalOneShotIterator(train_sampler_head, train_sampler_tail,
                                                         args.neg_sample_size, args.neg_sample_size,
-                                                       True, dataset.n_entities)
+                                                       True, dataset.n_entities,
+                                                       args.has_edge_importance)
     else: # This is used for debug
         train_sampler_head = train_data.create_sampler(args.batch_size,
                                                        args.neg_sample_size,
@@ -150,7 +157,8 @@ def main():
                                                        exclude_positive=False)
         train_sampler = NewBidirectionalOneShotIterator(train_sampler_head, train_sampler_tail,
                                                         args.neg_sample_size, args.neg_sample_size,
-                                                        True, dataset.n_entities)
+                                                        True, dataset.n_entities,
+                                                        args.has_edge_importance)
 
 
     if args.valid or args.test:
