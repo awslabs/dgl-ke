@@ -5,9 +5,9 @@ class BaseLoss(object):
 class BaseLogisticLoss(BaseLoss):
     """ Logistic Loss
     \log(1 + \exp(-l_i \cdot f(t_i)))
-    l_i         -> label i from {-1, 1}
-    f           -> score function
-    t_i         -> triple i
+    l_i : label i from {-1, 1}
+    f : score function
+    t_i : triple i
     """
     def __init__(self, args):
         super(BaseLogisticLoss, self).__init__()
@@ -19,10 +19,10 @@ class BaseLogisticLoss(BaseLoss):
 class BaseBCELoss(BaseLoss):
     """ Binary Cross Entropy Loss
     -(l_i \cdot log(\sigma(f(t_i))) + (1 - l_i) \cdot \log(1 - \sigma(f(t_i))))
-    l_i         -> label i from {0, 1}
-    f           -> score function
-    \sigma      -> logistic sigmoid function
-    t_i         -> triple i
+    l_i : label i from {0, 1}
+    f : score function
+    \sigma : logistic sigmoid function
+    t_i : triple i
     """
     def __init__(self, args):
         super(BaseBCELoss, self).__init__()
@@ -33,10 +33,10 @@ class BaseBCELoss(BaseLoss):
 class BaseHingeLoss(BaseLoss):
     """ Hinge Loss
     \max(0, \lambda - l_i \cdot f(t_i))
-    \lambda     -> margin value (hyper-parameter)
-    l_i         -> label i
-    f           -> score function
-    t_i         -> triple i
+    \lambda : margin value (hyper-parameter)
+    l_i : label i
+    f : score function
+    t_i : triple i
     """
     def __init__(self, args):
         super(BaseHingeLoss, self).__init__()
@@ -48,15 +48,16 @@ class BaseHingeLoss(BaseLoss):
 class BaseLogsigmoidLoss(BaseLoss):
     """ Logsigmoid Loss
     -\log(\frac{1}{1 + \exp(-l_i \cdot f(t_i))})
-    l_i         -> label i from {-1, 1}
-    f           -> score
-    t_i         -> triple i
+    l_i : label i from {-1, 1}
+    f : score
+    t_i : triple i
     """
     def __init__(self, args):
         super(BaseLogsigmoidLoss, self).__init__()
 
     def __call__(self, score, label):
         pass
+
 
 class BaseLossGenerator(object):
     def __init__(self, args):
@@ -111,21 +112,21 @@ class BaseLossGenerator(object):
 
         If pairwise:
         \mathcal{L} = \frac{1}{|B|} \sum_{(t_i^+, t_i^-) \in B} L(f(t_i^-) - f(t_i^+))
-        \mathcal{L} -> total loss
-        B           -> batch
-        L           -> local loss criterion
-        f           -> score function
-        t_i^-       -> negative sample for triple i
-        t_i^+       -> positive sample for triple i
+        \mathcal{L} : total loss
+        B : batch
+        L : local loss criterion
+        f : score function
+        t_i^- : negative sample for triple i
+        t_i^+ : positive sample for triple i
 
         If neg_adversarial_sampling:
         L_{adv\_neg} = \sum_{t_i^- \in B} softmax(f(t_i^-) \cdot T) \cdot L_{neg}
-        B           -> batch
+        B : batch
         L_{adv\_neg}-> adversarial weighed negative loss
-        L_{neg}     -> negative loss
-        f           -> score function
-        t_i^-       -> negative sample for triple i
-        T           -> adversarial temperature (hyper-parameter)
+        L_{neg} : negative loss
+        f : score function
+        t_i^- : negative sample for triple i
+        T : adversarial temperature (hyper-parameter)
 
         Parameters
         ----------
