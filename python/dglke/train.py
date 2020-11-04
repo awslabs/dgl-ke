@@ -115,6 +115,7 @@ def main():
     if args.num_proc > 1:
         train_samplers = []
         for i in range(args.num_proc):
+            # for each GPU, allocate num_proc // num_GPU processes
             train_sampler_head = train_data.create_sampler(args.batch_size,
                                                            args.neg_sample_size,
                                                            args.neg_sample_size,

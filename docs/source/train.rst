@@ -121,17 +121,17 @@ The command line provides the following arguments:
   - ``--has_edge_importance``
     Allow providing edge importance score for each edge during training. The positive score and negative scores will be adjusted as score = score * edge_importance.
 
-  - ``--loss_genre {Logistic, Hinge, Softplus, Logsigmoid, BCE[not supported yet]}``
-    The loss functions provided by DGL-KE.
+  - ``--loss_genre {Logistic, Hinge, Logsigmoid, BCE}``
+    The loss functions provided by DGL-KE. Default loss is Logistic
 
   - ``--margin`` or ``-m``
     The margin value for hinge loss.
 
   - ``--neg_label {0, -1}``
-    The label for negative sample. Normally use -1 for Logsigmoid, Logistic, etc.
+    The label for negative sample is related to loss function. -1 for Logsigmoid, Logistic, 0 for BCE.
 
   - ``-pw`` or ``--pairwise``
-    Use relative loss between positive score and negative score
+    Use relative loss between positive score and negative score. Note only Logistic, Hinge support pairwise loss.
 
 
 

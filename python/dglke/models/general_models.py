@@ -36,7 +36,7 @@ if backend.lower() == 'mxnet':
     from .mxnet.tensor_models import masked_select
     from .mxnet.tensor_models import logsigmoid
     from .mxnet.tensor_models import abs
-    from .mxnet.tensor_models import get_device
+    from .mxnet.tensor_models import get_device, get_dev
     from .mxnet.tensor_models import norm
     from .mxnet.tensor_models import get_scalar
     from .mxnet.tensor_models import reshape
@@ -49,7 +49,7 @@ else:
     from .pytorch.tensor_models import logsigmoid
     from .pytorch.tensor_models import abs
     from .pytorch.tensor_models import masked_select
-    from .pytorch.tensor_models import get_device
+    from .pytorch.tensor_models import get_device, get_dev
     from .pytorch.tensor_models import norm
     from .pytorch.tensor_models import get_scalar
     from .pytorch.tensor_models import reshape
@@ -189,7 +189,7 @@ class KEModel(object):
         Global configs.
     model_name : str
         Which KG model to use, including 'TransE_l1', 'TransE_l2', 'TransR',
-        'RESCAL', 'DistMult', 'ComplEx', 'RotatE'
+        'RESCAL', 'DistMult', 'ComplEx', 'RotatE', 'SimplE'
     n_entities : int
         Num of entities.
     n_relations : int
@@ -209,6 +209,7 @@ class KEModel(object):
                  double_entity_emb=False, double_relation_emb=False):
         super(KEModel, self).__init__()
         self.args = args
+        self.has_edge_importance = args.has_edge_importance
         self.n_entities = n_entities
         self.n_relations = n_relations
         self.model_name = model_name
@@ -220,7 +221,8 @@ class KEModel(object):
 
         device = get_device(args)
 
-        self.loss_gen = LossGenerator(args)
+        self.loss_gen = LossGenerator(args, args.loss_genre, args.neg_label, args.neg_adversarial_sampling,
+                                      args.adversarial_temperature, args.pairwise, args.has_edge_importance)
 
         self.entity_emb = ExternalEmbedding(args, n_entities, entity_dim,
                                             F.cpu() if args.mix_cpu_gpu else device)
@@ -519,7 +521,10 @@ class KEModel(object):
         #    pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()
         #    neg_score = (neg_score * subsampling_weight).sum() / subsampling_weight.sum()
         #else:
-        loss, log = self.loss_gen.get_total_loss(pos_score, neg_score)
+        edge_weight = None
+        if self.has_edge_importance:
+            edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
+        loss, log = self.loss_gen.get_total_loss(pos_score, neg_score, edge_weight)
         # regularization: TODO(zihao)
         #TODO: only reg ent&rel embeddings. other params to be added.
         if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:

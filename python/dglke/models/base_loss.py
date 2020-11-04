@@ -9,9 +9,8 @@ class BaseLogisticLoss(BaseLoss):
     f : score function
     t_i : triple i
     """
-    def __init__(self, args):
+    def __init__(self):
         super(BaseLogisticLoss, self).__init__()
-        self.neg_label = args.neg_label
 
     def __call__(self, score, label):
         pass
@@ -24,7 +23,7 @@ class BaseBCELoss(BaseLoss):
     \sigma : logistic sigmoid function
     t_i : triple i
     """
-    def __init__(self, args):
+    def __init__(self):
         super(BaseBCELoss, self).__init__()
 
     def __call__(self, score, label):
@@ -38,9 +37,9 @@ class BaseHingeLoss(BaseLoss):
     f : score function
     t_i : triple i
     """
-    def __init__(self, args):
+    def __init__(self, margin):
         super(BaseHingeLoss, self).__init__()
-        self.margin = args.margin
+        self.margin = margin
 
     def __call__(self, score, label):
         pass
@@ -52,7 +51,7 @@ class BaseLogsigmoidLoss(BaseLoss):
     f : score
     t_i : triple i
     """
-    def __init__(self, args):
+    def __init__(self):
         super(BaseLogsigmoidLoss, self).__init__()
 
     def __call__(self, score, label):
@@ -60,27 +59,29 @@ class BaseLogsigmoidLoss(BaseLoss):
 
 
 class BaseLossGenerator(object):
-    def __init__(self, args):
-        self.pairwise = args.pairwise
-        self.neg_adversarial_sampling = args.neg_adversarial_sampling
+    def __init__(self, loss_genre, neg_label, neg_adversarial_sampling, adversarial_temperature, pairwise):
+        self.pairwise = pairwise
+        self.neg_adversarial_sampling = neg_adversarial_sampling
         if self.neg_adversarial_sampling:
-            self.adversarial_temperature = args.adversarial_temperature
+            self.adversarial_temperature = adversarial_temperature
         else:
             self.adversarial_temperature = 0
-        self.loss_genre = args.loss_genre
-        self.neg_label = args.neg_label
-        if self.pairwise == self.neg_adversarial_sampling == True:
+        self.loss_genre = loss_genre
+        self.neg_label = neg_label
+        if self.pairwise is True and self.neg_adversarial_sampling is True:
             raise ValueError('loss cannot be pairwise and adversarial sampled')
-        if self.pairwise and self.loss_genre == 'Ranking':
-            raise ValueError('Ranking loss cannot be applied to pairwise loss function')
+        if self.pairwise and (self.loss_genre != 'Logistic' or self.loss_genre != 'Hinge'):
+            raise ValueError('{} loss cannot be applied to pairwise loss function'.format(self.loss_genre))
 
-    def get_pos_loss(self, pos_score):
+    def get_pos_loss(self, pos_score, edge_weight):
         """ Predict loss for positive labels
 
         Parameters
         ----------
         pos_score : tensor
                     Score calculated from positive triples
+        edge_weight : tensor
+                    weight for each edge
 
         Returns
         -------
@@ -89,13 +90,15 @@ class BaseLossGenerator(object):
         """
         pass
 
-    def get_neg_loss(self, neg_score):
+    def get_neg_loss(self, neg_score, edge_weight):
         """ Predict loss for negative triples
 
         Parameters
         ----------
         neg_score: tensor
                    Score calculated from positive triples
+        edge_weight : tensor
+                    weight for each edge
 
         Returns
         -------
@@ -104,20 +107,21 @@ class BaseLossGenerator(object):
         """
         pass
 
-    def get_total_loss(self, pos_score, neg_score):
+    def get_total_loss(self, pos_score, neg_score, edge_weight):
         """ Calculate total loss for a batch of positive triples and negative triples.
         The total loss can be point-wise and pairwise. For pairwise, it is average of the relative loss from positive score to negative
         score. For point-wise, it can be average of the positive loss and negative loss or negative loss
         weighted by its negative score and adversarial_temperature.
 
         If pairwise:
-        \mathcal{L} = \frac{1}{|B|} \sum_{(t_i^+, t_i^-) \in B} L(f(t_i^-) - f(t_i^+))
+        \mathcal{L} = \frac{1}{|B|} \sum_{(t_i^+, t_i^-) \in B} L(f(t_i^-) - f(t_i^+)) \cdot w_{e_i}
         \mathcal{L} : total loss
         B : batch
         L : local loss criterion
         f : score function
         t_i^- : negative sample for triple i
         t_i^+ : positive sample for triple i
+        w_{e_i} : weight for edge i
 
         If neg_adversarial_sampling:
         L_{adv\_neg} = \sum_{t_i^- \in B} softmax(f(t_i^-) \cdot T) \cdot L_{neg}
@@ -134,6 +138,8 @@ class BaseLossGenerator(object):
                     Score calculated from positive triples
         neg_score : tensor
                     Score calculated from negative triples
+        edge_weight : tensor
+                    weight for each edge
 
         Returns
         -------

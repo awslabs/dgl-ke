@@ -291,7 +291,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Indicate whether to use pairwise loss function. '
                                'It compares the scores of a positive triple and a negative triple')
         self.add_argument('--loss_genre', default='Logistic',
-                          choices=['Hinge', 'Logistic', 'Softplus', 'Logsigmoid', 'BCE' ],
+                          choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE'],
                           help='The loss function used to train KGEM.')
         self.add_argument('--neg_label', type=int, default=-1,
                           choices=[0, -1],
