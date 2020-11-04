@@ -79,14 +79,14 @@ class BaseLossGenerator(object):
         Parameters
         ----------
         pos_score : tensor
-                    Score calculated from positive triples
+            Score calculated from positive triples
         edge_weight : tensor
-                    weight for each edge
+            weight for each edge
 
         Returns
         -------
         tensor
-                positive loss calculated with specific loss criterion
+            positive loss calculated with specific loss criterion
         """
         pass
 
@@ -96,14 +96,14 @@ class BaseLossGenerator(object):
         Parameters
         ----------
         neg_score: tensor
-                   Score calculated from positive triples
+            Score calculated from positive triples
         edge_weight : tensor
-                    weight for each edge
+            weight for each edge
 
         Returns
         -------
         tensor
-                Negative loss calculated with specific loss criterion
+            Negative loss calculated with specific loss criterion
         """
         pass
 
@@ -135,11 +135,11 @@ class BaseLossGenerator(object):
         Parameters
         ----------
         pos_score : tensor
-                    Score calculated from positive triples
+            Score calculated from positive triples
         neg_score : tensor
-                    Score calculated from negative triples
+            Score calculated from negative triples
         edge_weight : tensor
-                    weight for each edge
+            weight for each edge
 
         Returns
         -------
