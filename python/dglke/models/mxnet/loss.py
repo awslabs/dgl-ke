@@ -35,10 +35,10 @@ class LossGenerator(BaseLossGenerator):
         assert False, 'LossGenerator is not implemented'
 
 
-    def _get_pos_loss(self, pos_score):
+    def _get_pos_loss(self, pos_score, edge_weight):
         pass
 
-    def _get_neg_loss(self, neg_score):
+    def _get_neg_loss(self, neg_score, edge_weight):
         pass
 
     def get_total_loss(self, pos_score, neg_score, edge_weight):
