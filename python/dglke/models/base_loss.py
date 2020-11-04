@@ -59,19 +59,16 @@ class BaseLogsigmoidLoss(BaseLoss):
 
 
 class BaseLossGenerator(object):
-    def __init__(self, loss_genre, neg_label, neg_adversarial_sampling, adversarial_temperature, pairwise):
+    def __init__(self, neg_label, neg_adversarial_sampling, adversarial_temperature, pairwise):
         self.pairwise = pairwise
         self.neg_adversarial_sampling = neg_adversarial_sampling
         if self.neg_adversarial_sampling:
             self.adversarial_temperature = adversarial_temperature
         else:
             self.adversarial_temperature = 0
-        self.loss_genre = loss_genre
         self.neg_label = neg_label
         if self.pairwise is True and self.neg_adversarial_sampling is True:
             raise ValueError('loss cannot be pairwise and adversarial sampled')
-        if self.pairwise and (self.loss_genre != 'Logistic' or self.loss_genre != 'Hinge'):
-            raise ValueError('{} loss cannot be applied to pairwise loss function'.format(self.loss_genre))
 
     def get_pos_loss(self, pos_score, edge_weight):
         """ Predict loss for positive labels

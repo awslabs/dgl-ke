@@ -42,20 +42,23 @@ class LossGenerator(BaseLossGenerator):
     def __init__(self, args, loss_genre='Logistic', neg_label=-1, neg_adversarial_sampling=False, adversarial_temperature=1.0,
                  pairwise=False):
         super(LossGenerator, self).__init__(loss_genre, neg_label, neg_adversarial_sampling, adversarial_temperature, pairwise, has_edge_importance)
-        if self.loss_genre == 'Hinge':
+        if loss_genre == 'Hinge':
             self.neg_label = -1
             self.loss_criterion = HingeLoss(args.margin)
-        elif self.loss_genre == 'Logistic':
+        elif loss_genre == 'Logistic':
             self.neg_label = -1
             self.loss_criterion = LogisticLoss()
-        elif self.loss_genre == 'Logsigmoid':
+        elif loss_genre == 'Logsigmoid':
             self.neg_label = -1
             self.loss_criterion = LogsigmoidLoss()
-        elif self.loss_genre == 'BCE':
+        elif loss_genre == 'BCE':
             self.neg_label = 0
             self.loss_criterion = BCELoss()
         else:
-            raise ValueError('loss genre %s is not support' % self.loss_genre)
+            raise ValueError('loss genre %s is not support' % loss_genre)
+        
+        if self.pairwise and (loss_genre != 'Logistic' or loss_genre != 'Hinge'):
+            raise ValueError('{} loss cannot be applied to pairwise loss function'.format(self.loss_genre))
 
     def _get_pos_loss(self, pos_score, edge_weight):
         return self.loss_criterion(pos_score, 1) * edge_weight
@@ -88,10 +91,3 @@ class LossGenerator(BaseLossGenerator):
         log['neg_loss'] = get_scalar(neg_loss)
         log['loss'] = get_scalar(loss)
         return loss, log
-
-
-
-
-
-
-
