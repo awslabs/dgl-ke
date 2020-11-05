@@ -523,7 +523,7 @@ class KEModel(object):
         #else:
         edge_weight = None
         if self.has_edge_importance:
-            edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
+            edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id)) if self.has_edge_importance else None
         loss, log = self.loss_gen.get_total_loss(pos_score, neg_score, edge_weight)
         # regularization: TODO(zihao)
         #TODO: only reg ent&rel embeddings. other params to be added.
