@@ -221,7 +221,7 @@ class KEModel(object):
 
         device = get_device(args)
 
-        self.loss_gen = LossGenerator(args, args.loss_genre, args.neg_label, args.neg_adversarial_sampling,
+        self.loss_gen = LossGenerator(args, args.loss_genre, args.neg_adversarial_sampling,
                                       args.adversarial_temperature, args.pairwise)
 
         self.entity_emb = ExternalEmbedding(args, n_entities, entity_dim,

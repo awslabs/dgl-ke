@@ -127,9 +127,6 @@ The command line provides the following arguments:
   - ``--margin`` or ``-m``
     The margin value for hinge loss.
 
-  - ``--neg_label {0, -1}``
-    The label for negative sample is related to loss function. -1 for Logsigmoid, Logistic, 0 for BCE.
-
   - ``-pw`` or ``--pairwise``
     Use relative loss between positive score and negative score. Note only Logistic, Hinge support pairwise loss.
 

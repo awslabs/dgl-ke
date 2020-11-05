@@ -59,14 +59,27 @@ class BaseLogsigmoidLoss(BaseLoss):
 
 
 class BaseLossGenerator(object):
-    def __init__(self, neg_label, neg_adversarial_sampling, adversarial_temperature, pairwise):
+    """ loss generator class is responsible for calculate loss for positive & negative loss / pairwise loss.
+    It has different implementations of concrete method in regards of PyTorch and MXNet.
+    """
+    def __init__(self, neg_adversarial_sampling, adversarial_temperature, pairwise):
+        """ initialize BaseLossGenerator class
+
+        Parameters
+        ----------
+        neg_adversarial_sampling : bool
+            whether to use adversarial sampling for negative sample
+        adversarial_temperature : float
+            temperature value for adversarial sampling
+        pairwise : bool
+            whether the loss computed is pairwise or point wise
+        """
         self.pairwise = pairwise
         self.neg_adversarial_sampling = neg_adversarial_sampling
         if self.neg_adversarial_sampling:
             self.adversarial_temperature = adversarial_temperature
         else:
             self.adversarial_temperature = 0
-        self.neg_label = neg_label
         if self.pairwise is True and self.neg_adversarial_sampling is True:
             raise ValueError('loss cannot be pairwise and adversarial sampled')
 
