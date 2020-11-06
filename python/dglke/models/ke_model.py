@@ -159,6 +159,8 @@ class BasicGEModel(object):
                 def data(self):
                     return self._robj
 
+            # calculate scores in mini-batches
+            # so we can use GPU to accelerate the speed with avoiding GPU OOM
             for i in range((num_head + batch_size - 1) // batch_size):
                 sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
                                                    if (i + 1) * batch_size < num_head \
