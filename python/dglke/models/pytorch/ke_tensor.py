@@ -38,48 +38,6 @@ from .. import *
 
 from .tensor_models import thread_wrapped_func
 
-@thread_wrapped_func
-def async_update(num_thread, emb, queue):
-    """Asynchronous embedding update for entity embeddings.
-    How it works:
-        1. trainer process push entity embedding update requests into the queue.
-        2. async_update process pull requests from the queue, calculate
-           the gradient state and gradient and write it into entity embeddings.
-
-    Parameters
-    ----------
-    args :
-        Global confis.
-    emb : ExternalEmbedding
-        The entity embeddings.
-    queue:
-        The request queue.
-    """
-    th.set_num_threads(num_thread)
-    while True:
-        (grad_indices, grad_values, gpu_id) = queue.get()
-        clr = emb.lr
-        if grad_indices is None:
-            return
-        with th.no_grad():
-            grad_sum = (grad_values * grad_values).mean(1)
-            device = emb.state_sum.device
-            if device != grad_indices.device:
-                grad_indices = grad_indices.to(device)
-            if device != grad_sum.device:
-                grad_sum = grad_sum.to(device)
-
-            emb.state_sum.index_add_(0, grad_indices, grad_sum)
-            std = emb.state_sum[grad_indices]  # _sparse_mask
-            if gpu_id >= 0:
-                std = std.cuda(gpu_id)
-            std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-            tmp = (-clr * grad_values / std_values)
-            if tmp.device != device:
-                tmp = tmp.to(device)
-            emb.emb.index_add_(0, grad_indices, tmp)
-
-
 class KGEmbedding:
     """Sparse Embedding for Knowledge Graph
     It is used to store both entity embeddings and relation embeddings.
@@ -107,20 +65,15 @@ class KGEmbedding:
             The intial embedding range should be [-emb_init, emb_init].
         """
         if self.emb is None:
-            self.emb = th.empty(num, dim, dtype=th.float32, device=device)
+            self.emb = th.empty(num, dim, dtype=th.float32, device=self.device)
         else:
             self.num = self.emb.shape[0]
             self.dim = self.emb.shape[1]
         self.state_sum = self.emb.new().resize_(self.emb.size(0)).zero_()
         self.trace = []
         self.state_step = 0
-        # queue used by asynchronous update
-        self.async_q = None
-        # asynchronous update process
-        self.async_p = None
         self.has_cross_rel = False
         self.lr = lr
-        self.async_threads = self.async_threads
 
         INIT.uniform_(self.emb, -emb_init, emb_init)
         INIT.zeros_(self.state_sum)
@@ -286,19 +239,6 @@ class KGEmbedding:
                     # TODO(zhengda) the overhead is here.
                     self.emb.index_add_(0, grad_indices, tmp)
         self.trace = []
-
-    def create_async_update(self):
-        """Set up the async update subprocess.
-        """
-        self.async_q = Queue(1)
-        self.async_p = mp.Process(target=async_update, args=(self.num_thread, self, self.async_q))
-        self.async_p.start()
-
-    def finish_async_update(self):
-        """Notify the async update subprocess to quit.
-        """
-        self.async_q.put((None, None, None))
-        self.async_p.join()
 
     def curr_emb(self):
         """Return embeddings in trace.

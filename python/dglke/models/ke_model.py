@@ -899,7 +899,7 @@ class TransRModel(KGEModel):
         projection_emb = KGEmbedding(device)
         score_func = TransRScore(gamma, projection_emb, -1, -1)
         self._gamma = gamma
-        super(TransRModel, self).__init__(device, model_name, _score_func)
+        super(TransRModel, self).__init__(device, model_name, score_func)
 
     def load(self, model_path):
         super(TransRModel, self).load(model_path)
