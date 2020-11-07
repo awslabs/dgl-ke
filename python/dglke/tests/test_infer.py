@@ -49,7 +49,7 @@ class dotdict(dict):
 
 def generate_rand_emb(func_name, bcast):
     dim=16
-    
+
     num_head = 16
     num_rels = 4
     num_tail = 32
