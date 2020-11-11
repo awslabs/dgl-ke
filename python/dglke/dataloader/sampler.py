@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# sampler.py
+# train_sampler.py
 #
 # Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #

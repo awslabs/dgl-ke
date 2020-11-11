@@ -79,13 +79,13 @@ def dot_dist(x, y, pw=False):
 
 def cosine_dist(x, y, pw=False):
     score = dot_dist(x, y, pw)
-
+    
     x = x.norm(p=2, dim=-1)
     y = y.norm(p=2, dim=-1)
     if pw is False:
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
-
+       
     return score / (x * y)
 
 def extended_jaccard_dist(x, y, pw=False):
@@ -98,9 +98,6 @@ def extended_jaccard_dist(x, y, pw=False):
         y = y.unsqueeze(0)
 
     return score / (x + y - score)
-
-def floor_divide(input, other):
-    return th.floor_divide(input, other)
 
 def thread_wrapped_func(func):
     """Wrapped func for torch.multiprocessing.Process.
@@ -138,7 +135,7 @@ def async_update(args, emb, queue):
     """Asynchronous embedding update for entity embeddings.
     How it works:
         1. trainer process push entity embedding update requests into the queue.
-        2. async_update process pull requests from the queue, calculate
+        2. async_update process pull requests from the queue, calculate 
            the gradient state and gradient and write it into entity embeddings.
 
     Parameters
@@ -190,19 +187,6 @@ class InferEmbedding:
         """
         file_name = os.path.join(path, name+'.npy')
         self.emb = th.Tensor(np.load(file_name))
-
-    def load_emb(self, emb_array):
-        """Load embeddings from numpy array.
-
-        Parameters
-        ----------
-        emb_array : numpy.array  or torch.tensor
-            Embedding array in numpy array or torch.tensor
-        """
-        if isinstance(emb_array, np.ndarray):
-            self.emb = th.Tensor(emb_array)
-        else:
-            self.emb = emb_array
 
     def __call__(self, idx):
         return self.emb[idx].to(self.device)
@@ -303,7 +287,7 @@ class ExternalEmbedding:
 
     def update(self, gpu_id=-1):
         """ Update embeddings in a sparse manner
-        Sparse embeddings are updated in mini batches. we maintains gradient states for
+        Sparse embeddings are updated in mini batches. we maintains gradient states for 
         each embedding so they can be updated separately.
 
         Parameters
@@ -405,3 +389,54 @@ class ExternalEmbedding:
         """
         file_name = os.path.join(path, name+'.npy')
         self.emb = th.Tensor(np.load(file_name))
+
+
+class ConvEmbedding(nn.Module):
+    def __init__(self, args, input_dim, tensor_height, dropout_ratio: tuple = (0, 0, 0), batch_norm=False):
+        super(ConvEmbedding, self).__init__()
+        # get height of reshape tensor
+        assert input_dim % tensor_height == 0, 'input dimension %d must be divisible to tensor height %d' % (input_dim, tensor_height)
+        self.h = tensor_height
+        self.w = input_dim // tensor_height
+        conv = []
+        if batch_norm:
+            conv +=[nn.BatchNorm2d(1)]
+        if dropout_ratio[0] != 0:
+            conv += [nn.Dropout(p=dropout_ratio[0])]
+        conv += [nn.Conv2d(1, 32, (3, 3), 1, 0, bias=args.use_bias)]
+        if batch_norm:
+            conv += [nn.BatchNorm2d(32)]
+        conv += [nn.ReLU()]
+        self.conv = nn.Sequential(*conv)
+        fc = []
+        if dropout_ratio[1] != 0:
+            fc += [nn.Dropout(p=dropout_ratio[1])]
+        fc += [nn.Linear(32 * input_dim * 2, input_dim)]
+        if dropout_ratio[2] != 0:
+            fc += [nn.Dropout(p=dropout_ratio[2])]
+        if batch_norm:
+            fc += [nn.BatchNorm1d(input_dim)]
+        self.fc = nn.Sequential(*fc)
+        # is b necessary? hard to implement for now, will see later
+        # self.register_parameter('b', nn.Parameter(th.zeros()))
+        # set a optimizer for itself, need to further improve this.
+
+    def forward(self, head_emb, rel_emb):
+        """
+        Parameters
+        ----------
+        head_emb : tensor
+                embedded batch head
+
+        rel_emb : tensor
+                embedded batch relation
+        """
+        # why use batch and dropout together?
+        # reshape tensor to fit in conv
+        head_emb = head_emb.view(-1, 1, self.h, self.w)
+        rel_emb = rel_emb.view(-1, 1, self.h, self.w)
+        x = th.cat([head_emb, rel_emb], dim=2)
+        x = self.conv(x)
+        x = x.view(x.shape[0], -1)
+        x = self.fc(x)
+        return x

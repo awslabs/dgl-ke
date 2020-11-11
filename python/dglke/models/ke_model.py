@@ -25,22 +25,16 @@ Knowledge Graph Embedding Model
 5. DistMult
 6. ComplEx
 7. RotatE
+8. SimplE
+9. ConvE
 """
-import os
-from abc import abstractmethod, ABCMeta
-import numpy as np
 import dgl
 import torch as th
+import torch.multiprocessing as mp
+import torch.distributed as dist
 
 from .pytorch.tensor_models import logsigmoid
 from .pytorch.tensor_models import none
-from .pytorch.tensor_models import get_device
-from .pytorch.tensor_models import norm
-from .pytorch.tensor_models import get_scalar
-from .pytorch.tensor_models import reshape
-from .pytorch.tensor_models import cuda
-from .pytorch.tensor_models import ExternalEmbedding
-from .pytorch.tensor_models import InferEmbedding
 from .pytorch.score_fun import *
 from .pytorch.ke_tensor import KGEmbedding
 from .pytorch.tensor_models import cosine_dist
@@ -49,6 +43,13 @@ from .pytorch.tensor_models import l1_dist
 from .pytorch.tensor_models import dot_dist
 from .pytorch.tensor_models import extended_jaccard_dist
 from .pytorch.tensor_models import floor_divide
+from .pytorch.tensor_models import ConvEmbedding
+from .pytorch.train_sampler import TrainSampler
+from .pytorch.loss import LossGenerator
+from util import *
+from dataloader import EvalDataset, TrainDataset
+from dataloader import get_dataset
+import time
 
 EMB_INIT_EPS = 2.0
 DEFAULT_INFER_BATCHSIZE = 1024
@@ -64,7 +65,7 @@ class BasicGEModel(object):
         self._relation_emb = KGEmbedding(device)
         self._score_func = score_func
 
-    def attach_graph(self, g, etid_field='tid', ntid_filed='ntid'):
+    def attach_graph(self, g, etid_field='tid', ntid_field='ntid'):
         """ Attach dataset into Graph Embedding Model
 
         Parameter
@@ -73,17 +74,17 @@ class BasicGEModel(object):
             Input data for knowledge graph
         etid_field: str
             Edge feature name storing the edge type id
-        ntid_filed: str
+        ntid_field: str
             Node feature name storing the node type id
 
         Note
         ----
         If the input graph is DGLGraph, we assume that it uses a homogeneous graph
         to represent the heterogeneous graph. The edge type id is stored in etid_field
-        and the node type id is stored in ntid_filed.
+        and the node type id is stored in ntid_field.
         """
         self._etid_field = etid_field
-        self._ntid_filed = ntid_filed
+        self._ntid_field = ntid_field
         assert isinstance(g, dgl.DGLGraph)
         self._g = g
 
@@ -203,7 +204,7 @@ class BasicGEModel(object):
             return th.reshape(score, (num_head, num_rel, num_tail))
 
     def _exclude_pos(self, sidx, score, idx, head, rel, tail, topk, exec_mode, exclude_mode):
-        g = self.graph
+        g = self._g
         num_triples = idx.shape[0]
         num_head = 1 if exec_mode == 'batch_head' else head.shape[0]
         num_rel = 1 if exec_mode == 'batch_rel' else rel.shape[0]
@@ -976,3 +977,265 @@ class GNNModel(BasicGEModel):
         relation_emb_file = 'relation.npy'
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
+
+# TODO: lingfei implement ConvEModel with multi-GPU training(pytorch version)
+class ConvEModel(BasicGEModel):
+    """ ConvE model
+    """
+    def __init__(self, args, device, model_name):
+        self.args = args
+        self._dense_model = ConvEmbedding(args,
+                                         input_dim=args.hidden_dim,
+                                         tensor_height=args.tensor_height,
+                                         dropout_ratio=args.dropout_ratio,
+                                         batch_norm=args.batch_norm)
+        score_func = None
+        self._loss_gen = LossGenerator(args,
+                                      args.loss_genre,
+                                      args.neg_adversarial_sampling,
+                                      args.adversarial_temperature,
+                                      args.pairwise)
+        super(ConvEModel, self).__init__(device, model_name, score_func)
+
+    def load(self, model_path, gpu_id=0):
+        entity_emb_file = 'entity.npy'
+        relation_emb_file = 'relation.npy'
+        dense_model_file = 'model.pth'
+        def __load_dense_model():
+            file_name = os.path.join(model_path, dense_model_file)
+            # map state_dict saved in CPU to GPU/CPU
+            map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
+            self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
+            device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
+            self._dense_model.to(device)
+        self._entity_emb.load(model_path, entity_emb_file)
+        self._relation_emb.load(model_path, relation_emb_file)
+        __load_dense_model()
+
+
+    def save(self, model_path):
+        entity_emb_file = 'entity.npy'
+        relation_emb_file = 'relation.npy'
+        dense_model_file = 'model.pth'
+        args = self.args
+
+        def __save_dense_model():
+            file_name = os.path.join(model_path, dense_model_file)
+            if len(args.gpu) > 1:
+                state_dict = self._dense_model.module.cpu().state_dict()
+            elif args.gpu[0] == -1:
+                state_dict = self._dense_model.state_dict()
+            else:
+                state_dict = self._dense_model.cpu().state_dict()
+            th.save(state_dict, file_name)
+        self._entity_emb.save(model_path, entity_emb_file)
+        self._relation_emb.save(model_path, relation_emb_file)
+        __save_dense_model()
+
+    def fit(self):
+        # put it in train
+        args = self.args
+        prepare_save_path(args)
+        init_time_start = time.time()
+        # load dataset and samplers
+        dataset = get_dataset(args.data_path,
+                              args.dataset,
+                              args.format,
+                              args.delimiter,
+                              args.data_files,
+                              args.has_edge_importance)
+
+        if args.neg_sample_size_eval < 0:
+            args.neg_sample_size_eval = dataset.n_entities
+        args.batch_size = get_compatible_batch_size(args.batch_size, args.neg_sample_size)
+        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+        # We should turn on mix CPU-GPU training for multi-GPU training.
+        if len(args.gpu) > 1:
+            args.mix_cpu_gpu = True
+            if args.num_proc < len(args.gpu):
+                args.num_proc = len(args.gpu)
+        # We need to ensure that the number of processes should match the number of GPUs.
+        if len(args.gpu) > 1 and args.num_proc > 1:
+            assert args.num_proc % len(args.gpu) == 0, \
+                'The number of processes needs to be divisible by the number of GPUs'
+        # For multiprocessing training, we need to ensure that training processes are synchronized periodically.
+        if args.num_proc > 1:
+            args.force_sync_interval = 1000
+
+        args.eval_filter = not args.no_eval_filter
+        if args.neg_deg_sample_eval:
+            assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
+
+        args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
+        train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
+        # if there is no cross partition relaiton, we fall back to strict_rel_part
+        args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
+        args.num_workers = 8 # fix num_worker to 8
+
+        if args.num_proc > 1:
+            train_samplers = []
+            for i in range(args.num_proc):
+                train_samplers += [TrainSampler(train_data=train_data,
+                                                rank=i,
+                                                batch_size=args.batch_size,
+                                                shuffle=True,
+                                                rel_weight=None,
+                                                neg_sample_size=args.neg_sample_size,
+                                                chunk_size=args.neg_sample_size,
+                                                exclude_positive=False,
+                                                replacement=False,
+                                                reset=True,
+                                                drop_last=True)]
+
+
+        else: # This is used for debug
+            train_sampler = TrainSampler(train_data=train_data,
+                                         rank=0,
+                                         batch_size=args.batch_size,
+                                         shuffle=True,
+                                         rel_weight=None,
+                                         neg_sample_size=args.neg_sample_size,
+                                         chunk_size=args.neg_sample_size,
+                                         exclude_positive=False,
+                                         replacement=False,
+                                         reset=True,
+                                         drop_last=True)
+
+
+        if args.valid or args.test:
+            if len(args.gpu) > 1:
+                args.num_test_proc = args.num_proc if args.num_proc < len(args.gpu) else len(args.gpu)
+            else:
+                args.num_test_proc = args.num_proc
+            if args.valid:
+                assert dataset.valid is not None, 'validation set is not provided'
+            if args.test:
+                assert dataset.test is not None, 'test set is not provided'
+            eval_dataset = EvalDataset(dataset, args)
+
+        if args.valid:
+            if args.num_proc > 1:
+                valid_sampler_heads = []
+                valid_sampler_tails = []
+                for i in range(args.num_proc):
+                    valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.eval_filter,
+                                                                     mode='chunk-head',
+                                                                     num_workers=args.num_workers,
+                                                                     rank=i, ranks=args.num_proc)
+                    valid_sampler_tail = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.eval_filter,
+                                                                     mode='chunk-tail',
+                                                                     num_workers=args.num_workers,
+                                                                     rank=i, ranks=args.num_proc)
+                    valid_sampler_heads.append(valid_sampler_head)
+                    valid_sampler_tails.append(valid_sampler_tail)
+            else: # This is used for debug
+                valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                 args.neg_sample_size_eval,
+                                                                 args.neg_sample_size_eval,
+                                                                 args.eval_filter,
+                                                                 mode='chunk-head',
+                                                                 num_workers=args.num_workers,
+                                                                 rank=0, ranks=1)
+                valid_sampler_tail = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                 args.neg_sample_size_eval,
+                                                                 args.neg_sample_size_eval,
+                                                                 args.eval_filter,
+                                                                 mode='chunk-tail',
+                                                                 num_workers=args.num_workers,
+                                                                 rank=0, ranks=1)
+        # load model
+        if args.num_proc > 1 or args.async_update:
+            self._entity_emb.share_memory()
+            self._relation_emb.share_memory()
+
+        emap_file = dataset.emap_fname
+        rmap_file = dataset.rmap_fname
+        # We need to free all memory referenced by dataset.
+        eval_dataset = None
+        dataset = None
+
+        print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
+
+        # train
+        start = time.time()
+        rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
+        cross_rels = train_data.cross_rels if args.soft_rel_part else None
+        if args.num_proc > 1:
+            procs = []
+            barrier = mp.Barrier(args.num_proc)
+
+        else:
+            pass
+
+        print('training takes {} seconds'.format(time.time() - start))
+
+        if not args.no_save_emb:
+            save_model(args, model, emap_file, rmap_file)
+
+        # test
+        if args.test:
+            start = time.time()
+            if args.num_test_proc > 1:
+                queue = mp.Queue(args.num_test_proc)
+                procs = []
+                for i in range(args.num_test_proc):
+                    proc = mp.Process(target=test_mp, args=(args,
+                                                            model,
+                                                            [test_sampler_heads[i], test_sampler_tails[i]],
+                                                            i,
+                                                            'Test',
+                                                            queue))
+                    procs.append(proc)
+                    proc.start()
+
+                total_metrics = {}
+                metrics = {}
+                logs = []
+                for i in range(args.num_test_proc):
+                    log = queue.get()
+                    logs = logs + log
+
+                for metric in logs[0].keys():
+                    metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+                print("-------------- Test result --------------")
+                for k, v in metrics.items():
+                    print('Test average {} : {}'.format(k, v))
+                print("-----------------------------------------")
+
+                for proc in procs:
+                    proc.join()
+            else:
+                test(args, model, [test_sampler_head, test_sampler_tail])
+            print('testing takes {:.3f} seconds'.format(time.time() - start))
+
+    def _parallel_train(self, rank):
+        def setup(rank, world_size):
+            # configure MASTER_ADDR and MASTER_PORT manually in command line
+            os.environ['MASTER_ADDR'] = 'localhost'
+            os.environ['MASTER_PORT'] = '12355'
+            dist.init_process_group('nccl', rank=rank, world_size=world_size)
+
+        def cleanup():
+            dist.destroy_process_group()
+
+        args = self.args
+        world_size = args.num_proc * args.num_node
+        setup(rank, world_size)
+
+    def _single_train(self):
+        pass
+
+    def _initialize(self, n_entities, n_relations):
+        args = self.args
+        rel_dim = args.hidden_dim
+        ent_dim = args.hidden_dim
+        self._relation_emb.init(emb_init=,lr=args.lr, async_threads=None, num=n_relations, dim)
+        self._entity_emb.init(emb_init=)
+    def eval(self):
+        pass

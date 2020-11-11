@@ -639,3 +639,87 @@ class SimplEScore(nn.Module):
                 score = th.clamp(tmp, -20, 20)
                 return score
             return fn
+
+class ConvEScore(nn.Module):
+    """ConvE score function
+    Paper link: https://arxiv.org/pdf/1707.01476.pdf
+    """
+    def __init__(self,  model):
+        super(ConvEScore, self).__init__()
+        self.model = model
+
+    def edge_func(self, edges):
+        head = edges.data['head_emb']
+        tail = edges.data['tail_emb']
+        rel = edges.data['emb']
+        tmp = self.model(head, rel)
+        score = th.sum(tmp * tail, dim=-1)
+        return {'score': score}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        pass
+
+    def prepare(self, g, gpu_id, trace=False):
+        pass
+
+    def create_neg_prepare(self, neg_head):
+        if neg_head:
+            def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+                return head, tail
+            return fn
+        else:
+            def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+                return head, tail
+            return fn
+
+    def forward(self, g):
+        g.apply_edges(lambda edges: self.edge_func(edges))
+
+    def reset_parameters(self):
+        pass
+
+    def update(self, gpu_id=-1):
+        self.projection_emb.update(gpu_id)
+
+    def save(self, path, name):
+        self.projection_emb.save(path, name + 'projection')
+
+    def load(self, path, name):
+        self.projection_emb.load(path, name + 'projection')
+
+    def prepare_local_emb(self, projection_emb):
+        self.global_projection_emb = self.projection_emb
+        self.projection_emb = projection_emb
+
+    def prepare_cross_rels(self, cross_rels):
+        self.projection_emb.setup_cross_rels(cross_rels, self.global_projection_emb)
+
+    def writeback_local_emb(self, idx):
+        self.global_projection_emb.emb[idx] = self.projection_emb.emb.cpu()[idx]
+
+    def load_local_emb(self, projection_emb):
+        device = projection_emb.emb.device
+        projection_emb.emb = self.projection_emb.emb.to(device)
+        self.projection_emb = projection_emb
+
+    def share_memory(self):
+        self.projection_emb.share_memory()
+
+    def create_neg(self, neg_head):
+        gamma = self.gamma
+        if neg_head:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                relations = relations.reshape(num_chunks, -1, self.relation_dim)
+                tails = tails - relations
+                tails = tails.reshape(num_chunks, -1, 1, self.relation_dim)
+                score = heads - tails
+                return gamma - th.norm(score, p=1, dim=-1)
+            return fn
+        else:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                relations = relations.reshape(num_chunks, -1, self.relation_dim)
+                heads = heads - relations
+                heads = heads.reshape(num_chunks, -1, 1, self.relation_dim)
+                score = heads - tails
+                return gamma - th.norm(score, p=1, dim=-1)
+            return fn
