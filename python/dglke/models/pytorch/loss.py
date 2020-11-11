@@ -81,6 +81,7 @@ class LossGenerator(BaseLossGenerator):
             loss = th.mean(self.loss_criterion((pos_score - neg_score), 1) * edge_weight)
             log['loss'] = get_scalar(loss)
             return loss, log
+
         pos_loss = self._get_pos_loss(pos_score) * edge_weight
         neg_loss = self._get_neg_loss(neg_score) * edge_weight
         # MARK - would average twice make loss function lose precision?
@@ -97,3 +98,4 @@ class LossGenerator(BaseLossGenerator):
         log['neg_loss'] = get_scalar(neg_loss)
         log['loss'] = get_scalar(loss)
         return loss, log
+    
