@@ -98,4 +98,3 @@ class LossGenerator(BaseLossGenerator):
         log['neg_loss'] = get_scalar(neg_loss)
         log['loss'] = get_scalar(loss)
         return loss, log
-    
