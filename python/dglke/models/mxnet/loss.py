@@ -30,7 +30,7 @@ class LogsigmoidLoss(BaseLogsigmoidLoss):
         pass
 
 class LossGenerator(BaseLossGenerator):
-    def __init__(self, args, loss_genre='Logistic', neg_label=-1, neg_adversarial_sampling=False, adversarial_temperature=1.0,
+    def __init__(self, args, loss_genre='Logsigmoid', neg_adversarial_sampling=False, adversarial_temperature=1.0,
                  pairwise=False):
         assert False, 'LossGenerator is not implemented'
 

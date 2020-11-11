@@ -122,7 +122,7 @@ The command line provides the following arguments:
     Allow providing edge importance score for each edge during training. The positive score and negative scores will be adjusted as score = score * edge_importance.
 
   - ``--loss_genre {Logistic, Hinge, Logsigmoid, BCE}``
-    The loss functions provided by DGL-KE. Default loss is Logistic
+    The loss functions provided by DGL-KE. Default loss is Logsigmoid
 
   - ``--margin`` or ``-m``
     The margin value for hinge loss.
