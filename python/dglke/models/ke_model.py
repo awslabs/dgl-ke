@@ -33,6 +33,11 @@ import torch as th
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+# MARK - TBD use adam or adagrad
+from torch.optim import Adagrad
+
+
 from .pytorch.tensor_models import logsigmoid
 from .pytorch.tensor_models import none
 from .pytorch.score_fun import *
@@ -46,13 +51,21 @@ from .pytorch.tensor_models import floor_divide
 from .pytorch.tensor_models import ConvEmbedding
 from .pytorch.train_sampler import TrainSampler
 from .pytorch.loss import LossGenerator
+from .pytorch.score_fun import ConvEScore
 from util import *
 from dataloader import EvalDataset, TrainDataset
 from dataloader import get_dataset
 import time
+import logging
 
 EMB_INIT_EPS = 2.0
 DEFAULT_INFER_BATCHSIZE = 1024
+
+to_device = lambda x, gpu_id : x.to(th.device('cpu')) if gpu_id == -1 else x.to(th.device('cuda: %d' % gpu_id))
+none = lambda x : x
+norm = lambda x, p: x.norm(p=p)**p
+get_scalar = lambda x: x.detach().item()
+reshape = lambda arr, x, y: arr.view(x, y)
 
 class BasicGEModel(object):
     """ Basic Graph Embeding Model
@@ -984,53 +997,84 @@ class ConvEModel(BasicGEModel):
     """
     def __init__(self, args, device, model_name):
         self.args = args
-        self._dense_model = ConvEmbedding(args,
-                                         input_dim=args.hidden_dim,
+        self.eps = EMB_INIT_EPS
+        self.emb_init = (args.gamma + self.eps) / args.hidden_dim
+        self.has_edge_importance = args.has_edge_importance
+        self.lr = args.lr
+        self.dist_train = False
+        self.hidden_dim = args.hidden_dim
+        dense_model = ConvEmbedding(args,
+                                         input_dim=self.hidden_dim,
                                          tensor_height=args.tensor_height,
                                          dropout_ratio=args.dropout_ratio,
                                          batch_norm=args.batch_norm)
-        score_func = None
+        score_func = ConvEScore(dense_model)
         self._loss_gen = LossGenerator(args,
                                       args.loss_genre,
                                       args.neg_adversarial_sampling,
                                       args.adversarial_temperature,
                                       args.pairwise)
+
         super(ConvEModel, self).__init__(device, model_name, score_func)
+
+    def _initialize(self, n_entities, n_relations):
+        self._relation_emb.init(emb_init=self.emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim)
+        self._entity_emb.init(emb_init=self.emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim)
+        # use default init method for now for dense module
 
     def load(self, model_path, gpu_id=0):
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
-        def __load_dense_model():
-            file_name = os.path.join(model_path, dense_model_file)
-            # map state_dict saved in CPU to GPU/CPU
-            map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
-            self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
-            device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
-            self._dense_model.to(device)
+        # def __load_dense_model():
+        #     file_name = os.path.join(model_path, dense_model_file)
+        #     # map state_dict saved in CPU to GPU/CPU
+        #     map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
+        #     self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
+        #     device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
+        #     self._dense_model.to(device)
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
-        __load_dense_model()
+        self._score_func.load(model_path, dense_model_file)
+        # __load_dense_model()
 
 
-    def save(self, model_path):
+    def save(self, emap_file, rmap_file):
+        args = self.args
+        model_path = args.save_path
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
-        args = self.args
+        # args = self.args
 
-        def __save_dense_model():
-            file_name = os.path.join(model_path, dense_model_file)
-            if len(args.gpu) > 1:
-                state_dict = self._dense_model.module.cpu().state_dict()
-            elif args.gpu[0] == -1:
-                state_dict = self._dense_model.state_dict()
-            else:
-                state_dict = self._dense_model.cpu().state_dict()
-            th.save(state_dict, file_name)
+        # def __save_dense_model():
+        #     file_name = os.path.join(model_path, dense_model_file)
+        #     if args.gpu[0] == -1:
+        #         state_dict = self._dense_model.state_dict()
+        #     else:
+        #         state_dict = self._dense_model.cpu().state_dict()
+        #     th.save(state_dict, file_name)
+        if not os.path.exists(model_path):
+            os.mkdir(model_path)
+        print('Save model to {}'.format(args.save_path))
+
         self._entity_emb.save(model_path, entity_emb_file)
         self._relation_emb.save(model_path, relation_emb_file)
-        __save_dense_model()
+        self._score_func.save(model_path, dense_model_file)
+        # We need to save the model configurations as well.
+        conf_file = os.path.join(args.save_path, 'config.json')
+        dict = {}
+        config = args
+        dict.update(vars(config))
+        dict.update({'emp_file': emap_file,
+                     'rmap_file': rmap_file})
+        with open(conf_file, 'w') as outfile:
+            json.dump(dict, outfile, indent=4)
+
+    def share_memory(self):
+        self._entity_emb.share_memory()
+        self._relation_emb.share_memory()
+        # self._score_func.share_memory()
 
     def fit(self):
         # put it in train
@@ -1052,27 +1096,26 @@ class ConvEModel(BasicGEModel):
         # We should turn on mix CPU-GPU training for multi-GPU training.
         if len(args.gpu) > 1:
             args.mix_cpu_gpu = True
+            self.dist_train = True
             if args.num_proc < len(args.gpu):
                 args.num_proc = len(args.gpu)
         # We need to ensure that the number of processes should match the number of GPUs.
         if len(args.gpu) > 1 and args.num_proc > 1:
             assert args.num_proc % len(args.gpu) == 0, \
                 'The number of processes needs to be divisible by the number of GPUs'
-        # For multiprocessing training, we need to ensure that training processes are synchronized periodically.
-        if args.num_proc > 1:
-            args.force_sync_interval = 1000
 
         args.eval_filter = not args.no_eval_filter
         if args.neg_deg_sample_eval:
             assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
-
-        args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
         train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
-        # if there is no cross partition relaiton, we fall back to strict_rel_part
-        args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
         args.num_workers = 8 # fix num_worker to 8
 
+        self.attach_graph(train_data.g)
+        self._initialize(self.graph.num_nodes(), self.graph.num_edges())
+
         if args.num_proc > 1:
+            # share memory for multiprocess to access
+            self.share_memory()
             train_samplers = []
             for i in range(args.num_proc):
                 train_samplers += [TrainSampler(train_data=train_data,
@@ -1149,10 +1192,6 @@ class ConvEModel(BasicGEModel):
                                                                  mode='chunk-tail',
                                                                  num_workers=args.num_workers,
                                                                  rank=0, ranks=1)
-        # load model
-        if args.num_proc > 1 or args.async_update:
-            self._entity_emb.share_memory()
-            self._relation_emb.share_memory()
 
         emap_file = dataset.emap_fname
         rmap_file = dataset.rmap_fname
@@ -1167,55 +1206,54 @@ class ConvEModel(BasicGEModel):
         rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
         cross_rels = train_data.cross_rels if args.soft_rel_part else None
         if args.num_proc > 1:
-            procs = []
             barrier = mp.Barrier(args.num_proc)
-
+            valid_samplers = [valid_sampler_heads, valid_sampler_tails] if args.valid else None
+            mp.spawn(self._parallel_train, args=(train_samplers, valid_samplers, barrier))
         else:
             pass
-
         print('training takes {} seconds'.format(time.time() - start))
 
         if not args.no_save_emb:
-            save_model(args, model, emap_file, rmap_file)
+            self.save(emap_file, rmap_file)
 
-        # test
-        if args.test:
-            start = time.time()
-            if args.num_test_proc > 1:
-                queue = mp.Queue(args.num_test_proc)
-                procs = []
-                for i in range(args.num_test_proc):
-                    proc = mp.Process(target=test_mp, args=(args,
-                                                            model,
-                                                            [test_sampler_heads[i], test_sampler_tails[i]],
-                                                            i,
-                                                            'Test',
-                                                            queue))
-                    procs.append(proc)
-                    proc.start()
+        # # test
+        # if args.test:
+        #     start = time.time()
+        #     if args.num_test_proc > 1:
+        #         queue = mp.Queue(args.num_test_proc)
+        #         procs = []
+        #         for i in range(args.num_test_proc):
+        #             proc = mp.Process(target=test_mp, args=(args,
+        #                                                     model,
+        #                                                     [test_sampler_heads[i], test_sampler_tails[i]],
+        #                                                     i,
+        #                                                     'Test',
+        #                                                     queue))
+        #             procs.append(proc)
+        #             proc.start()
+        #
+        #         total_metrics = {}
+        #         metrics = {}
+        #         logs = []
+        #         for i in range(args.num_test_proc):
+        #             log = queue.get()
+        #             logs = logs + log
+        #
+        #         for metric in logs[0].keys():
+        #             metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+        #         print("-------------- Test result --------------")
+        #         for k, v in metrics.items():
+        #             print('Test average {} : {}'.format(k, v))
+        #         print("-----------------------------------------")
+        #
+        #         for proc in procs:
+        #             proc.join()
+        #     else:
+        #         test(args, model, [test_sampler_head, test_sampler_tail])
+        #     print('testing takes {:.3f} seconds'.format(time.time() - start))
 
-                total_metrics = {}
-                metrics = {}
-                logs = []
-                for i in range(args.num_test_proc):
-                    log = queue.get()
-                    logs = logs + log
-
-                for metric in logs[0].keys():
-                    metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
-                print("-------------- Test result --------------")
-                for k, v in metrics.items():
-                    print('Test average {} : {}'.format(k, v))
-                print("-----------------------------------------")
-
-                for proc in procs:
-                    proc.join()
-            else:
-                test(args, model, [test_sampler_head, test_sampler_tail])
-            print('testing takes {:.3f} seconds'.format(time.time() - start))
-
-    def _parallel_train(self, rank):
-        def setup(rank, world_size):
+    def _parallel_train(self, rank, train_samplers, valid_samplers, barrier):
+        def setup(world_size):
             # configure MASTER_ADDR and MASTER_PORT manually in command line
             os.environ['MASTER_ADDR'] = 'localhost'
             os.environ['MASTER_PORT'] = '12355'
@@ -1224,18 +1262,114 @@ class ConvEModel(BasicGEModel):
         def cleanup():
             dist.destroy_process_group()
 
+        # setup
         args = self.args
         world_size = args.num_proc * args.num_node
-        setup(rank, world_size)
+        setup(world_size)
+        valid_sampler = valid_samplers[rank]
+        train_sampler = train_samplers[rank]
+        logs = []
+        for arg in vars(args):
+            logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
+
+        if len(args.gpu) > 0:
+            gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
+        else:
+            gpu_id = -1
+        train_start = start = time.time()
+        sample_time = 0
+        update_time = 0
+        forward_time = 0
+        backward_time = 0
+
+        # make DDP model
+        ddp_score_func = DDP(self._score_func, device_ids=[gpu_id])
+
+        for step in range(0, args.max_step):
+            start1 = time.time()
+            # neg_type = head / tail
+            pos, neg, neg_type, edge_impts = next(train_sampler)
+            sample_time += time.time() - start1
+            pos_head_emb = self._entity_emb(pos['head'], gpu_id=gpu_id, trace=True)
+            pos_tail_emb = self._entity_emb(pos['tail'], gpu_id=gpu_id, trace=True)
+            pos_rel_emb = self._relation_emb(pos['rel'], gpu_id=gpu_id, trace=True)
+            edge_impts = to_device(edge_impts, gpu_id) if args.has_edge_importance else None
+            pos_emb = [pos_head_emb, pos_tail_emb, pos_rel_emb]
+            neg_emb = self._entity_emb(neg[neg_type])
+            optimizer = Adagrad(ddp_score_func.parameters(), lr=self.lr)
+            forward_time += time.time() - start1
+            loss, log = self.train_forward(ddp_score_func, pos_emb, neg_emb, neg_type, args.neg_sample_size, edge_impts)
+            start1 = time.time()
+            optimizer.zero_grad()
+            loss.backward()
+            backward_time += time.time() - start1
+            # update embedding & embedding using different tech
+            optimizer.step()
+            self.update(gpu_id)
+            start1 = time.time()
+            update_time += time.time() - start1
+            logs.append(log)
+
+            if (step + 1) % args.log_interval == 0:
+                for k in logs[0].keys():
+                    v = sum(l[k] for l in logs) / len(logs)
+                    print('[proc {}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
+                logs = []
+                print('[proc {}][Train] {} steps take {:.3f} seconds'.format(rank, args.log_interval,
+                                                                             time.time() - start))
+                print('[proc {}]sample: {:.3f}, forward: {:.3f}, backward: {:.3f}, update: {:.3f}'.format(
+                    rank, sample_time, forward_time, backward_time, update_time))
+                sample_time = 0
+                update_time = 0
+                forward_time = 0
+                backward_time = 0
+                start = time.time()
+
+            # if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
+            #     valid_start = time.time()
+            #     if args.strict_rel_part or args.soft_rel_part:
+            #         model.writeback_relation(rank, rel_parts)
+            #     # forced sync for validation
+            #     if barrier is not None:
+            #         barrier.wait()
+            #     test(args, model, valid_samplers, rank, mode='Valid')
+            #     print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
+            #     if args.soft_rel_part:
+            #         model.prepare_cross_rels(cross_rels)
+            #     if barrier is not None:
+            #         barrier.wait()
+        print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
+        cleanup()
+
+    def train_forward(self, score_func, pos_emb, neg_emb, neg_type, neg_sample_size, edge_impts=None):
+        pos_score = score_func.pos_forward(pos_emb)
+        neg_score = score_func.neg_forward(pos_emb, neg_emb, neg_type, neg_sample_size)
+        loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
+        # regularization: TODO(zihao)
+        #TODO: only reg ent&rel embeddings. other params to be added.
+        if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
+            coef, nm = self.args.regularization_coef, self.args.regularization_norm
+            reg = coef * (norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm))
+            log['regularization'] = get_scalar(reg)
+            loss = loss + reg
+        return loss, log
 
     def _single_train(self):
         pass
 
-    def _initialize(self, n_entities, n_relations):
-        args = self.args
-        rel_dim = args.hidden_dim
-        ent_dim = args.hidden_dim
-        self._relation_emb.init(emb_init=,lr=args.lr, async_threads=None, num=n_relations, dim)
-        self._entity_emb.init(emb_init=)
     def eval(self):
         pass
+
+    def forward(self, pos, neg, neg_type):
+        pass
+
+    def update(self, gpu_id):
+        self._entity_emb.update(gpu_id)
+        self._relation_emb.update(gpu_id)
+
+
+if __name__ == '__main__':
+    args = TrainArgParser().parse_args()
+    device = th.device('cpu')
+    model = ConvEModel(args, device, 'ConvE')
+    model.fit()

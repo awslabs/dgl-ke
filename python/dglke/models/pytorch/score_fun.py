@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.nn.functional as functional
 import torch.nn.init as INIT
 import numpy as np
+import os
 
 def batched_l2_dist(a, b):
     a_squared = a.norm(dim=-1).pow(2)
@@ -656,6 +657,7 @@ class ConvEScore(nn.Module):
         score = th.sum(tmp * tail, dim=-1)
         return {'score': score}
 
+
     def infer(self, head_emb, rel_emb, tail_emb):
         pass
 
@@ -675,51 +677,84 @@ class ConvEScore(nn.Module):
     def forward(self, g):
         g.apply_edges(lambda edges: self.edge_func(edges))
 
+    def pos_forward(self, pos_emb):
+        score = self.model(pos_emb['head'], pos_emb['rel'], pos_emb['tail'])
+        return score
+
+    def neg_forward(self, pos_emb, neg_emb, neg_type, neg_sample_size):
+        if neg_type == 'head':
+            heads = neg_emb['head']
+            relations = pos_emb['rel']
+            tails = pos_emb['tail']
+            batch, dim = heads.shape()
+            tmps = []
+            for i in range(neg_sample_size + 1):
+                heads = heads.reshape(-1, neg_sample_size, dim)
+                head_i = th.cat([heads[:, i:, ...], heads[:, :i, ...]], dim=1)
+                head_i = head_i.reshape(-1, dim)
+                tmp_i = self.model(head_i, relations, tails)
+                tmps += [tmp_i]
+            score = th.stack(tmps, dim=-1)
+            return score
+        else:
+            heads = pos_emb['head']
+            relations = pos_emb['rel']
+            tails = neg_emb['tail']
+            batch, dim = tails.shape()
+            tmps = []
+            for i in range(neg_sample_size + 1):
+                tails = tails.reshape(-1, neg_sample_size, dim)
+                tail_i = th.cat([tails[:, i:, ...], tails[:, :i, ...]], dim=1)
+                tail_i = tail_i.reshape(-1, dim)
+                tmp_i = self.model(heads, relations, tail_i)
+                tmps += [tmp_i]
+            score = th.stack(tmps, dim=-1)
+            return score
+
+
     def reset_parameters(self):
+        # use default init tech of pytorch
         pass
 
     def update(self, gpu_id=-1):
-        self.projection_emb.update(gpu_id)
+        pass
 
     def save(self, path, name):
-        self.projection_emb.save(path, name + 'projection')
+        file_name = os.path.join(path, name)
+        # MARK - is .cpu() available if it's already in CPU ?
+        th.save(self.cpu().state_dict(), file_name)
 
     def load(self, path, name):
-        self.projection_emb.load(path, name + 'projection')
-
-    def prepare_local_emb(self, projection_emb):
-        self.global_projection_emb = self.projection_emb
-        self.projection_emb = projection_emb
-
-    def prepare_cross_rels(self, cross_rels):
-        self.projection_emb.setup_cross_rels(cross_rels, self.global_projection_emb)
-
-    def writeback_local_emb(self, idx):
-        self.global_projection_emb.emb[idx] = self.projection_emb.emb.cpu()[idx]
-
-    def load_local_emb(self, projection_emb):
-        device = projection_emb.emb.device
-        projection_emb.emb = self.projection_emb.emb.to(device)
-        self.projection_emb = projection_emb
-
-    def share_memory(self):
-        self.projection_emb.share_memory()
+        file_name = os.path.join(path, name)
+        # TODO: lingfei determine whether to map location here
+        self.model.load(th.load(file_name))
 
     def create_neg(self, neg_head):
-        gamma = self.gamma
+
         if neg_head:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
-                relations = relations.reshape(num_chunks, -1, self.relation_dim)
-                tails = tails - relations
-                tails = tails.reshape(num_chunks, -1, 1, self.relation_dim)
-                score = heads - tails
-                return gamma - th.norm(score, p=1, dim=-1)
+                #  extreme overhead, fix later, could use multiprocess to reduce it
+                batch, dim = heads.shape()
+                tmps = []
+                for i in range(neg_sample_size + 1):
+                    heads = heads.reshape(-1, neg_sample_size, dim)
+                    head_i = th.cat([heads[:, i:, ...], heads[:, :i, ...]], dim=1)
+                    head_i = head_i.reshape(-1, dim)
+                    tmp_i = self.model(head_i, relations, tails)
+                    tmps += [tmp_i]
+                score = th.stack(tmps, dim=-1)
+                return score
             return fn
         else:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
-                relations = relations.reshape(num_chunks, -1, self.relation_dim)
-                heads = heads - relations
-                heads = heads.reshape(num_chunks, -1, 1, self.relation_dim)
-                score = heads - tails
-                return gamma - th.norm(score, p=1, dim=-1)
+                batch, dim = tails.shape()
+                tmps = []
+                for i in range(neg_sample_size + 1):
+                    tails = tails.reshape(-1, neg_sample_size, dim)
+                    tail_i = th.cat([tails[:, i:, ...], tails[:, :i, ...]], dim=1)
+                    tail_i = tail_i.reshape(-1, dim)
+                    tmp_i = self.model(heads, relations, tails)
+                    tmps += [tmp_i]
+                score = th.stack(tmps, dim=-1)
+                return score
             return fn

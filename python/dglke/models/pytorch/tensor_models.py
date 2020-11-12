@@ -392,12 +392,12 @@ class ExternalEmbedding:
 
 
 class ConvEmbedding(nn.Module):
-    def __init__(self, args, input_dim, tensor_height, dropout_ratio: tuple = (0, 0, 0), batch_norm=False):
+    def __init__(self, args, hidden_dim, tensor_height, dropout_ratio: tuple = (0, 0, 0), batch_norm=False):
         super(ConvEmbedding, self).__init__()
         # get height of reshape tensor
-        assert input_dim % tensor_height == 0, 'input dimension %d must be divisible to tensor height %d' % (input_dim, tensor_height)
+        assert hidden_dim % tensor_height == 0, 'input dimension %d must be divisible to tensor height %d' % (hidden_dim, tensor_height)
         self.h = tensor_height
-        self.w = input_dim // tensor_height
+        self.w = hidden_dim // tensor_height
         conv = []
         if batch_norm:
             conv +=[nn.BatchNorm2d(1)]
@@ -411,17 +411,18 @@ class ConvEmbedding(nn.Module):
         fc = []
         if dropout_ratio[1] != 0:
             fc += [nn.Dropout(p=dropout_ratio[1])]
-        fc += [nn.Linear(32 * input_dim * 2, input_dim)]
+        fc += [nn.Linear(32 * hidden_dim * 2, hidden_dim)]
         if dropout_ratio[2] != 0:
             fc += [nn.Dropout(p=dropout_ratio[2])]
         if batch_norm:
-            fc += [nn.BatchNorm1d(input_dim)]
+            fc += [nn.BatchNorm1d(hidden_dim)]
         self.fc = nn.Sequential(*fc)
+        self.register_parameter('b', th.nn.Parameter(th.zeros(hidden_dim)))
         # is b necessary? hard to implement for now, will see later
         # self.register_parameter('b', nn.Parameter(th.zeros()))
         # set a optimizer for itself, need to further improve this.
 
-    def forward(self, head_emb, rel_emb):
+    def forward(self, head_emb, rel_emb, tail_emb):
         """
         Parameters
         ----------
@@ -439,4 +440,9 @@ class ConvEmbedding(nn.Module):
         x = self.conv(x)
         x = x.view(x.shape[0], -1)
         x = self.fc(x)
+        x = th.mm(x, tail_emb.transpose(1, 0))
+        x += self.b.expand_as(x)
+        # we do not use sigmoid here because we can use different score function
+        # x = th.sigmoid(x)
         return x
+

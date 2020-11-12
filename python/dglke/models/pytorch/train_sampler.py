@@ -88,7 +88,8 @@ class TrainSampler(object):
             pos['tail'] = self.tails[self.iter_idx: end_iter_idx]
         # need to setup lock to avoid mess
         end_pool_idx = min(self.pool_idx + self.pool_size, len(self.node_pool))
-        neg['head' if self.step % 2 == 0 else 'tail'] = self.node_pool[self.pool_idx: end_pool_idx]
+        neg_type = 'head' if self.step % 2 == 0 else 'tail'
+        neg[neg_type] = self.node_pool[self.pool_idx: end_pool_idx]
         # neg['head' if self.step % 2 == 0 else 'tail'] = self.corrupt()
         self.iter_idx += self.batch_size
         self.pool_idx += self.pool_size
@@ -110,7 +111,7 @@ class TrainSampler(object):
             idx = th.randperm(len(self.node_pool))
             self.node_pool = self.node_pool[idx]
 
-        return pos, neg
+        return pos, neg, neg_type
 
     # def corrupt(self):
     #     # we currently only support chunk_head and chunk_tail
