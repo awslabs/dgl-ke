@@ -1003,12 +1003,12 @@ class ConvEModel(BasicGEModel):
         self.lr = args.lr
         self.dist_train = False
         self.hidden_dim = args.hidden_dim
-        dense_model = ConvEmbedding(args,
-                                         input_dim=self.hidden_dim,
+        self._dense_model = ConvEmbedding(args,
+                                         hidden_dim=self.hidden_dim,
                                          tensor_height=args.tensor_height,
                                          dropout_ratio=args.dropout_ratio,
                                          batch_norm=args.batch_norm)
-        score_func = ConvEScore(dense_model)
+        score_func = ConvEScore(None)
         self._loss_gen = LossGenerator(args,
                                       args.loss_genre,
                                       args.neg_adversarial_sampling,
@@ -1026,17 +1026,17 @@ class ConvEModel(BasicGEModel):
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
-        # def __load_dense_model():
-        #     file_name = os.path.join(model_path, dense_model_file)
-        #     # map state_dict saved in CPU to GPU/CPU
-        #     map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
-        #     self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
-        #     device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
-        #     self._dense_model.to(device)
+        def __load_dense_model():
+            file_name = os.path.join(model_path, dense_model_file)
+            # map state_dict saved in CPU to GPU/CPU
+            map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
+            self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
+            device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
+            self._dense_model.to(device)
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
-        self._score_func.load(model_path, dense_model_file)
-        # __load_dense_model()
+        # self._score_func.load(model_path, dense_model_file)
+        __load_dense_model()
 
 
     def save(self, emap_file, rmap_file):
@@ -1045,22 +1045,22 @@ class ConvEModel(BasicGEModel):
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
-        # args = self.args
 
-        # def __save_dense_model():
-        #     file_name = os.path.join(model_path, dense_model_file)
-        #     if args.gpu[0] == -1:
-        #         state_dict = self._dense_model.state_dict()
-        #     else:
-        #         state_dict = self._dense_model.cpu().state_dict()
-        #     th.save(state_dict, file_name)
+        def __save_dense_model():
+            file_name = os.path.join(model_path, dense_model_file)
+            if args.gpu[0] == -1:
+                state_dict = self._dense_model.state_dict()
+            else:
+                state_dict = self._dense_model.cpu().state_dict()
+            th.save(state_dict, file_name)
         if not os.path.exists(model_path):
             os.mkdir(model_path)
         print('Save model to {}'.format(args.save_path))
 
         self._entity_emb.save(model_path, entity_emb_file)
         self._relation_emb.save(model_path, relation_emb_file)
-        self._score_func.save(model_path, dense_model_file)
+        __save_dense_model()
+        # self._score_func.save(model_path, dense_model_file)
         # We need to save the model configurations as well.
         conf_file = os.path.join(args.save_path, 'config.json')
         dict = {}
@@ -1107,11 +1107,15 @@ class ConvEModel(BasicGEModel):
         args.eval_filter = not args.no_eval_filter
         if args.neg_deg_sample_eval:
             assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
+
+        args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
         train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
+        args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
         args.num_workers = 8 # fix num_worker to 8
 
         self.attach_graph(train_data.g)
-        self._initialize(self.graph.num_nodes(), self.graph.num_edges())
+        # need to change to num_nodes if use 0.6.0 dgl version
+        self._initialize(dataset.n_entities, dataset.n_relations)
 
         if args.num_proc > 1:
             # share memory for multiprocess to access
@@ -1205,10 +1209,21 @@ class ConvEModel(BasicGEModel):
         start = time.time()
         rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
         cross_rels = train_data.cross_rels if args.soft_rel_part else None
+        # change status to train to get gradient update
+        self._entity_emb.train()
+        self._relation_emb.train()
         if args.num_proc > 1:
             barrier = mp.Barrier(args.num_proc)
+            processes = []
             valid_samplers = [valid_sampler_heads, valid_sampler_tails] if args.valid else None
-            mp.spawn(self._parallel_train, args=(train_samplers, valid_samplers, barrier))
+            for rank in range(args.num_proc):
+                p = mp.Process(target=self._parallel_train, args=(rank, train_samplers, valid_samplers, barrier))
+                p.start()
+                processes.append(p)
+            for p in processes:
+                p.join()
+            # mp.spawn(self._parallel_train, args=(train_samplers, valid_samplers, barrier))
+
         else:
             pass
         print('training takes {} seconds'.format(time.time() - start))
@@ -1253,11 +1268,11 @@ class ConvEModel(BasicGEModel):
         #     print('testing takes {:.3f} seconds'.format(time.time() - start))
 
     def _parallel_train(self, rank, train_samplers, valid_samplers, barrier):
-        def setup(world_size):
+        def setup(ws):
             # configure MASTER_ADDR and MASTER_PORT manually in command line
-            os.environ['MASTER_ADDR'] = 'localhost'
-            os.environ['MASTER_PORT'] = '12355'
-            dist.init_process_group('nccl', rank=rank, world_size=world_size)
+            os.environ['MASTER_ADDR'] = '127.0.0.1'
+            os.environ['MASTER_PORT'] = '8888'
+            dist.init_process_group('nccl', rank=rank, world_size=ws)
 
         def cleanup():
             dist.destroy_process_group()
@@ -1266,7 +1281,7 @@ class ConvEModel(BasicGEModel):
         args = self.args
         world_size = args.num_proc * args.num_node
         setup(world_size)
-        valid_sampler = valid_samplers[rank]
+        valid_sampler = valid_samplers[rank] if args.valid else None
         train_sampler = train_samplers[rank]
         logs = []
         for arg in vars(args):
@@ -1283,7 +1298,10 @@ class ConvEModel(BasicGEModel):
         backward_time = 0
 
         # make DDP model
-        ddp_score_func = DDP(self._score_func, device_ids=[gpu_id])
+        # self._score_func = to_device(self._score_func, gpu_id)
+        self._dense_model = to_device(self._dense_model, gpu_id)
+        ddp_dense_model = DDP(self._dense_model, device_ids=[gpu_id])
+        optimizer = Adagrad(ddp_dense_model.parameters(), lr=self.lr)
 
         for step in range(0, args.max_step):
             start1 = time.time()
@@ -1294,11 +1312,13 @@ class ConvEModel(BasicGEModel):
             pos_tail_emb = self._entity_emb(pos['tail'], gpu_id=gpu_id, trace=True)
             pos_rel_emb = self._relation_emb(pos['rel'], gpu_id=gpu_id, trace=True)
             edge_impts = to_device(edge_impts, gpu_id) if args.has_edge_importance else None
-            pos_emb = [pos_head_emb, pos_tail_emb, pos_rel_emb]
-            neg_emb = self._entity_emb(neg[neg_type])
-            optimizer = Adagrad(ddp_score_func.parameters(), lr=self.lr)
+            pos_emb = {'head': pos_head_emb,
+                       'tail': pos_tail_emb,
+                       'rel': pos_rel_emb}
+            neg_emb = {neg_type: self._entity_emb(neg[neg_type], gpu_id=gpu_id, trace=True)}
             forward_time += time.time() - start1
-            loss, log = self.train_forward(ddp_score_func, pos_emb, neg_emb, neg_type, args.neg_sample_size, edge_impts)
+            th.autograd.set_detect_anomaly(True)
+            loss, log = self.train_forward(ddp_dense_model, pos_emb, neg_emb, neg_type, args.neg_sample_size, edge_impts)
             start1 = time.time()
             optimizer.zero_grad()
             loss.backward()
@@ -1341,9 +1361,41 @@ class ConvEModel(BasicGEModel):
         print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
         cleanup()
 
-    def train_forward(self, score_func, pos_emb, neg_emb, neg_type, neg_sample_size, edge_impts=None):
-        pos_score = score_func.pos_forward(pos_emb)
-        neg_score = score_func.neg_forward(pos_emb, neg_emb, neg_type, neg_sample_size)
+    def train_forward(self, dense_model, pos_emb, neg_emb, neg_type, neg_sample_size, edge_impts=None):
+        def pos_forward(pos_emb):
+            return dense_model(pos_emb['head'], pos_emb['rel'], pos_emb['tail'])
+
+        def neg_forward(pos_emb, neg_emb, neg_type, neg_sample_size):
+            if neg_type == 'head':
+                heads = neg_emb['head']
+                relations = pos_emb['rel']
+                tails = pos_emb['tail']
+                batch, dim = heads.shape
+                tmps = []
+                heads = heads.reshape(-1, neg_sample_size, dim)
+                for i in range(neg_sample_size):
+                    head_i = th.cat([heads[:, i:, ...], heads[:, :i, ...]], dim=1)
+                    head_i = head_i.reshape(-1, dim)
+                    tmp_i = dense_model(head_i, relations, tails)
+                    tmps.append(tmp_i)
+                score = th.cat(tmps, dim=-1)
+                return score
+            else:
+                heads = pos_emb['head']
+                relations = pos_emb['rel']
+                tails = neg_emb['tail']
+                batch, dim = tails.shape
+                tmps = []
+                tails = tails.reshape(-1, neg_sample_size, dim)
+                for i in range(neg_sample_size):
+                    tail_i = th.cat([tails[:, i:, ...], tails[:, :i, ...]], dim=1)
+                    tail_i = tail_i.reshape(-1, dim)
+                    tmp_i = dense_model(heads, relations, tail_i)
+                    tmps.append(tmp_i)
+                score = th.cat(tmps, dim=-1)
+                return score
+        pos_score = pos_forward(pos_emb)
+        neg_score = neg_forward(pos_emb, neg_emb, neg_type, neg_sample_size)
         loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
         # regularization: TODO(zihao)
         #TODO: only reg ent&rel embeddings. other params to be added.
@@ -1367,9 +1419,11 @@ class ConvEModel(BasicGEModel):
         self._entity_emb.update(gpu_id)
         self._relation_emb.update(gpu_id)
 
-
-if __name__ == '__main__':
+def main():
     args = TrainArgParser().parse_args()
     device = th.device('cpu')
     model = ConvEModel(args, device, 'ConvE')
     model.fit()
+
+if __name__ == '__main__':
+    main()

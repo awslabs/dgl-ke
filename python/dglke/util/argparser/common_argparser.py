@@ -6,7 +6,7 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('--model_name', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
                                    'RESCAL', 'DistMult', 'ComplEx', 'RotatE',
-                                   'SimplE'],
+                                   'SimplE', 'ConvE'],
                           help='The models provided by DGL-KE.')
         self.add_argument('--data_path', type=str, default='data',
                           help='The path of the directory where DGL-KE loads knowledge graph data.')
@@ -101,8 +101,10 @@ class CommonArgParser(argparse.ArgumentParser):
         # args for ConvE
         self.add_argument('--tensor_height', type=int, default=40,
                           help='Tensor height for ConvE. Note hidden_dim must be divisible by it')
-        self.add_argument('--dropout_ratio', type=tuple, default=(0, 0, 0),
+        self.add_argument('--dropout_ratio', type=float, nargs='+', default=0,
                           help='Dropout ratio for input, conv, linear respectively. If 0 is specified, ConvE will not use dropout for that layer')
-        self.add_argument('--batch_norm', '-bn', type=bool, default=True,
+        self.add_argument('--batch_norm', '-bn', type=bool, default=False,
                           help='Whether use batch normalization in ConvE or not')
+        self.add_argument('--seed', type=int, default=0,
+                          help='Random seed for reproducibility')
 

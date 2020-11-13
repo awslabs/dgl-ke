@@ -111,7 +111,8 @@ class TrainSampler(object):
             idx = th.randperm(len(self.node_pool))
             self.node_pool = self.node_pool[idx]
 
-        return pos, neg, neg_type
+        # use None for impts for now
+        return pos, neg, neg_type, None
 
     # def corrupt(self):
     #     # we currently only support chunk_head and chunk_tail

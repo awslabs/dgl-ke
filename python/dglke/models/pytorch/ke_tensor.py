@@ -55,6 +55,7 @@ class KGEmbedding:
         self.device = device
         self.emb = None
         self.is_train = False
+        self.async_q = None
 
     def init(self, emb_init, lr, async_threads, num=-1, dim=-1):
         """Initializing the embeddings for training.

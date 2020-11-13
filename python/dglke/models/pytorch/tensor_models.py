@@ -36,7 +36,7 @@ from functools import wraps
 
 from .. import *
 
-logsigmoid = functional.logsigmoid
+logsigmoid = th.logsigmoid
 
 def abs(val):
     return th.abs(val)
@@ -49,6 +49,9 @@ def get_dev(gpu):
 
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
+
+def floor_divide(input, other):
+    return th.floor_divide(input, other)
 
 none = lambda x : x
 norm = lambda x, p: x.norm(p=p)**p
@@ -400,10 +403,10 @@ class ConvEmbedding(nn.Module):
         self.w = hidden_dim // tensor_height
         conv = []
         if batch_norm:
-            conv +=[nn.BatchNorm2d(1)]
+            conv += [nn.BatchNorm2d(1)]
         if dropout_ratio[0] != 0:
             conv += [nn.Dropout(p=dropout_ratio[0])]
-        conv += [nn.Conv2d(1, 32, (3, 3), 1, 0, bias=args.use_bias)]
+        conv += [nn.Conv2d(1, 32, 3, 1, 1, bias=True)]
         if batch_norm:
             conv += [nn.BatchNorm2d(32)]
         conv += [nn.ReLU()]
@@ -416,8 +419,9 @@ class ConvEmbedding(nn.Module):
             fc += [nn.Dropout(p=dropout_ratio[2])]
         if batch_norm:
             fc += [nn.BatchNorm1d(hidden_dim)]
+        fc += [nn.ReLU()]
         self.fc = nn.Sequential(*fc)
-        self.register_parameter('b', th.nn.Parameter(th.zeros(hidden_dim)))
+        # self.register_parameter('b', th.nn.Parameter(th.zeros(hidden_dim)))
         # is b necessary? hard to implement for now, will see later
         # self.register_parameter('b', nn.Parameter(th.zeros()))
         # set a optimizer for itself, need to further improve this.
@@ -434,15 +438,10 @@ class ConvEmbedding(nn.Module):
         """
         # why use batch and dropout together?
         # reshape tensor to fit in conv
-        head_emb = head_emb.view(-1, 1, self.h, self.w)
-        rel_emb = rel_emb.view(-1, 1, self.h, self.w)
-        x = th.cat([head_emb, rel_emb], dim=2)
-        x = self.conv(x)
-        x = x.view(x.shape[0], -1)
-        x = self.fc(x)
-        x = th.mm(x, tail_emb.transpose(1, 0))
-        x += self.b.expand_as(x)
+        stack_input = th.cat([head_emb.view(-1, 1, self.h, self.w), rel_emb.view(-1, 1, self.h, self.w)], dim=2)
+        x = self.conv(stack_input)
+        fc_out = self.fc(x.view(x.shape[0], -1))
+        out = th.sum(fc_out * tail_emb, dim=-1, keepdim=True)
         # we do not use sigmoid here because we can use different score function
-        # x = th.sigmoid(x)
-        return x
+        return th.sigmoid(out)
 

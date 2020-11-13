@@ -22,6 +22,7 @@ import os
 import csv
 import json
 import numpy as np
+import torch as th
 
 def get_compatible_batch_size(batch_size, neg_sample_size):
     if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
@@ -205,3 +206,8 @@ def prepare_save_path(args):
 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
+
+
+def set_seed(args):
+    np.random.seed(args.seed)
+    th.manual_seed(args.seed)

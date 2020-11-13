@@ -1,4 +1,4 @@
-from .common_argparser import  CommonArgParser
+from .common_argparser import CommonArgParser
 class TrainArgParser(CommonArgParser):
     def __init__(self):
         super(TrainArgParser, self).__init__()
