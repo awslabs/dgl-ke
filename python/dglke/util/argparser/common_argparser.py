@@ -103,7 +103,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Tensor height for ConvE. Note hidden_dim must be divisible by it')
         self.add_argument('--dropout_ratio', type=float, nargs='+', default=0,
                           help='Dropout ratio for input, conv, linear respectively. If 0 is specified, ConvE will not use dropout for that layer')
-        self.add_argument('--batch_norm', '-bn', type=bool, default=False,
+        self.add_argument('--batch_norm', '-bn', type=bool, default=True,
                           help='Whether use batch normalization in ConvE or not')
         self.add_argument('--seed', type=int, default=0,
                           help='Random seed for reproducibility')

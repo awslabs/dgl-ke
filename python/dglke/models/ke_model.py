@@ -1114,6 +1114,7 @@ class ConvEModel(BasicGEModel):
         args.num_workers = 8 # fix num_worker to 8
 
         self.attach_graph(train_data.g)
+
         # need to change to num_nodes if use 0.6.0 dgl version
         self._initialize(dataset.n_entities, dataset.n_relations)
 
@@ -1136,7 +1137,7 @@ class ConvEModel(BasicGEModel):
 
 
         else: # This is used for debug
-            train_sampler = TrainSampler(train_data=train_data,
+            train_samplers = [TrainSampler(train_data=train_data,
                                          rank=0,
                                          batch_size=args.batch_size,
                                          shuffle=True,
@@ -1146,8 +1147,7 @@ class ConvEModel(BasicGEModel):
                                          exclude_positive=False,
                                          replacement=False,
                                          reset=True,
-                                         drop_last=True)
-
+                                         drop_last=True)]
 
         if args.valid or args.test:
             if len(args.gpu) > 1:
@@ -1182,20 +1182,20 @@ class ConvEModel(BasicGEModel):
                     valid_sampler_heads.append(valid_sampler_head)
                     valid_sampler_tails.append(valid_sampler_tail)
             else: # This is used for debug
-                valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                valid_sampler_heads = [eval_dataset.create_sampler('valid', args.batch_size_eval,
                                                                  args.neg_sample_size_eval,
                                                                  args.neg_sample_size_eval,
                                                                  args.eval_filter,
                                                                  mode='chunk-head',
                                                                  num_workers=args.num_workers,
-                                                                 rank=0, ranks=1)
-                valid_sampler_tail = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                 rank=0, ranks=1)]
+                valid_sampler_tails = [eval_dataset.create_sampler('valid', args.batch_size_eval,
                                                                  args.neg_sample_size_eval,
                                                                  args.neg_sample_size_eval,
                                                                  args.eval_filter,
                                                                  mode='chunk-tail',
                                                                  num_workers=args.num_workers,
-                                                                 rank=0, ranks=1)
+                                                                 rank=0, ranks=1)]
 
         emap_file = dataset.emap_fname
         rmap_file = dataset.rmap_fname
@@ -1212,20 +1212,19 @@ class ConvEModel(BasicGEModel):
         # change status to train to get gradient update
         self._entity_emb.train()
         self._relation_emb.train()
+        valid_samplers = [valid_sampler_heads, valid_sampler_tails] if args.valid else None
         if args.num_proc > 1:
-            barrier = mp.Barrier(args.num_proc)
+            # barrier = mp.Barrier(args.num_proc)
             processes = []
-            valid_samplers = [valid_sampler_heads, valid_sampler_tails] if args.valid else None
             for rank in range(args.num_proc):
-                p = mp.Process(target=self._parallel_train, args=(rank, train_samplers, valid_samplers, barrier))
+                p = mp.Process(target=self.train_proc, args=(rank, train_samplers, valid_samplers))
                 p.start()
                 processes.append(p)
             for p in processes:
                 p.join()
             # mp.spawn(self._parallel_train, args=(train_samplers, valid_samplers, barrier))
-
         else:
-            pass
+            self.train_proc(rank=0, train_samplers=train_samplers, valid_samplers=valid_samplers)
         print('training takes {} seconds'.format(time.time() - start))
 
         if not args.no_save_emb:
@@ -1267,45 +1266,61 @@ class ConvEModel(BasicGEModel):
         #         test(args, model, [test_sampler_head, test_sampler_tail])
         #     print('testing takes {:.3f} seconds'.format(time.time() - start))
 
-    def _parallel_train(self, rank, train_samplers, valid_samplers, barrier):
-        def setup(ws):
-            # configure MASTER_ADDR and MASTER_PORT manually in command line
-            os.environ['MASTER_ADDR'] = '127.0.0.1'
-            os.environ['MASTER_PORT'] = '8888'
-            dist.init_process_group('nccl', rank=rank, world_size=ws)
+    def train_proc(self, rank, train_samplers, valid_samplers):
+        def setup_model(_rank, _world_size, _gpu_id, _dist_train=True):
+            # self._score_func = to_device(self._score_func, gpu_id)
+            self._dense_model = to_device(self._dense_model, _gpu_id)
 
-        def cleanup():
-            dist.destroy_process_group()
+            if _dist_train:
+                # configure MASTER_ADDR and MASTER_PORT manually in command line
+                os.environ['MASTER_ADDR'] = '127.0.0.1'
+                os.environ['MASTER_PORT'] = '8888'
+                dist.init_process_group('nccl', rank=_rank, world_size=_world_size)
+
+            # make DDP model
+            # broadcast_buffers=False to enable batch normalization
+            dense_model = self._dense_model if not _dist_train else \
+                DDP(self._dense_model, device_ids=[_gpu_id], broadcast_buffers=False)
+            return dense_model
+
+        def cleanup(_dist_train=True):
+            if _dist_train:
+                dist.destroy_process_group()
+            else:
+                pass
 
         # setup
         args = self.args
         world_size = args.num_proc * args.num_node
-        setup(world_size)
+
+        # to determine if it's parallel training or not
+        dist_train = world_size != 1
+
+        if len(args.gpu) > 0:
+            gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
+        else:
+            gpu_id = -1
+
+        dense_model = setup_model(rank, world_size, gpu_id, dist_train)
+
+        optimizer = Adagrad(dense_model.parameters(), lr=self.lr, weight_decay=args.regularization_coef if args.regularization_norm else 0)
+
         valid_sampler = valid_samplers[rank] if args.valid else None
         train_sampler = train_samplers[rank]
         logs = []
         for arg in vars(args):
             logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
 
-        if len(args.gpu) > 0:
-            gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
-        else:
-            gpu_id = -1
         train_start = start = time.time()
         sample_time = 0
         update_time = 0
         forward_time = 0
         backward_time = 0
 
-        # make DDP model
-        # self._score_func = to_device(self._score_func, gpu_id)
-        self._dense_model = to_device(self._dense_model, gpu_id)
-        ddp_dense_model = DDP(self._dense_model, device_ids=[gpu_id])
-        optimizer = Adagrad(ddp_dense_model.parameters(), lr=self.lr)
 
         for step in range(0, args.max_step):
             start1 = time.time()
-            # neg_type = head / tail
+            # neg_type \in ['head', 'tail']
             pos, neg, neg_type, edge_impts = next(train_sampler)
             sample_time += time.time() - start1
             pos_head_emb = self._entity_emb(pos['head'], gpu_id=gpu_id, trace=True)
@@ -1317,14 +1332,17 @@ class ConvEModel(BasicGEModel):
                        'rel': pos_rel_emb}
             neg_emb = {neg_type: self._entity_emb(neg[neg_type], gpu_id=gpu_id, trace=True)}
             forward_time += time.time() - start1
-            th.autograd.set_detect_anomaly(True)
-            loss, log = self.train_forward(ddp_dense_model, pos_emb, neg_emb, neg_type, args.neg_sample_size, edge_impts)
+            # this is for debug
+            # th.autograd.set_detect_anomaly(True)
+            loss, log = self.train_forward(dense_model, pos_emb, neg_emb, neg_type, args.neg_sample_size, edge_impts)
             start1 = time.time()
             optimizer.zero_grad()
             loss.backward()
             backward_time += time.time() - start1
-            # update embedding & embedding using different tech
+            # update embedding & dense_model using different optimizer, for dense_model, use regular pytorch optimizer
+            # for embedding, use built-in Adagrad sync/async optimizer
             optimizer.step()
+
             self.update(gpu_id)
             start1 = time.time()
             update_time += time.time() - start1
@@ -1345,21 +1363,24 @@ class ConvEModel(BasicGEModel):
                 backward_time = 0
                 start = time.time()
 
-            # if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
-            #     valid_start = time.time()
-            #     if args.strict_rel_part or args.soft_rel_part:
-            #         model.writeback_relation(rank, rel_parts)
-            #     # forced sync for validation
-            #     if barrier is not None:
-            #         barrier.wait()
-            #     test(args, model, valid_samplers, rank, mode='Valid')
-            #     print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
-            #     if args.soft_rel_part:
-            #         model.prepare_cross_rels(cross_rels)
-            #     if barrier is not None:
-            #         barrier.wait()
+            if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
+                valid_start = time.time()
+                # for async update
+                # if args.strict_rel_part or args.soft_rel_part:
+                #     model.writeback_relation(rank, rel_parts)
+                # forced sync for validation
+                if dist_train:
+                    th.distributed.barrier()
+                test(args, model, valid_samplers, rank, mode='Valid')
+                print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
+                if args.soft_rel_part:
+                    model.prepare_cross_rels(cross_rels)
+                if barrier is not None:
+                    barrier.wait()
         print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
-        cleanup()
+
+        if dist_train:
+            cleanup()
 
     def train_forward(self, dense_model, pos_emb, neg_emb, neg_type, neg_sample_size, edge_impts=None):
         def pos_forward(pos_emb):
@@ -1373,6 +1394,7 @@ class ConvEModel(BasicGEModel):
                 batch, dim = heads.shape
                 tmps = []
                 heads = heads.reshape(-1, neg_sample_size, dim)
+                # MARK - overhead is here, use broadcast concatenation
                 for i in range(neg_sample_size):
                     head_i = th.cat([heads[:, i:, ...], heads[:, :i, ...]], dim=1)
                     head_i = head_i.reshape(-1, dim)
@@ -1401,13 +1423,11 @@ class ConvEModel(BasicGEModel):
         #TODO: only reg ent&rel embeddings. other params to be added.
         if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
             coef, nm = self.args.regularization_coef, self.args.regularization_norm
+            # todo: lingfei modify this to add dense_model parameters as well
             reg = coef * (norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm))
             log['regularization'] = get_scalar(reg)
             loss = loss + reg
         return loss, log
-
-    def _single_train(self):
-        pass
 
     def eval(self):
         pass

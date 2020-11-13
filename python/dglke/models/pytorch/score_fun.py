@@ -650,11 +650,10 @@ class ConvEScore(nn.Module):
         self.model = model
 
     def edge_func(self, edges):
-        head = edges.data['head_emb']
-        tail = edges.data['tail_emb']
+        head = edges.src['emb']
+        tail = edges.dst['emb']
         rel = edges.data['emb']
-        tmp = self.model(head, rel)
-        score = th.sum(tmp * tail, dim=-1)
+        score = self.model(head, rel, tail)
         return {'score': score}
 
 
@@ -674,42 +673,12 @@ class ConvEScore(nn.Module):
                 return head, tail
             return fn
 
-    def forward(self, g):
-        g.apply_edges(lambda edges: self.edge_func(edges))
+    # def forward(self, g):
+    #     g.apply_edges(lambda edges: self.edge_func(edges))
 
-    def pos_forward(self, pos_emb):
-        score = self.model(pos_emb['head'], pos_emb['rel'], pos_emb['tail'])
-        return score
+    def forward(self, head, rel, tail):
+        return self.model(head, rel, tail)
 
-    def neg_forward(self, pos_emb, neg_emb, neg_type, neg_sample_size):
-        if neg_type == 'head':
-            heads = neg_emb['head']
-            relations = pos_emb['rel']
-            tails = pos_emb['tail']
-            batch, dim = heads.shape()
-            tmps = []
-            for i in range(neg_sample_size + 1):
-                heads = heads.reshape(-1, neg_sample_size, dim)
-                head_i = th.cat([heads[:, i:, ...], heads[:, :i, ...]], dim=1)
-                head_i = head_i.reshape(-1, dim)
-                tmp_i = self.model(head_i, relations, tails)
-                tmps += [tmp_i]
-            score = th.stack(tmps, dim=-1)
-            return score
-        else:
-            heads = pos_emb['head']
-            relations = pos_emb['rel']
-            tails = neg_emb['tail']
-            batch, dim = tails.shape()
-            tmps = []
-            for i in range(neg_sample_size + 1):
-                tails = tails.reshape(-1, neg_sample_size, dim)
-                tail_i = th.cat([tails[:, i:, ...], tails[:, :i, ...]], dim=1)
-                tail_i = tail_i.reshape(-1, dim)
-                tmp_i = self.model(heads, relations, tail_i)
-                tmps += [tmp_i]
-            score = th.stack(tmps, dim=-1)
-            return score
 
 
     def reset_parameters(self):
@@ -730,7 +699,6 @@ class ConvEScore(nn.Module):
         self.model.load(th.load(file_name))
 
     def create_neg(self, neg_head):
-
         if neg_head:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
                 #  extreme overhead, fix later, could use multiprocess to reduce it
