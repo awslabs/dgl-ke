@@ -60,7 +60,7 @@ Learn more details with our [documentation](https://aws-dglke.readthedocs.io/en/
 
 If you use DGL-KE in a scientific publication, we would appreciate citations to the following paper:
 
-```
+```bibtex
 @inproceedings{DGL-KE,
 author = {Zheng, Da and Song, Xiang and Ma, Chao and Tan, Zeyuan and Ye, Zihao and Dong, Jin and Xiong, Hao and Zhang, Zheng and Karypis, George},
 title = {DGL-KE: Training Knowledge Graph Embeddings at Scale},
