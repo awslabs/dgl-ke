@@ -24,6 +24,8 @@ import json
 import numpy as np
 import torch as th
 
+
+
 def get_compatible_batch_size(batch_size, neg_sample_size):
     if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
         old_batch_size = batch_size

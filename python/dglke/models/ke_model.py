@@ -32,10 +32,12 @@ import dgl
 import torch as th
 import torch.multiprocessing as mp
 import torch.distributed as dist
+import numpy as np
 
-from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel
 # MARK - TBD use adam or adagrad
 from torch.optim import Adagrad
+from torch.utils.data import DataLoader
 
 
 from .pytorch.tensor_models import logsigmoid
@@ -48,12 +50,11 @@ from .pytorch.tensor_models import l1_dist
 from .pytorch.tensor_models import dot_dist
 from .pytorch.tensor_models import extended_jaccard_dist
 from .pytorch.tensor_models import floor_divide
-from .pytorch.tensor_models import ConvEmbedding
 from .pytorch.train_sampler import TrainSampler
 from .pytorch.loss import LossGenerator
 from .pytorch.score_fun import ConvEScore
 from util import *
-from dataloader import EvalDataset, TrainDataset
+from dataloader import EvalDataset, TrainDataset, SubDataset
 from dataloader import get_dataset
 import time
 import logging
@@ -1003,12 +1004,11 @@ class ConvEModel(BasicGEModel):
         self.lr = args.lr
         self.dist_train = False
         self.hidden_dim = args.hidden_dim
-        self._dense_model = ConvEmbedding(args,
-                                         hidden_dim=self.hidden_dim,
-                                         tensor_height=args.tensor_height,
-                                         dropout_ratio=args.dropout_ratio,
-                                         batch_norm=args.batch_norm)
-        score_func = ConvEScore(None)
+        score_func = ConvEScore(args,
+                                hidden_dim=self.hidden_dim,
+                                tensor_height=args.tensor_height,
+                                dropout_ratio=args.dropout_ratio,
+                                batch_norm=args.batch_norm)
         self._loss_gen = LossGenerator(args,
                                       args.loss_genre,
                                       args.neg_adversarial_sampling,
@@ -1026,17 +1026,17 @@ class ConvEModel(BasicGEModel):
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
-        def __load_dense_model():
-            file_name = os.path.join(model_path, dense_model_file)
-            # map state_dict saved in CPU to GPU/CPU
-            map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
-            self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
-            device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
-            self._dense_model.to(device)
+        # def __load_dense_model():
+        #     file_name = os.path.join(model_path, dense_model_file)
+        #     # map state_dict saved in CPU to GPU/CPU
+        #     map_location = {'cpu': ('cpu' if gpu_id == -1 else 'cuda: %d' % gpu_id)}
+        #     self._dense_model.load_state_dict(th.load(file_name, map_location=map_location))
+        #     device = th.device('cpu') if gpu_id == -1 else th.device('cuda: %d' % gpu_id)
+        #     self._dense_model.to(device)
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
-        # self._score_func.load(model_path, dense_model_file)
-        __load_dense_model()
+        self._score_func.load(model_path, dense_model_file)
+        # __load_dense_model()
 
 
     def save(self, emap_file, rmap_file):
@@ -1046,21 +1046,21 @@ class ConvEModel(BasicGEModel):
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
 
-        def __save_dense_model():
-            file_name = os.path.join(model_path, dense_model_file)
-            if args.gpu[0] == -1:
-                state_dict = self._dense_model.state_dict()
-            else:
-                state_dict = self._dense_model.cpu().state_dict()
-            th.save(state_dict, file_name)
+        # def __save_dense_model():
+        #     file_name = os.path.join(model_path, dense_model_file)
+        #     if args.gpu[0] == -1:
+        #         state_dict = self._dense_model.state_dict()
+        #     else:
+        #         state_dict = self._dense_model.cpu().state_dict()
+        #     th.save(state_dict, file_name)
         if not os.path.exists(model_path):
             os.mkdir(model_path)
         print('Save model to {}'.format(args.save_path))
 
         self._entity_emb.save(model_path, entity_emb_file)
         self._relation_emb.save(model_path, relation_emb_file)
-        __save_dense_model()
-        # self._score_func.save(model_path, dense_model_file)
+        # __save_dense_model()
+        self._score_func.module.save(model_path, dense_model_file) if hasattr(self._score_func, 'module') else self._score_func.save(model_path, dense_model_file)
         # We need to save the model configurations as well.
         conf_file = os.path.join(args.save_path, 'config.json')
         dict = {}
@@ -1075,6 +1075,16 @@ class ConvEModel(BasicGEModel):
         self._entity_emb.share_memory()
         self._relation_emb.share_memory()
         # self._score_func.share_memory()
+
+    def to_train(self):
+        self._entity_emb.train()
+        self._relation_emb.train()
+        self._score_func.train()
+
+    def to_eval(self):
+        self._entity_emb.eval()
+        self._relation_emb.eval()
+        self._score_func.eval()
 
     def fit(self):
         # put it in train
@@ -1110,7 +1120,7 @@ class ConvEModel(BasicGEModel):
 
         args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
         train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
-        args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
+        args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part is False)
         args.num_workers = 8 # fix num_worker to 8
 
         self.attach_graph(train_data.g)
@@ -1121,34 +1131,8 @@ class ConvEModel(BasicGEModel):
         if args.num_proc > 1:
             # share memory for multiprocess to access
             self.share_memory()
-            train_samplers = []
-            for i in range(args.num_proc):
-                train_samplers += [TrainSampler(train_data=train_data,
-                                                rank=i,
-                                                batch_size=args.batch_size,
-                                                shuffle=True,
-                                                rel_weight=None,
-                                                neg_sample_size=args.neg_sample_size,
-                                                chunk_size=args.neg_sample_size,
-                                                exclude_positive=False,
-                                                replacement=False,
-                                                reset=True,
-                                                drop_last=True)]
 
-
-        else: # This is used for debug
-            train_samplers = [TrainSampler(train_data=train_data,
-                                         rank=0,
-                                         batch_size=args.batch_size,
-                                         shuffle=True,
-                                         rel_weight=None,
-                                         neg_sample_size=args.neg_sample_size,
-                                         chunk_size=args.neg_sample_size,
-                                         exclude_positive=False,
-                                         replacement=False,
-                                         reset=True,
-                                         drop_last=True)]
-
+        eval_dataset = None
         if args.valid or args.test:
             if len(args.gpu) > 1:
                 args.num_test_proc = args.num_proc if args.num_proc < len(args.gpu) else len(args.gpu)
@@ -1160,48 +1144,8 @@ class ConvEModel(BasicGEModel):
                 assert dataset.test is not None, 'test set is not provided'
             eval_dataset = EvalDataset(dataset, args)
 
-        if args.valid:
-            if args.num_proc > 1:
-                valid_sampler_heads = []
-                valid_sampler_tails = []
-                for i in range(args.num_proc):
-                    valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
-                                                                     args.neg_sample_size_eval,
-                                                                     args.neg_sample_size_eval,
-                                                                     args.eval_filter,
-                                                                     mode='chunk-head',
-                                                                     num_workers=args.num_workers,
-                                                                     rank=i, ranks=args.num_proc)
-                    valid_sampler_tail = eval_dataset.create_sampler('valid', args.batch_size_eval,
-                                                                     args.neg_sample_size_eval,
-                                                                     args.neg_sample_size_eval,
-                                                                     args.eval_filter,
-                                                                     mode='chunk-tail',
-                                                                     num_workers=args.num_workers,
-                                                                     rank=i, ranks=args.num_proc)
-                    valid_sampler_heads.append(valid_sampler_head)
-                    valid_sampler_tails.append(valid_sampler_tail)
-            else: # This is used for debug
-                valid_sampler_heads = [eval_dataset.create_sampler('valid', args.batch_size_eval,
-                                                                 args.neg_sample_size_eval,
-                                                                 args.neg_sample_size_eval,
-                                                                 args.eval_filter,
-                                                                 mode='chunk-head',
-                                                                 num_workers=args.num_workers,
-                                                                 rank=0, ranks=1)]
-                valid_sampler_tails = [eval_dataset.create_sampler('valid', args.batch_size_eval,
-                                                                 args.neg_sample_size_eval,
-                                                                 args.neg_sample_size_eval,
-                                                                 args.eval_filter,
-                                                                 mode='chunk-tail',
-                                                                 num_workers=args.num_workers,
-                                                                 rank=0, ranks=1)]
-
         emap_file = dataset.emap_fname
         rmap_file = dataset.rmap_fname
-        # We need to free all memory referenced by dataset.
-        eval_dataset = None
-        dataset = None
 
         print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
 
@@ -1209,104 +1153,93 @@ class ConvEModel(BasicGEModel):
         start = time.time()
         rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
         cross_rels = train_data.cross_rels if args.soft_rel_part else None
+
         # change status to train to get gradient update
-        self._entity_emb.train()
-        self._relation_emb.train()
-        valid_samplers = [valid_sampler_heads, valid_sampler_tails] if args.valid else None
+        self.to_train()
+
         if args.num_proc > 1:
             # barrier = mp.Barrier(args.num_proc)
             processes = []
             for rank in range(args.num_proc):
-                p = mp.Process(target=self.train_proc, args=(rank, train_samplers, valid_samplers))
+                p = mp.Process(target=self.train_proc, args=(rank, train_data, eval_dataset))
                 p.start()
                 processes.append(p)
             for p in processes:
                 p.join()
-            # mp.spawn(self._parallel_train, args=(train_samplers, valid_samplers, barrier))
         else:
-            self.train_proc(rank=0, train_samplers=train_samplers, valid_samplers=valid_samplers)
+            self.train_proc(0, train_data, eval_dataset)
         print('training takes {} seconds'.format(time.time() - start))
 
         if not args.no_save_emb:
             self.save(emap_file, rmap_file)
 
-        # # test
-        # if args.test:
-        #     start = time.time()
-        #     if args.num_test_proc > 1:
-        #         queue = mp.Queue(args.num_test_proc)
-        #         procs = []
-        #         for i in range(args.num_test_proc):
-        #             proc = mp.Process(target=test_mp, args=(args,
-        #                                                     model,
-        #                                                     [test_sampler_heads[i], test_sampler_tails[i]],
-        #                                                     i,
-        #                                                     'Test',
-        #                                                     queue))
-        #             procs.append(proc)
-        #             proc.start()
-        #
-        #         total_metrics = {}
-        #         metrics = {}
-        #         logs = []
-        #         for i in range(args.num_test_proc):
-        #             log = queue.get()
-        #             logs = logs + log
-        #
-        #         for metric in logs[0].keys():
-        #             metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
-        #         print("-------------- Test result --------------")
-        #         for k, v in metrics.items():
-        #             print('Test average {} : {}'.format(k, v))
-        #         print("-----------------------------------------")
-        #
-        #         for proc in procs:
-        #             proc.join()
-        #     else:
-        #         test(args, model, [test_sampler_head, test_sampler_tail])
-        #     print('testing takes {:.3f} seconds'.format(time.time() - start))
+        # test
+        if args.test:
+            start = time.time()
+            if args.num_test_proc > 1:
+                queue = mp.Queue(args.num_test_proc)
+                procs = []
+                for i in range(args.num_test_proc):
+                    proc = mp.Process(target=self.eval_proc, args=(i, eval_dataset, 'test', queue))
+                    procs.append(proc)
+                    proc.start()
 
-    def train_proc(self, rank, train_samplers, valid_samplers):
-        def setup_model(_rank, _world_size, _gpu_id, _dist_train=True):
-            # self._score_func = to_device(self._score_func, gpu_id)
-            self._dense_model = to_device(self._dense_model, _gpu_id)
+                metrics = {}
+                logs = []
+                for i in range(args.num_test_proc):
+                    log = queue.get()
+                    logs = logs + log
 
-            if _dist_train:
-                # configure MASTER_ADDR and MASTER_PORT manually in command line
-                os.environ['MASTER_ADDR'] = '127.0.0.1'
-                os.environ['MASTER_PORT'] = '8888'
-                dist.init_process_group('nccl', rank=_rank, world_size=_world_size)
+                for metric in logs[0].keys():
+                    metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+                print("-------------- Test result --------------")
+                for k, v in metrics.items():
+                    print('Test average {} : {}'.format(k, v))
+                print("-----------------------------------------")
 
-            # make DDP model
-            # broadcast_buffers=False to enable batch normalization
-            dense_model = self._dense_model if not _dist_train else \
-                DDP(self._dense_model, device_ids=[_gpu_id], broadcast_buffers=False)
-            return dense_model
-
-        def cleanup(_dist_train=True):
-            if _dist_train:
-                dist.destroy_process_group()
+                for proc in procs:
+                    proc.join()
             else:
-                pass
+                self.eval_proc(rank=0, eval_dataset=eval_dataset, mode='test')
+            print('testing takes {:.3f} seconds'.format(time.time() - start))
 
+    # misc for DataParallelTraining
+    def setup_model(self, rank, world_size, gpu_id):
+        dist_train = world_size != 1
+        self._score_func = to_device(self._score_func, gpu_id)
+        # self._dense_model = to_device(self._dense_model, _gpu_id)
+
+        if dist_train:
+            # configure MASTER_ADDR and MASTER_PORT manually in command line
+            os.environ['MASTER_ADDR'] = '127.0.0.1'
+            os.environ['MASTER_PORT'] = '8888'
+            dist.init_process_group('nccl', rank=rank, world_size=world_size)
+
+        # make DDP model
+        # broadcast_buffers=False to enable batch normalization
+        self._score_func = self._score_func if not dist_train else \
+            DistributedDataParallel(self._score_func, device_ids=[gpu_id], broadcast_buffers=False)
+
+    def cleanup(self, dist_train=True):
+        if dist_train:
+            dist.destroy_process_group()
+        else:
+            pass
+
+    def train_proc(self, rank, train_dataset, eval_dataset):
         # setup
         args = self.args
         world_size = args.num_proc * args.num_node
-
-        # to determine if it's parallel training or not
         dist_train = world_size != 1
-
         if len(args.gpu) > 0:
             gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
         else:
             gpu_id = -1
 
-        dense_model = setup_model(rank, world_size, gpu_id, dist_train)
+        self.setup_model(rank, world_size, gpu_id)
 
-        optimizer = Adagrad(dense_model.parameters(), lr=self.lr, weight_decay=args.regularization_coef if args.regularization_norm else 0)
+        optimizer = Adagrad(self._score_func.parameters(), lr=self.lr, weight_decay=args.regularization_coef if args.regularization_norm else 0)
 
-        valid_sampler = valid_samplers[rank] if args.valid else None
-        train_sampler = train_samplers[rank]
         logs = []
         for arg in vars(args):
             logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
@@ -1317,32 +1250,39 @@ class ConvEModel(BasicGEModel):
         forward_time = 0
         backward_time = 0
 
+        dataloader = DataLoader(dataset=SubDataset(train_dataset, rank, world_size, 'train'),
+                                batch_size=args.batch_size,
+                                shuffle=False,
+                                num_workers=args.num_workers,
+                                drop_last=True)
 
         for step in range(0, args.max_step):
+            neg_type = 'head' if step % 2 == 0 else 'tail'
             start1 = time.time()
-            # neg_type \in ['head', 'tail']
-            pos, neg, neg_type, edge_impts = next(train_sampler)
+            # get pos training data
+            try:
+                data = next(iterator)
+            except (UnboundLocalError, StopIteration):
+                # shuffle false negative sample
+                dataloader.dataset.shuffle_neg_sample()
+                iterator = iter(dataloader)
+                data = next(iterator)
+
             sample_time += time.time() - start1
-            pos_head_emb = self._entity_emb(pos['head'], gpu_id=gpu_id, trace=True)
-            pos_tail_emb = self._entity_emb(pos['tail'], gpu_id=gpu_id, trace=True)
-            pos_rel_emb = self._relation_emb(pos['rel'], gpu_id=gpu_id, trace=True)
-            edge_impts = to_device(edge_impts, gpu_id) if args.has_edge_importance else None
-            pos_emb = {'head': pos_head_emb,
-                       'tail': pos_tail_emb,
-                       'rel': pos_rel_emb}
-            neg_emb = {neg_type: self._entity_emb(neg[neg_type], gpu_id=gpu_id, trace=True)}
+
+            loss, log = self.forward(data, neg_type, gpu_id, mode='train')
+
             forward_time += time.time() - start1
-            # this is for debug
-            # th.autograd.set_detect_anomaly(True)
-            loss, log = self.train_forward(dense_model, pos_emb, neg_emb, neg_type, args.neg_sample_size, edge_impts)
+
             start1 = time.time()
+
             optimizer.zero_grad()
             loss.backward()
+
             backward_time += time.time() - start1
             # update embedding & dense_model using different optimizer, for dense_model, use regular pytorch optimizer
             # for embedding, use built-in Adagrad sync/async optimizer
             optimizer.step()
-
             self.update(gpu_id)
             start1 = time.time()
             update_time += time.time() - start1
@@ -1363,7 +1303,7 @@ class ConvEModel(BasicGEModel):
                 backward_time = 0
                 start = time.time()
 
-            if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
+            if args.valid and (step + 1) % args.eval_interval == 0 and step > 1 and eval_dataset is not None:
                 valid_start = time.time()
                 # for async update
                 # if args.strict_rel_part or args.soft_rel_part:
@@ -1371,71 +1311,169 @@ class ConvEModel(BasicGEModel):
                 # forced sync for validation
                 if dist_train:
                     th.distributed.barrier()
-                test(args, model, valid_samplers, rank, mode='Valid')
+                self.eval_proc(rank, eval_dataset, mode='eval')
                 print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
-                if args.soft_rel_part:
-                    model.prepare_cross_rels(cross_rels)
-                if barrier is not None:
-                    barrier.wait()
         print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
 
-        if dist_train:
-            cleanup()
+        self.cleanup(dist_train)
 
-    def train_forward(self, dense_model, pos_emb, neg_emb, neg_type, neg_sample_size, edge_impts=None):
-        def pos_forward(pos_emb):
-            return dense_model(pos_emb['head'], pos_emb['rel'], pos_emb['tail'])
+    def eval_proc(self, rank, eval_dataset, mode='eval', queue=None):
+        args = self.args
+        if len(args.gpu) > 0:
+            gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
+        else:
+            gpu_id = -1
 
-        def neg_forward(pos_emb, neg_emb, neg_type, neg_sample_size):
-            if neg_type == 'head':
-                heads = neg_emb['head']
-                relations = pos_emb['rel']
-                tails = pos_emb['tail']
-                batch, dim = heads.shape
-                tmps = []
-                heads = heads.reshape(-1, neg_sample_size, dim)
-                # MARK - overhead is here, use broadcast concatenation
-                for i in range(neg_sample_size):
-                    head_i = th.cat([heads[:, i:, ...], heads[:, :i, ...]], dim=1)
-                    head_i = head_i.reshape(-1, dim)
-                    tmp_i = dense_model(head_i, relations, tails)
-                    tmps.append(tmp_i)
-                score = th.cat(tmps, dim=-1)
-                return score
+        world_size = args.num_proc * args.num_node
+        dist_train = world_size != 1
+
+        self.to_eval()
+
+        if mode != 'eval':
+            self.setup_model(rank, world_size, gpu_id)
+
+        dataloader = DataLoader(dataset=SubDataset(eval_dataset, rank, world_size, mode),
+                                batch_size=args.batch_size,
+                                shuffle=True,
+                                num_workers=args.num_workers,
+                                drop_last=True)
+        with th.no_grad():
+            logs = []
+            step = 0
+            dataloader.dataset.shuffle_neg_sample()
+            iterator = iter(dataloader)
+            for data in iterator:
+                neg_type = 'head' if step % 2 == 0 else 'tail'
+                log = self.forward(data, neg_type, gpu_id, mode, eval, eval_dataset.g)
+                logs.append(*log)
+                step += 1
+
+            if queue is not None:
+                queue.put(logs)
             else:
-                heads = pos_emb['head']
-                relations = pos_emb['rel']
-                tails = neg_emb['tail']
-                batch, dim = tails.shape
-                tmps = []
-                tails = tails.reshape(-1, neg_sample_size, dim)
-                for i in range(neg_sample_size):
-                    tail_i = th.cat([tails[:, i:, ...], tails[:, :i, ...]], dim=1)
-                    tail_i = tail_i.reshape(-1, dim)
-                    tmp_i = dense_model(heads, relations, tail_i)
-                    tmps.append(tmp_i)
-                score = th.cat(tmps, dim=-1)
-                return score
+                metrics = {}
+                if len(logs) > 0:
+                    for metric in logs[0].keys():
+                        metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+                for k, v in metrics.items():
+                    print('[{}]{} average {}: {}'.format(rank, mode, k, v))
+
+        if mode != 'eval':
+            self.cleanup(dist_train)
+        else:
+            self.to_train()
+
+    def forward(self, data, neg_type, gpu_id, mode='train', g=None):
+
+        def pos_forward(pos_emb):
+            concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(self._score_func, 'module') \
+                else self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2)
+            return self._score_func(concat_emb, pos_emb['tail'])
+
+        def neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
+            if neg_type == 'head':
+                concat_emb = self._score_func.module.broadcast_concat(neg_emb['head'], pos_emb['rel'], chunk_size=chunk_size, neg_sample_size=neg_sample_size) if hasattr(self._score_func, 'module') \
+                    else self._score_func.broadcast_concat(neg_emb['head'], pos_emb['rel'], chunk_size=chunk_size, neg_sample_size=neg_sample_size)
+                tail_emb = pos_emb['tail'].repeat(neg_sample_size, 1)
+            else:
+                concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(self._score_func, 'module') \
+                    else self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2)
+                _,  h, w = concat_emb.shape
+                concat_emb = concat_emb.view(-1, chunk_size, h, w)
+                concat_emb = concat_emb.unsqueeze(1).repeat(1, neg_sample_size, 1, 1, 1).reshape(-1, h, w).continguous()
+
+                tail_emb = neg_emb['tail']
+                _, emb_dim = tail_emb.shape
+                tail_emb = tail_emb.view(-1, neg_sample_size, emb_dim)
+                tail_emb = tail_emb.unsqueeze(2).repeat(1, 1, chunk_size, 1).reshape(-1, emb_dim).contiguous()
+
+            return self._score_func(concat_emb, tail_emb)
+
+        args = self.args
+        chunk_size = args.neg_sample_size
+        neg_sample_size = args.neg_sample_size
+        has_edge_importance = args.has_edge_importance
+
+        if has_edge_importance:
+            head, rel, tail, neg, edge_impts = data
+        else:
+            head, rel, tail, neg = data
+            edge_impts = None
+
+        pos_head_emb = self._entity_emb(head, gpu_id=gpu_id, trace=True)
+        pos_tail_emb = self._entity_emb(tail, gpu_id=gpu_id, trace=True)
+        pos_rel_emb = self._relation_emb(rel, gpu_id=gpu_id, trace=True)
+        edge_impts = to_device(edge_impts, gpu_id) if args.has_edge_importance else None
+        pos_emb = {'head': pos_head_emb,
+                   'tail': pos_tail_emb,
+                   'rel': pos_rel_emb}
+        neg_emb = {neg_type: self._entity_emb(neg, gpu_id=gpu_id, trace=True)}
         pos_score = pos_forward(pos_emb)
-        neg_score = neg_forward(pos_emb, neg_emb, neg_type, neg_sample_size)
-        loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
-        # regularization: TODO(zihao)
-        #TODO: only reg ent&rel embeddings. other params to be added.
-        if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
-            coef, nm = self.args.regularization_coef, self.args.regularization_norm
-            # todo: lingfei modify this to add dense_model parameters as well
-            reg = coef * (norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm))
-            log['regularization'] = get_scalar(reg)
-            loss = loss + reg
-        return loss, log
+        neg_score = neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size)
 
-    def eval(self):
-        pass
+        if mode == 'train':
+            loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
+            # regularization: TODO(zihao)
+            #TODO: only reg ent&rel embeddings. other params to be added.
+            if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
+                coef, nm = self.args.regularization_coef, self.args.regularization_norm
+                # MARK - whether add weight decay here or in optimizer for score_func
+                reg = coef * (norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm))
+                log['regularization'] = get_scalar(reg)
+                loss = loss + reg
 
-    def forward(self, pos, neg, neg_type):
-        pass
+            return loss, log
 
-    def update(self, gpu_id):
+        elif mode == 'eval':
+            to_device(head, gpu_id)
+            to_device(rel, gpu_id)
+            to_device(tail, gpu_id)
+            to_device(neg, gpu_id)
+            log = []
+            # reshape to batch_size x neg_sample_size x score to evaluate result
+            batch_size = pos_score.shape[0]
+            neg_score = neg_score.reshape(batch_size, -1)
+
+            # filter
+            num_chunk = batch_size // chunk_size
+            if neg_type == 'head':
+                eval_head = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
+                eval_rt = th.cat([rel, tail], dim=-1)
+                eval_rt = eval_rt.reshape(-1, chunk_size, 1).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
+                # hrt stands for head relation tail
+                # 0 -> head, 1 -> rel, 2 -> tail
+                eval_hrt = th.cat([eval_head, eval_rt], dim=-1).reshape(-1, neg_sample_size * chunk_size, 3)
+            else:
+                eval_tail = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
+                eval_hr = th.cat([head, rel], dim=-1)
+                eval_hr = eval_hr.reshape(-1, chunk_size, 1).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
+                eval_hrt = th.cat([eval_hr, eval_tail], dim=-1).reshape(-1, neg_sample_size * chunk_size, 3)
+
+            mask = th.ones(eval_hrt.shape[0], eval_hrt.shape[1], 1)
+            # overhead, need to be fixed
+            for i in range(num_chunk):
+                chunk_hrt = eval_hrt[i, :, :]
+                select_idx = g.has_edge_between(chunk_hrt[:, 0], chunk_hrt[:, 2]).nonzero()
+                # convert to numpy for operation
+                true_pos_rel = th.unique(g.edata['tid'][g.edge_id(u=chunk_hrt[select_idx, 0], v=chunk_hrt[select_idx, 1])])
+                mask[i, select_idx, :] = th.sum(eval_hrt[i, select_idx, 1].unsqueeze(1) == true_pos_rel.unsqueeze(0), dim=-1)
+
+            mask = mask.reshape(batch_size, -1)
+            for i in range(batch_size):
+                ranking = (th.sum(mask[i] * (neg_score[i] >= pos_score[i]), dim=1) + 1).cpu().numpy()
+
+                log.append({
+                    'MRR': 1.0 / ranking,
+                    'MR': float(ranking),
+                    'HITS@1': 1.0 if ranking <= 1  else 0.0,
+                    'HITS@3': 1.0 if ranking <= 3 else 0.0,
+                    'HITS@10': 1.0 if ranking <= 10 else 0.0
+                })
+
+            return log
+
+
+def update(self, gpu_id):
         self._entity_emb.update(gpu_id)
         self._relation_emb.update(gpu_id)
 

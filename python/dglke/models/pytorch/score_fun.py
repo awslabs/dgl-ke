@@ -84,7 +84,9 @@ class TransEScore(nn.Module):
         pass
 
     def save(self, path, name):
-        pass
+        state_dict = self.cpu().state_dict()
+        file_path = os.path.join(path, name)
+        th.save(state_dict, file_path)
 
     def load(self, path, name):
         pass
@@ -645,9 +647,35 @@ class ConvEScore(nn.Module):
     """ConvE score function
     Paper link: https://arxiv.org/pdf/1707.01476.pdf
     """
-    def __init__(self,  model):
+    def __init__(self, args, hidden_dim, tensor_height, dropout_ratio: tuple = (0, 0, 0), batch_norm=False):
         super(ConvEScore, self).__init__()
-        self.model = model
+
+        # get height of reshape tensor
+        assert hidden_dim % tensor_height == 0, 'input dimension %d must be divisible to tensor height %d' % (hidden_dim, tensor_height)
+        self.h = tensor_height
+        self.w = hidden_dim // tensor_height
+        conv = []
+        if batch_norm:
+            conv += [nn.BatchNorm2d(1)]
+        if dropout_ratio[0] != 0:
+            conv += [nn.Dropout(p=dropout_ratio[0])]
+        conv += [nn.Conv2d(1, 32, 3, 1, 1, bias=True)]
+        if batch_norm:
+            conv += [nn.BatchNorm2d(32)]
+        conv += [nn.ReLU()]
+        self.conv = nn.Sequential(*conv)
+        fc = []
+        if dropout_ratio[1] != 0:
+            fc += [nn.Dropout(p=dropout_ratio[1])]
+        fc += [nn.Linear(32 * hidden_dim * 2, hidden_dim)]
+        if dropout_ratio[2] != 0:
+            fc += [nn.Dropout(p=dropout_ratio[2])]
+        if batch_norm:
+            fc += [nn.BatchNorm1d(hidden_dim)]
+        fc += [nn.ReLU()]
+        self.fc = nn.Sequential(*fc)
+        # self.register_parameter('b', th.nn.Parameter(th.zeros(hidden_dim)))
+        # is b necessary? hard to implement for now, will see later
 
     def edge_func(self, edges):
         head = edges.src['emb']
@@ -676,10 +704,25 @@ class ConvEScore(nn.Module):
     # def forward(self, g):
     #     g.apply_edges(lambda edges: self.edge_func(edges))
 
-    def forward(self, head, rel, tail):
-        return self.model(head, rel, tail)
-
-
+    def forward(self, concat_emb, tail_emb):
+        """
+        Parameters
+        ----------
+        concat_emb : Tensor
+            embedding concatenated from head and tail and reshaped
+        tail_emb : Tensor
+            tail embedding
+        """
+        # why use batch and dropout together?
+        # reshape tensor to fit in conv
+        if concat_emb.dim() == 3:
+            batch, height, width = concat_emb.shape
+            concat_emb = concat_emb.view(batch, -1, height, width)
+        x = self.conv(concat_emb)
+        fc_out = self.fc(x.view(x.shape[0], -1))
+        out = th.sum(fc_out * tail_emb, dim=-1, keepdim=True)
+        # we do not use sigmoid here because we can use different score function
+        return th.sigmoid(out)
 
     def reset_parameters(self):
         # use default init tech of pytorch
@@ -695,7 +738,7 @@ class ConvEScore(nn.Module):
 
     def load(self, path, name):
         file_name = os.path.join(path, name)
-        # TODO: lingfei determine whether to map location here
+        # TODO: lingfei - determine whether to map location here
         self.model.load(th.load(file_name))
 
     def create_neg(self, neg_head):
@@ -726,3 +769,54 @@ class ConvEScore(nn.Module):
                 score = th.stack(tmps, dim=-1)
                 return score
             return fn
+
+    def batch_concat(self, tensor_a, tensor_b, dim=-1):
+        """ element wise concatenation
+
+        """
+        def _reshape(tensor):
+            if tensor.dim() == 2:
+                batch, hidden_dim = tensor.shape
+                assert hidden_dim == self.h * self.w, 'hidden dimension must match %d' % self.h * self.w
+                return tensor.reshape(batch,  self.h, self.w)
+            elif tensor.dim() == 3:
+                batch, h, w = tensor.shape
+                assert h == self.h, 'tensor height must match %d' % self.h
+                assert w == self.w, 'tensor width must match %d' % self.w
+                return tensor.reshape(batch,  h, w)
+            elif tensor.dim() == 4:
+                return tensor
+            else:
+                raise ValueError('tensor must have dimension larger than 1')
+
+        tensor_a = _reshape(tensor_a)
+        tensor_b = _reshape(tensor_b)
+        return th.cat([tensor_a, tensor_b], dim=dim)
+
+    def broadcast_concat(self, tensor_a, tensor_b, chunk_size=16, neg_sample_size=16, dim=-1):
+        """ broadcast concatenation for tensor_a and tensor_bation, it is used only when corrupt negative tensor_a
+
+        """
+        def _chunk_reshape(tensor, _chunk_size):
+            if tensor.dim() == 1:
+                raise ValueError('tensor with dimension %d is not supported' % tensor.dim())
+            elif tensor.dim() == 2:
+                batch, hidden_dim = tensor.shape
+                assert hidden_dim == self.h * self.w, 'hidden dimension must be %d' % self.h * self.w
+                return tensor.reshape([-1, _chunk_size, self.h, self.w])
+            elif tensor.dim() == 3:
+                batch, h, w = tensor.shape
+                assert h == self.h, 'tensor height must match %d.' % self.h
+                assert w == self.w, 'tensor width must match %d.' % self.w
+                return tensor.reshape([-1, _chunk_size, self.h, self.w])
+
+        tensor_a = _chunk_reshape(tensor_a, neg_sample_size)
+        tensor_b = _chunk_reshape(tensor_b, chunk_size)
+        num_chunk, _, h, w = tensor_a.shape
+        tensor_a = tensor_a.unsqueeze(1)
+        tensor_b = tensor_b.unsqueeze(2)
+        tensor_a = tensor_a.repeat(1, chunk_size, 1, 1, 1)
+        tensor_b = tensor_b.repeat(1, 1, neg_sample_size, 1, 1)
+        cat_res = th.cat([tensor_a, tensor_b], dim=dim)
+        cat_res = cat_res.reshape(num_chunk, -1, h, w)
+        return cat_res

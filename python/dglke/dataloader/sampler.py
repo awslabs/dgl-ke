@@ -26,6 +26,8 @@ import os
 import sys
 import pickle
 import time
+from torch.utils.data import Dataset
+import torch as th
 
 from dgl.base import NID, EID
 
@@ -327,6 +329,7 @@ class TrainDataset(object):
     def __init__(self, dataset, args, ranks=64, has_importance=False):
         triples = dataset.train
         num_train = len(triples[0])
+        self.has_importance = has_importance
         print('|Train|:', num_train)
 
         if ranks > 1 and args.rel_part:
@@ -386,6 +389,12 @@ class TrainDataset(object):
                            shuffle=shuffle,
                            exclude_positive=exclude_positive,
                            return_false_neg=False)
+
+    def part_edge(self, rank, world_size, mode):
+        edges = self.edge_parts[rank]
+        if edges is None:
+            edges = F.arange(0, self.g.number_of_edges())
+        return edges
 
 class ChunkNegEdgeSubgraph(dgl.DGLGraph):
     """Wrapper for negative graph
@@ -678,6 +687,13 @@ class EvalDataset(object):
         return EvalSampler(self.g, edges, batch_size, neg_sample_size, neg_chunk_size,
                            mode, num_workers, filter_false_neg)
 
+    def part_edge(self, rank, world_size, mode):
+        edges = self.get_edges(mode)
+        beg = edges.shape[0] * rank // world_size
+        end = min(edges.shape[0] * (rank + 1) // world_size, edges.shape[0])
+        edges = edges[beg: end]
+        return edges
+
 class NewBidirectionalOneShotIterator:
     """Grouped sampler iterator
 
@@ -732,3 +748,35 @@ class NewBidirectionalOneShotIterator:
                 if has_edge_importance:
                     pos_g.edata['impts'] = pos_g._parent.edata['impts'][pos_g.parent_eid]
                 yield pos_g, neg_g
+
+
+class SubDataset(Dataset):
+    def __init__(self, dataset, rank, world_size, mode='train'):
+        super(SubDataset, self).__init__()
+        g = dataset.g
+        self.has_importance = dataset.has_importance
+        # get the sample edge index
+        edges = dataset.part_edge(rank, world_size, mode)
+        self.rels = g.edata['tid'][edges]
+        heads, tails = g.all_edges(order='eid')
+        self.heads = heads[edges]
+        self.tails = tails[edges]
+
+        self.negs = g.nodes()
+        if self.has_importance:
+            self.impts = g.edata['impts'][edges]
+
+    def __getitem__(self, index):
+        head = self.heads[index]
+        tail = self.tails[index]
+        rel = self.rels[index]
+        neg = self.negs[index]
+        if self.has_importance:
+            impts = self.impts[index]
+        return [head, rel, tail, neg] if not self.has_importance else [head, rel, tail, neg, impts]
+
+    def __len__(self):
+        return len(self.heads)
+
+    def shuffle_neg_sample(self):
+        self.negs = self.negs[th.randperm(len(self.negs))]

@@ -1,7 +1,6 @@
-import torch.multiprocessing as mp
 import torch as th
 import dgl.backend as F
-import torch.multiprocessing as mp
+from torch.utils.data import Dataset
 
 
 
@@ -127,7 +126,5 @@ class TrainSampler(object):
     def __len__(self):
         return self.rels.shape[0] if not self.drop_last \
             else (self.rels.shape[0] // self.batch_size * self.batch_size)
-
-
 
 
