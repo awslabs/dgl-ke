@@ -1,4 +1,5 @@
 from ..base_loss import *
+from .tensor_models import logsigmoid
 
 class HingeLoss(BaseHingeLoss):
     def __init__(self, margin):
@@ -23,11 +24,10 @@ class BCELoss(BaseBCELoss):
 
 class LogsigmoidLoss(BaseLogsigmoidLoss):
     def __init__(self):
-        assert False, 'Logsigmoid is not implemented'
-
+        super(LogsigmoidLoss, self).__init__()
 
     def __call__(self, score, label):
-        pass
+        return - logsigmoid(label * score)
 
 class LossGenerator(BaseLossGenerator):
     def __init__(self, args, loss_genre='Logsigmoid', neg_adversarial_sampling=False, adversarial_temperature=1.0,
