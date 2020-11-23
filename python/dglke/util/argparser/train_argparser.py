@@ -20,9 +20,4 @@ class TrainArgParser(CommonArgParser):
                           help='Allow providing edge importance score for each edge during training.' \
                                'The positive score will be adjusted ' \
                                'as pos_score = pos_score * edge_importance')
-        # for distributed training
-        self.add_argument('--num_node', type=int, default=1,
-                          help='Number of node used for distributed training')
-        self.add_argument('--node_rank', type=int, default=0,
-                          help='The rank of node, ranged from [0, num_node - 1]')
 

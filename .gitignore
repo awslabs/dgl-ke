@@ -150,3 +150,6 @@ cscope.*
 
 # parameters
 *.params
+
+# local test file
+ke_test.py

@@ -32,7 +32,9 @@ import dgl
 import torch as th
 import torch.multiprocessing as mp
 import torch.distributed as dist
+from tqdm import trange, tqdm
 import numpy as np
+from itertools import chain
 
 from torch.nn.parallel import DistributedDataParallel
 # MARK - TBD use adam or adagrad
@@ -1018,11 +1020,27 @@ class ConvEModel(BasicGEModel):
         super(ConvEModel, self).__init__(device, model_name, score_func)
 
     def _initialize(self, n_entities, n_relations):
+        """ Intialize model
+
+        Parameters
+        ----------
+        n_entities : int
+            how many entities in total in the graph
+        n_relations : int
+            how many relations in total in the graph
+        """
         self._relation_emb.init(emb_init=self.emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim)
         self._entity_emb.init(emb_init=self.emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim)
-        # use default init method for now for dense module
+        # use default init method for now for score_func
 
-    def load(self, model_path, gpu_id=0):
+    def load(self, model_path):
+        """ load the model including _entity_emb, _rel_emb and _score_func parameters from model_path
+
+        Parameters
+        ----------
+        model_path : str
+            model path for checkpoint being stored
+        """
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
@@ -1040,26 +1058,25 @@ class ConvEModel(BasicGEModel):
 
 
     def save(self, emap_file, rmap_file):
+        """ Save the model including _entity_emb, _rel_emb and _score_func parameters
+
+        Parameters
+        ----------
+        emap_file : str
+        rmap_file : str
+        """
         args = self.args
         model_path = args.save_path
         entity_emb_file = 'entity.npy'
         relation_emb_file = 'relation.npy'
         dense_model_file = 'model.pth'
 
-        # def __save_dense_model():
-        #     file_name = os.path.join(model_path, dense_model_file)
-        #     if args.gpu[0] == -1:
-        #         state_dict = self._dense_model.state_dict()
-        #     else:
-        #         state_dict = self._dense_model.cpu().state_dict()
-        #     th.save(state_dict, file_name)
         if not os.path.exists(model_path):
             os.mkdir(model_path)
         print('Save model to {}'.format(args.save_path))
 
         self._entity_emb.save(model_path, entity_emb_file)
         self._relation_emb.save(model_path, relation_emb_file)
-        # __save_dense_model()
         self._score_func.module.save(model_path, dense_model_file) if hasattr(self._score_func, 'module') else self._score_func.save(model_path, dense_model_file)
         # We need to save the model configurations as well.
         conf_file = os.path.join(args.save_path, 'config.json')
@@ -1072,21 +1089,105 @@ class ConvEModel(BasicGEModel):
             json.dump(dict, outfile, indent=4)
 
     def share_memory(self):
+        """ Used for distributed training.
+        share parameters of _entity_emb  and _relation_emb in cpu so that every gpu can have access to it.
+        """
         self._entity_emb.share_memory()
         self._relation_emb.share_memory()
-        # self._score_func.share_memory()
 
     def to_train(self):
+        """ Change model state to train so that gradient will be kept.
+        """
         self._entity_emb.train()
         self._relation_emb.train()
         self._score_func.train()
 
     def to_eval(self):
+        """ Change model state to evaluation so that no gradient will be kept.
+        """
         self._entity_emb.eval()
         self._relation_emb.eval()
         self._score_func.eval()
 
+    def eval(self):
+        # put it in train
+        args = self.args
+        init_time_start = time.time()
+        # load dataset and samplers
+        dataset = get_dataset(args.data_path,
+                              args.dataset,
+                              args.format,
+                              args.delimiter,
+                              args.data_files,
+                              args.has_edge_importance)
+
+        if args.neg_sample_size_eval < 0:
+            args.neg_sample_size_eval = dataset.n_entities
+        args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+        # We need to ensure that the number of processes should match the number of GPUs.
+        if len(args.gpu) > 1 and args.num_proc > 1:
+            assert args.num_proc % len(args.gpu) == 0, \
+                'The number of processes needs to be divisible by the number of GPUs'
+
+        args.eval_filter = not args.no_eval_filter
+        if args.neg_deg_sample_eval:
+            assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
+
+        args.num_workers = 1 # fix num_worker to 8
+
+        # need to change to num_nodes if use 0.6.0 dgl version
+        self._initialize(dataset.n_entities, dataset.n_relations)
+        # self.load(args.save_path)
+        if args.num_proc > 1:
+            # share memory for multiprocess to access
+            self.share_memory()
+
+        if len(args.gpu) > 1:
+            args.num_test_proc = args.num_proc if args.num_proc < len(args.gpu) else len(args.gpu)
+        else:
+            args.num_test_proc = args.num_proc
+        if args.valid:
+            assert dataset.valid is not None, 'validation set is not provided'
+        if args.test:
+            assert dataset.test is not None, 'test set is not provided'
+        eval_dataset = EvalDataset(dataset, args)
+
+        self.attach_graph(eval_dataset.g)
+
+        print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
+
+        # test
+        start = time.time()
+        if args.num_test_proc > 1:
+            queue = mp.Queue(args.num_test_proc)
+            procs = []
+            for i in range(args.num_test_proc):
+                proc = mp.Process(target=self.eval_proc, args=(i, eval_dataset, 'test', queue))
+                procs.append(proc)
+                proc.start()
+
+            metrics = {}
+            logs = []
+            for i in range(args.num_test_proc):
+                log = queue.get()
+                logs = logs + log
+
+            for metric in logs[0].keys():
+                metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+            print("-------------- Test result --------------")
+            for k, v in metrics.items():
+                print('Test average {} : {}'.format(k, v))
+            print("-----------------------------------------")
+
+            for proc in procs:
+                proc.join()
+        else:
+            self.eval_proc(rank=0, eval_dataset=eval_dataset, mode='test')
+        print('testing takes {:.3f} seconds'.format(time.time() - start))
+
     def fit(self):
+        """ The whole process for model to be trained, validated, and tested
+        """
         # put it in train
         args = self.args
         prepare_save_path(args)
@@ -1106,7 +1207,6 @@ class ConvEModel(BasicGEModel):
         # We should turn on mix CPU-GPU training for multi-GPU training.
         if len(args.gpu) > 1:
             args.mix_cpu_gpu = True
-            self.dist_train = True
             if args.num_proc < len(args.gpu):
                 args.num_proc = len(args.gpu)
         # We need to ensure that the number of processes should match the number of GPUs.
@@ -1121,9 +1221,8 @@ class ConvEModel(BasicGEModel):
         args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
         train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
         args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part is False)
-        args.num_workers = 8 # fix num_worker to 8
+        args.num_workers = 1 # fix num_worker to 8
 
-        self.attach_graph(train_data.g)
 
         # need to change to num_nodes if use 0.6.0 dgl version
         self._initialize(dataset.n_entities, dataset.n_relations)
@@ -1143,6 +1242,7 @@ class ConvEModel(BasicGEModel):
             if args.test:
                 assert dataset.test is not None, 'test set is not provided'
             eval_dataset = EvalDataset(dataset, args)
+            self.attach_graph(eval_dataset.g)
 
         emap_file = dataset.emap_fname
         rmap_file = dataset.rmap_fname
@@ -1205,6 +1305,19 @@ class ConvEModel(BasicGEModel):
 
     # misc for DataParallelTraining
     def setup_model(self, rank, world_size, gpu_id):
+        """ Set up score function for DistributedDataParallel.
+        As score function is a dense model, if we need to parallelly train/eval the mode, we need to put the model into different gpu devices
+
+        Parameters
+        ----------
+        rank : int
+            process id in regards of world size
+        world_size : int
+            total number of process
+        gpu_id : int
+            which device should the model be put to, -1 for cpu otherwise gpu
+
+        """
         dist_train = world_size != 1
         self._score_func = to_device(self._score_func, gpu_id)
         # self._dense_model = to_device(self._dense_model, _gpu_id)
@@ -1221,12 +1334,31 @@ class ConvEModel(BasicGEModel):
             DistributedDataParallel(self._score_func, device_ids=[gpu_id], broadcast_buffers=False)
 
     def cleanup(self, dist_train=True):
+        """ destroy parallel process if necessary
+
+        Parameters
+        ----------
+        dist_train : bool
+            whether it's distributed training or not
+
+        """
         if dist_train:
             dist.destroy_process_group()
         else:
             pass
 
     def train_proc(self, rank, train_dataset, eval_dataset):
+        """ training process for fit(). it will read data, forward embedding data, compute loss and update param using gradients
+
+        Parameters
+        ----------
+        rank : int
+            process id in regards of world size
+        train_dataset : KGDataset
+            dataset used for training
+        eval_dataset : KGDataset
+            dataset used for evaluation
+        """
         # setup
         args = self.args
         world_size = args.num_proc * args.num_node
@@ -1252,11 +1384,11 @@ class ConvEModel(BasicGEModel):
 
         dataloader = DataLoader(dataset=SubDataset(train_dataset, rank, world_size, 'train'),
                                 batch_size=args.batch_size,
-                                shuffle=False,
+                                shuffle=True,
                                 num_workers=args.num_workers,
                                 drop_last=True)
-
-        for step in range(0, args.max_step):
+        step_range = trange(0, args.max_step, desc='train') if rank == 0 else range(0, args.max_step)
+        for step in step_range:
             neg_type = 'head' if step % 2 == 0 else 'tail'
             start1 = time.time()
             # get pos training data
@@ -1282,9 +1414,9 @@ class ConvEModel(BasicGEModel):
             backward_time += time.time() - start1
             # update embedding & dense_model using different optimizer, for dense_model, use regular pytorch optimizer
             # for embedding, use built-in Adagrad sync/async optimizer
+            start1 = time.time()
             optimizer.step()
             self.update(gpu_id)
-            start1 = time.time()
             update_time += time.time() - start1
             logs.append(log)
 
@@ -1311,13 +1443,28 @@ class ConvEModel(BasicGEModel):
                 # forced sync for validation
                 if dist_train:
                     th.distributed.barrier()
+                self.to_eval()
                 self.eval_proc(rank, eval_dataset, mode='valid')
-                print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
+                self.to_train()
+                print('[proc {}]validation take {:.3f} seconds.'.format(rank, time.time() - valid_start))
         print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
 
         self.cleanup(dist_train)
 
     def eval_proc(self, rank, eval_dataset, mode='valid', queue=None):
+        """ evaluation process for validation/test
+
+        Parameters
+        ----------
+        rank : int
+            process id in regards of world size
+        eval_dataset : KGDataset
+            evaluation dataset
+        mode : str
+            choose from ['valid', 'test'], to run valid or test
+        queue : torch.multiprocessing.queue
+            If it's distributed training, the main process need to collect all the evaluation results from subprocess using queue
+        """
         args = self.args
         if len(args.gpu) > 0:
             gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
@@ -1327,25 +1474,23 @@ class ConvEModel(BasicGEModel):
         world_size = args.num_proc * args.num_node
         dist_train = world_size != 1
 
-        self.to_eval()
-
         if mode != 'valid':
             self.setup_model(rank, world_size, gpu_id)
 
         dataloader = DataLoader(dataset=SubDataset(eval_dataset, rank, world_size, mode),
                                 batch_size=args.batch_size,
-                                shuffle=True,
+                                shuffle=False,
                                 num_workers=args.num_workers,
-                                drop_last=True)
+                                drop_last=False)
         with th.no_grad():
             logs = []
             step = 0
             dataloader.dataset.shuffle_neg_sample()
-            iterator = iter(dataloader)
+            iterator = tqdm(iter(dataloader), desc='eval') if rank == 0 else iter(dataloader)
             for data in iterator:
                 neg_type = 'head' if step % 2 == 0 else 'tail'
                 log = self.forward(data, neg_type, gpu_id, mode, eval_dataset.g)
-                logs.append(*log)
+                logs += log
                 step += 1
 
             if queue is not None:
@@ -1360,17 +1505,73 @@ class ConvEModel(BasicGEModel):
 
         if mode != 'valid':
             self.cleanup(dist_train)
-        else:
-            self.to_train()
 
     def forward(self, data, neg_type, gpu_id, mode='train', g=None):
+        """ Calculate score for both positive sampling and negative sampling, if mode == 'train', the loss is returned as well.
+
+        Parameters
+        ----------
+        data : list
+            generated from dataloader, has pos_head, pos_rel, pos_tail, neg and (optional) edge_impts
+        neg_type : str
+            choices = ['head', 'tail']. to perform corruption on head or tail or each positive sample.
+        gpu_id : int
+            which device should forward be performed on. gpu_id = -1 for cpu.
+        mode : str
+            choices = ['train', 'valid', 'test']. which type is the forward method.
+        g : DGLGraph
+            only needed for validation & test. the forward need to filter out all the false negative edge using g if args.eval_filter = True
+
+        Returns
+        -------
+        tensor(optional)
+            loss of this forward
+        dict
+            log of this forward
+        """
 
         def pos_forward(pos_emb):
+            """ Positive forward for positive embedding [head, relation, tail], the method first concatenates head with
+            relation and then use score function to calculate positive score for each batch.
+
+            Parameters
+            ----------
+            pos_emb : dict
+                Positive embedding containing [head, relation, tail] tensor
+
+            Returns
+            -------
+            tensor
+                positive score
+
+            """
             concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(self._score_func, 'module') \
                 else self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2)
             return self._score_func(concat_emb, pos_emb['tail'])
 
         def neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
+            """ Perform chunk negative corruption then calculate negative score
+            The original positive samples are of size b, emb_dim, negative samples b, emb_dim. Then we reshape both postive & negative samples so that for each positive sample,
+            there would be neg_sample_size negative samples. We will have b // chunk_size chunks, b, neg_sample_size negative samples in total.
+            Parameters
+            ----------
+            pos_emb : dict
+                dict store embedding tensor of positive [head, relation, tail]
+            neg_emb : dict
+                dict store embedding tensor of negative head/tail
+            neg_type : str
+                indicates whether we corrupt head/tail for this neg_forward
+            chunk_size : int
+                the chunk size to perform chunk corrupt
+            neg_sample_size : int
+                for each positive sample, how many negative sample will corrupted
+
+            Returns
+            -------
+            tensor
+                score value of negative sample
+
+            """
             if neg_type == 'head':
                 concat_emb = self._score_func.module.broadcast_concat(neg_emb['head'], pos_emb['rel'], chunk_size=chunk_size, neg_sample_size=neg_sample_size) if hasattr(self._score_func, 'module') \
                     else self._score_func.broadcast_concat(neg_emb['head'], pos_emb['rel'], chunk_size=chunk_size, neg_sample_size=neg_sample_size)
@@ -1425,58 +1626,86 @@ class ConvEModel(BasicGEModel):
 
             return loss, log
 
-        elif mode == 'valid':
-            # head = to_device(head, gpu_id)
-            # rel = to_device(rel, gpu_id)
-            # tail = to_device(tail, gpu_id)
-            # neg = to_device(neg, gpu_id)
+        elif mode == 'valid' or mode == 'test':
             log = []
             # reshape to batch_size x neg_sample_size x score to evaluate result
             batch_size = pos_score.shape[0]
             neg_score = neg_score.reshape(batch_size, -1)
 
             # filter
-            num_chunk = batch_size // chunk_size
             if neg_type == 'head':
                 eval_head = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
                 eval_rt = th.cat([rel, tail], dim=-1)
                 eval_rt = eval_rt.reshape(-1, chunk_size, 2).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
                 # hrt stands for head relation tail
                 # 0 -> head, 1 -> rel, 2 -> tail
-                eval_hrt = th.cat([eval_head, eval_rt], dim=-1).reshape(-1, neg_sample_size * chunk_size, 3)
+                eval_hrt = th.cat([eval_head, eval_rt], dim=-1).reshape(-1, neg_sample_size, 3)
             else:
                 eval_tail = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
                 eval_hr = th.cat([head, rel], dim=-1)
                 eval_hr = eval_hr.reshape(-1, chunk_size, 2).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
-                eval_hrt = th.cat([eval_hr, eval_tail], dim=-1).reshape(-1, neg_sample_size * chunk_size, 3)
+                eval_hrt = th.cat([eval_hr, eval_tail], dim=-1).reshape(-1, neg_sample_size, 3)
 
-            mask = th.ones(eval_hrt.shape[0], eval_hrt.shape[1], 1)
-            # overhead, need to be fixed
-            for i in range(num_chunk):
-                chunk_hrt = eval_hrt[i, :, :]
-                select_idx = g.has_edge_between(chunk_hrt[:, 0], chunk_hrt[:, 2]).nonzero()
-                # convert to numpy for operation
-                true_pos_rel = th.unique(g.edata['tid'][g.edge_id(u=chunk_hrt[select_idx, 0], v=chunk_hrt[select_idx, 1])])
-                mask[i, select_idx, :] = th.sum(eval_hrt[i, select_idx, 1].unsqueeze(1) == true_pos_rel.unsqueeze(0), dim=-1)
+            if args.eval_filter:
+                for b_idx in range(eval_hrt.shape[0]):
+                    uid, vid, eid = g.edge_ids(eval_hrt[b_idx, :, 0], eval_hrt[b_idx, :, 2], return_uv=True)
+                    rid = g.edata[self._etid_field][eid]
+                    mask = th.ones(eval_hrt.shape[1], 1, dtype=th.bool)
+                    for i in range(eval_hrt.shape[1]):
+                        h = eval_hrt[b_idx, i, 0]
+                        t = eval_hrt[b_idx, i, 1]
+                        r = eval_hrt[b_idx, i, 2]
 
-            mask = mask.reshape(batch_size, -1)
-            for i in range(batch_size):
-                ranking = (th.sum(mask[i] * (neg_score[i] >= pos_score[i]), dim=1) + 1).cpu().numpy()
+                        h_where = uid == h
+                        t_where = vid[h_where] == t
+                        r_where = rid[h_where][t_where]
+                        edge_exist = False
+                        if r_where.shape[0] > 0:
+                            for c_r in r_where:
+                                if c_r == r:
+                                    edge_exist = True
+                                    break
 
-                log.append({
-                    'MRR': 1.0 / ranking,
-                    'MR': float(ranking),
-                    'HITS@1': 1.0 if ranking <= 1  else 0.0,
-                    'HITS@3': 1.0 if ranking <= 3 else 0.0,
-                    'HITS@10': 1.0 if ranking <= 10 else 0.0
-                })
+                        if edge_exist:
+                            mask[i] = False
+
+                    # convert mask to corresponding device
+                    mask = to_device(mask, gpu_id)
+                    ranking = get_scalar(th.sum(th.masked_select(neg_score[b_idx] >= pos_score[b_idx], mask=mask)) + 1)
+                    log.append({
+                        'MRR': 1.0 / ranking,
+                        'MR': float(ranking),
+                        'HITS@1': 1.0 if ranking <= 1 else 0.0,
+                        'HITS@3': 1.0 if ranking <= 3 else 0.0,
+                        'HITS@10': 1.0 if ranking <= 10 else 0.0
+                    })
+            else:
+                for b_idx in range(eval_hrt.shape[0]):
+                    ranking = get_scalar(th.sum(neg_score[b_idx] >= pos_score[b_idx]) + 1)
+                    log.append({
+                        'MRR': 1.0 / ranking,
+                        'MR': float(ranking),
+                        'HITS@1': 1.0 if ranking <= 1 else 0.0,
+                        'HITS@3': 1.0 if ranking <= 3 else 0.0,
+                        'HITS@10': 1.0 if ranking <= 10 else 0.0
+                    })
 
             return log
 
+        else:
+            raise ValueError('mode %s is not supported, choose from [train, valid, test]' % mode)
+
 
     def update(self, gpu_id):
+        """ update parameter of entity embedding & relation embedding
+
+        Parameters
+        ----------
+        gpu_id  which gpu_id is the source gradient
+        """
         self._entity_emb.update(gpu_id)
         self._relation_emb.update(gpu_id)
+
 
 def main():
     args = TrainArgParser().parse_args()

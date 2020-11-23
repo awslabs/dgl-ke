@@ -4,8 +4,8 @@ import torch as th
 import torch.nn.functional as functional
 
 logsigmoid = functional.logsigmoid
-softplus  = functional.softplus
-sigmoid = functional.sigmoid
+softplus = functional.softplus
+sigmoid = th.sigmoid
 
 class HingeLoss(BaseHingeLoss):
     def __init__(self, margin):
@@ -26,9 +26,15 @@ class LogisticLoss(BaseLogisticLoss):
 class BCELoss(BaseBCELoss):
     def __init__(self):
         super(BCELoss, self).__init__()
+        self.loss = th.nn.BCELoss(reduction='none')
 
     def __call__(self, score: th.Tensor, label):
-        return -(label * th.log(sigmoid(score)) + (1 - label) * th.log(1 - sigmoid(score)))
+        if type(label) is int:
+            if label == 0:
+                label = th.zeros_like(score)
+            else:
+                label = th.ones_like(score)
+        return self.loss(score, label)
 
 class LogsigmoidLoss(BaseLogsigmoidLoss):
     def __init__(self):

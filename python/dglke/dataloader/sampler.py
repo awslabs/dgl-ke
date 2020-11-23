@@ -16,11 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import math
 import numpy as np
 import scipy as sp
 import dgl.backend as F
+import random
+import copy
 import dgl
 import os
 import sys
@@ -770,8 +771,9 @@ class SubDataset(Dataset):
         head = self.heads[index]
         tail = self.tails[index]
         rel = self.rels[index]
-        # TODO: lingfei - fix later, may OutOfBoundary
-        neg = self.negs[index % len(self.negs)]
+        # TODO: lingfei - fix later, pysudo random
+        idx = index if index < len(self.negs) else random.randrange(0, len(self.negs))
+        neg = self.negs[idx]
         if self.has_importance:
             impts = self.impts[index]
         return [head, rel, tail, neg] if not self.has_importance else [head, rel, tail, neg, impts]

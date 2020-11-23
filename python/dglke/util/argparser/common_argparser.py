@@ -105,6 +105,11 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Dropout ratio for input, conv, linear respectively. If 0 is specified, ConvE will not use dropout for that layer')
         self.add_argument('--batch_norm', '-bn', type=bool, default=True,
                           help='Whether use batch normalization in ConvE or not')
+        # args for reproducibility
         self.add_argument('--seed', type=int, default=0,
                           help='Random seed for reproducibility')
+        self.add_argument('--num_node', type=int, default=1,
+                          help='Number of node used for distributed training')
+        self.add_argument('--node_rank', type=int, default=0,
+                          help='The rank of node, ranged from [0, num_node - 1]')
 

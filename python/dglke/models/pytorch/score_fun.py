@@ -659,15 +659,16 @@ class ConvEScore(nn.Module):
             conv += [nn.BatchNorm2d(1)]
         if dropout_ratio[0] != 0:
             conv += [nn.Dropout(p=dropout_ratio[0])]
-        conv += [nn.Conv2d(1, 32, 3, 1, 1, bias=True)]
+        conv += [nn.Conv2d(1, 32, 3, 1, 0, bias=True)]
         if batch_norm:
             conv += [nn.BatchNorm2d(32)]
         conv += [nn.ReLU()]
+        if dropout_ratio[1] != 0:
+            conv += [nn.Dropout(p=dropout_ratio[1])]
         self.conv = nn.Sequential(*conv)
         fc = []
-        if dropout_ratio[1] != 0:
-            fc += [nn.Dropout(p=dropout_ratio[1])]
-        fc += [nn.Linear(32 * hidden_dim * 2, hidden_dim)]
+        linear_dim = 32 * (self.h * 2 - 2) * (self.w - 2)
+        fc += [nn.Linear(linear_dim, hidden_dim)]
         if dropout_ratio[2] != 0:
             fc += [nn.Dropout(p=dropout_ratio[2])]
         if batch_norm:
@@ -700,9 +701,6 @@ class ConvEScore(nn.Module):
             def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
                 return head, tail
             return fn
-
-    # def forward(self, g):
-    #     g.apply_edges(lambda edges: self.edge_func(edges))
 
     def forward(self, concat_emb, tail_emb):
         """
@@ -739,7 +737,7 @@ class ConvEScore(nn.Module):
     def load(self, path, name):
         file_name = os.path.join(path, name)
         # TODO: lingfei - determine whether to map location here
-        self.model.load(th.load(file_name))
+        self.load_state_dict(th.load(file_name))
 
     def create_neg(self, neg_head):
         if neg_head:
