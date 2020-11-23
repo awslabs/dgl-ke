@@ -754,7 +754,7 @@ class SubDataset(Dataset):
     def __init__(self, dataset, rank, world_size, mode='train'):
         super(SubDataset, self).__init__()
         g = dataset.g
-        self.has_importance = dataset.has_importance
+        self.has_importance = dataset.has_importance if mode is 'train' else False
         # get the sample edge index
         edges = dataset.part_edge(rank, world_size, mode)
         self.rels = g.edata['tid'][edges]
@@ -770,7 +770,8 @@ class SubDataset(Dataset):
         head = self.heads[index]
         tail = self.tails[index]
         rel = self.rels[index]
-        neg = self.negs[index]
+        # TODO: lingfei - fix later, may OutOfBoundary
+        neg = self.negs[index % len(self.negs)]
         if self.has_importance:
             impts = self.impts[index]
         return [head, rel, tail, neg] if not self.has_importance else [head, rel, tail, neg, impts]

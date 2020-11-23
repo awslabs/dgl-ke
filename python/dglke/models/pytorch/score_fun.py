@@ -717,7 +717,7 @@ class ConvEScore(nn.Module):
         # reshape tensor to fit in conv
         if concat_emb.dim() == 3:
             batch, height, width = concat_emb.shape
-            concat_emb = concat_emb.view(batch, -1, height, width)
+            concat_emb = concat_emb.view(batch, 1, height, width)
         x = self.conv(concat_emb)
         fc_out = self.fc(x.view(x.shape[0], -1))
         out = th.sum(fc_out * tail_emb, dim=-1, keepdim=True)
@@ -818,5 +818,5 @@ class ConvEScore(nn.Module):
         tensor_a = tensor_a.repeat(1, chunk_size, 1, 1, 1)
         tensor_b = tensor_b.repeat(1, 1, neg_sample_size, 1, 1)
         cat_res = th.cat([tensor_a, tensor_b], dim=dim)
-        cat_res = cat_res.reshape(num_chunk, -1, h, w)
+        cat_res = cat_res.reshape(-1, 2 * h, w)
         return cat_res

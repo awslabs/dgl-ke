@@ -1151,8 +1151,8 @@ class ConvEModel(BasicGEModel):
 
         # train
         start = time.time()
-        rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
-        cross_rels = train_data.cross_rels if args.soft_rel_part else None
+        # rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
+        # cross_rels = train_data.cross_rels if args.soft_rel_part else None
 
         # change status to train to get gradient update
         self.to_train()
@@ -1311,13 +1311,13 @@ class ConvEModel(BasicGEModel):
                 # forced sync for validation
                 if dist_train:
                     th.distributed.barrier()
-                self.eval_proc(rank, eval_dataset, mode='eval')
+                self.eval_proc(rank, eval_dataset, mode='valid')
                 print('[proc {}]validation take {:.3f} seconds:'.format(rank, time.time() - valid_start))
         print('proc {} takes {:.3f} seconds'.format(rank, time.time() - train_start))
 
         self.cleanup(dist_train)
 
-    def eval_proc(self, rank, eval_dataset, mode='eval', queue=None):
+    def eval_proc(self, rank, eval_dataset, mode='valid', queue=None):
         args = self.args
         if len(args.gpu) > 0:
             gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
@@ -1329,7 +1329,7 @@ class ConvEModel(BasicGEModel):
 
         self.to_eval()
 
-        if mode != 'eval':
+        if mode != 'valid':
             self.setup_model(rank, world_size, gpu_id)
 
         dataloader = DataLoader(dataset=SubDataset(eval_dataset, rank, world_size, mode),
@@ -1344,7 +1344,7 @@ class ConvEModel(BasicGEModel):
             iterator = iter(dataloader)
             for data in iterator:
                 neg_type = 'head' if step % 2 == 0 else 'tail'
-                log = self.forward(data, neg_type, gpu_id, mode, eval, eval_dataset.g)
+                log = self.forward(data, neg_type, gpu_id, mode, eval_dataset.g)
                 logs.append(*log)
                 step += 1
 
@@ -1358,7 +1358,7 @@ class ConvEModel(BasicGEModel):
                 for k, v in metrics.items():
                     print('[{}]{} average {}: {}'.format(rank, mode, k, v))
 
-        if mode != 'eval':
+        if mode != 'valid':
             self.cleanup(dist_train)
         else:
             self.to_train()
@@ -1380,12 +1380,12 @@ class ConvEModel(BasicGEModel):
                     else self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2)
                 _,  h, w = concat_emb.shape
                 concat_emb = concat_emb.view(-1, chunk_size, h, w)
-                concat_emb = concat_emb.unsqueeze(1).repeat(1, neg_sample_size, 1, 1, 1).reshape(-1, h, w).continguous()
+                concat_emb = concat_emb.unsqueeze(1).repeat(1, neg_sample_size, 1, 1, 1).reshape(-1, h, w)
 
                 tail_emb = neg_emb['tail']
                 _, emb_dim = tail_emb.shape
                 tail_emb = tail_emb.view(-1, neg_sample_size, emb_dim)
-                tail_emb = tail_emb.unsqueeze(2).repeat(1, 1, chunk_size, 1).reshape(-1, emb_dim).contiguous()
+                tail_emb = tail_emb.unsqueeze(2).repeat(1, 1, chunk_size, 1).reshape(-1, emb_dim)
 
             return self._score_func(concat_emb, tail_emb)
 
@@ -1412,6 +1412,7 @@ class ConvEModel(BasicGEModel):
         neg_score = neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size)
 
         if mode == 'train':
+            neg_score = neg_score.reshape(-1, neg_sample_size)
             loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
             # regularization: TODO(zihao)
             #TODO: only reg ent&rel embeddings. other params to be added.
@@ -1424,11 +1425,11 @@ class ConvEModel(BasicGEModel):
 
             return loss, log
 
-        elif mode == 'eval':
-            to_device(head, gpu_id)
-            to_device(rel, gpu_id)
-            to_device(tail, gpu_id)
-            to_device(neg, gpu_id)
+        elif mode == 'valid':
+            # head = to_device(head, gpu_id)
+            # rel = to_device(rel, gpu_id)
+            # tail = to_device(tail, gpu_id)
+            # neg = to_device(neg, gpu_id)
             log = []
             # reshape to batch_size x neg_sample_size x score to evaluate result
             batch_size = pos_score.shape[0]
@@ -1439,14 +1440,14 @@ class ConvEModel(BasicGEModel):
             if neg_type == 'head':
                 eval_head = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
                 eval_rt = th.cat([rel, tail], dim=-1)
-                eval_rt = eval_rt.reshape(-1, chunk_size, 1).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
+                eval_rt = eval_rt.reshape(-1, chunk_size, 2).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
                 # hrt stands for head relation tail
                 # 0 -> head, 1 -> rel, 2 -> tail
                 eval_hrt = th.cat([eval_head, eval_rt], dim=-1).reshape(-1, neg_sample_size * chunk_size, 3)
             else:
                 eval_tail = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
                 eval_hr = th.cat([head, rel], dim=-1)
-                eval_hr = eval_hr.reshape(-1, chunk_size, 1).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
+                eval_hr = eval_hr.reshape(-1, chunk_size, 2).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
                 eval_hrt = th.cat([eval_hr, eval_tail], dim=-1).reshape(-1, neg_sample_size * chunk_size, 3)
 
             mask = th.ones(eval_hrt.shape[0], eval_hrt.shape[1], 1)
@@ -1473,7 +1474,7 @@ class ConvEModel(BasicGEModel):
             return log
 
 
-def update(self, gpu_id):
+    def update(self, gpu_id):
         self._entity_emb.update(gpu_id)
         self._relation_emb.update(gpu_id)
 

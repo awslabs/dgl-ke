@@ -55,7 +55,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Disable filter positive edges from randomly constructed negative edges for evaluation')
         self.add_argument('-log', '--log_interval', type=int, default=1000,
                           help='Print runtime of different components every x steps.')
-        self.add_argument('--eval_interval', type=int, default=10000,
+        self.add_argument('--eval_interval', type=int, default=1,
                           help='Print evaluation results on the validation dataset every x steps' \
                                'if validation is turned on')
         self.add_argument('--test', action='store_true',
