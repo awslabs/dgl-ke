@@ -1248,7 +1248,11 @@ class ConvEModel(BasicGEModel):
         rmap_file = dataset.rmap_fname
 
         print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
-
+        # print configuration
+        print('-' * 50)
+        for k, v in vars(args).items():
+            print('{} : {}'.format(k, v))
+        print('-' * 50)
         # train
         start = time.time()
         # rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
@@ -1370,7 +1374,7 @@ class ConvEModel(BasicGEModel):
 
         self.setup_model(rank, world_size, gpu_id)
 
-        optimizer = Adagrad(self._score_func.parameters(), lr=self.lr, weight_decay=args.regularization_coef if args.regularization_norm else 0)
+        optimizer = Adagrad(self._score_func.parameters(), lr=self.lr)
 
         logs = []
         for arg in vars(args):
@@ -1481,7 +1485,7 @@ class ConvEModel(BasicGEModel):
                                 batch_size=args.batch_size,
                                 shuffle=False,
                                 num_workers=args.num_workers,
-                                drop_last=False)
+                                drop_last=True)
         with th.no_grad():
             logs = []
             step = 0
@@ -1620,7 +1624,10 @@ class ConvEModel(BasicGEModel):
             if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
                 coef, nm = self.args.regularization_coef, self.args.regularization_norm
                 # MARK - whether add weight decay here or in optimizer for score_func
-                reg = coef * (norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm))
+                reg = norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm)
+                for w in self._score_func.parameters():
+                    reg += w.norm(nm)
+                reg *= coef
                 log['regularization'] = get_scalar(reg)
                 loss = loss + reg
 
@@ -1632,33 +1639,32 @@ class ConvEModel(BasicGEModel):
             batch_size = pos_score.shape[0]
             neg_score = neg_score.reshape(batch_size, -1)
 
-            # filter
+            filter
             if neg_type == 'head':
                 eval_head = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
-                eval_rt = th.cat([rel, tail], dim=-1)
+                eval_rt = th.cat([rel.view(-1, 1), tail.view(-1, 1)], dim=-1)
                 eval_rt = eval_rt.reshape(-1, chunk_size, 2).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
                 # hrt stands for head relation tail
                 # 0 -> head, 1 -> rel, 2 -> tail
                 eval_hrt = th.cat([eval_head, eval_rt], dim=-1).reshape(-1, neg_sample_size, 3)
             else:
                 eval_tail = neg.reshape(-1, neg_sample_size, 1).unsqueeze(1).repeat(1, chunk_size, 1, 1)
-                eval_hr = th.cat([head, rel], dim=-1)
+                eval_hr = th.cat([head.view(-1, 1), rel.view(-1, 1)], dim=-1)
                 eval_hr = eval_hr.reshape(-1, chunk_size, 2).unsqueeze(2).repeat(1, 1, neg_sample_size, 1)
                 eval_hrt = th.cat([eval_hr, eval_tail], dim=-1).reshape(-1, neg_sample_size, 3)
-
+            mask = th.ones(eval_hrt.shape[0], eval_hrt.shape[1], dtype=th.bool)
             if args.eval_filter:
                 for b_idx in range(eval_hrt.shape[0]):
                     uid, vid, eid = g.edge_ids(eval_hrt[b_idx, :, 0], eval_hrt[b_idx, :, 2], return_uv=True)
                     rid = g.edata[self._etid_field][eid]
-                    mask = th.ones(eval_hrt.shape[1], 1, dtype=th.bool)
                     for i in range(eval_hrt.shape[1]):
                         h = eval_hrt[b_idx, i, 0]
-                        t = eval_hrt[b_idx, i, 1]
-                        r = eval_hrt[b_idx, i, 2]
+                        r = eval_hrt[b_idx, i, 1]
+                        t = eval_hrt[b_idx, i, 2]
 
-                        h_where = uid == h
-                        t_where = vid[h_where] == t
-                        r_where = rid[h_where][t_where]
+                        h_where = (uid == h).nonzero()
+                        t_where = (vid[h_where[:, 0]] == t).nonzero()
+                        r_where = rid[t_where[:, 0]]
                         edge_exist = False
                         if r_where.shape[0] > 0:
                             for c_r in r_where:
@@ -1667,29 +1673,19 @@ class ConvEModel(BasicGEModel):
                                     break
 
                         if edge_exist:
-                            mask[i] = False
+                            mask[b_idx, i] = False
 
-                    # convert mask to corresponding device
-                    mask = to_device(mask, gpu_id)
-                    ranking = get_scalar(th.sum(th.masked_select(neg_score[b_idx] >= pos_score[b_idx], mask=mask)) + 1)
-                    log.append({
-                        'MRR': 1.0 / ranking,
-                        'MR': float(ranking),
-                        'HITS@1': 1.0 if ranking <= 1 else 0.0,
-                        'HITS@3': 1.0 if ranking <= 3 else 0.0,
-                        'HITS@10': 1.0 if ranking <= 10 else 0.0
-                    })
-            else:
-                for b_idx in range(eval_hrt.shape[0]):
-                    ranking = get_scalar(th.sum(neg_score[b_idx] >= pos_score[b_idx]) + 1)
-                    log.append({
-                        'MRR': 1.0 / ranking,
-                        'MR': float(ranking),
-                        'HITS@1': 1.0 if ranking <= 1 else 0.0,
-                        'HITS@3': 1.0 if ranking <= 3 else 0.0,
-                        'HITS@10': 1.0 if ranking <= 10 else 0.0
-                    })
-
+            # convert mask to corresponding device
+            mask = to_device(mask, gpu_id)
+            for i in range(batch_size):
+                ranking = get_scalar(th.sum(th.masked_select(neg_score[i] >= pos_score[i], mask=mask[i]), dim=0) + 1)
+                log.append({
+                    'MRR': 1.0 / ranking,
+                    'MR': float(ranking),
+                    'HITS@1': 1.0 if ranking <= 1 else 0.0,
+                    'HITS@3': 1.0 if ranking <= 3 else 0.0,
+                    'HITS@10': 1.0 if ranking <= 10 else 0.0
+                })
             return log
 
         else:
