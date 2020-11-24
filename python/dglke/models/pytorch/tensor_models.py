@@ -38,6 +38,12 @@ from .. import *
 
 logsigmoid = functional.logsigmoid
 
+def abs(val):
+    return th.abs(val)
+
+def masked_select(input, mask):
+    return th.masked_select(input, mask)
+
 def get_dev(gpu):
     return th.device('cpu') if gpu < 0 else th.device('cuda:' + str(gpu))
 

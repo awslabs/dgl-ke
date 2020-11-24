@@ -104,20 +104,20 @@ def main():
         tail = load_entity_data()
 
     if args.exec_mode == 'pairwise':
-        pair_wise = True
+        pairwise = True
         bcast = False
     elif args.exec_mode == 'batch_left':
-        pair_wise = False
+        pairwise = False
         bcast = True
     elif args.exec_mode == 'all':
-        pair_wise = False
+        pairwise = False
         bcast = False
     else:
         assert False, 'Unknow execution model'
 
     model = EmbSimInfer(args.gpu, args.emb_file, args.sim_func)
     model.load_emb()
-    result = model.topK(head, tail, bcast=bcast, pair_ws=pair_wise, k=args.topK)
+    result = model.topK(head, tail, bcast=bcast, pair_ws=pairwise, k=args.topK)
 
     with open(args.output, 'w+') as f:
         f.write('left\tright\tscore\n')

@@ -428,7 +428,7 @@ def run_topk_emb(sfunc, sim_func, create_emb_sim=create_kge_emb_sim):
     np.testing.assert_allclose(r1_score, score_topk, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(r1_head, head_ids)
     np.testing.assert_allclose(r1_tail, tail_ids)
-    print('pass pair wise')
+    print('pass pairwise')
 
     head = F.arange(0, num_head)
     tail = F.arange(num_head, num_head+num_tail)

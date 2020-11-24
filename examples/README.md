@@ -62,6 +62,7 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | DistMult  | 51.85 | 0.661 | 0.532  | 0.762  |  0.864  | 57   |
 | ComplEx   | 62.52 | 0.667 | 0.567  | 0.737  |  0.836  | 65   |
 
+
 ### wn18
 
 #### One-GPU training
@@ -132,3 +133,24 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | TransE_l2 | 34.25 | 0.764 | 0.705  | 0.802  | 0.869   | 1633 |
 | DistMult  | 75.15 | 0.769 | 0.751  | 0.779  | 0.801   | 1679 |
 | ComplEx   | 77.83 | 0.771 | 0.754  | 0.779  | 0.802   | 2293 |
+
+### loss function comparison with 8-GPU training
+#### FB15k
+|  Models   |  Loss      | Pairwise | MR     |  MRR  | HITS@1 | HITS@3 | HITS@10 | TIME |
+|-----------|------------|----------|--------|-------|--------|--------|---------|------|
+| DistMult  | Hinge      | False    | 111.75 | 0.775 | 0.709  | 0.827  | 0.883   | 59   |
+| DistMult  | Hinge      | True     | 100.29 | 0.539 | 0.411  | 0.619  | 0.767   | 59   |
+| DistMult  | Logistic   | False    | 57.09  | 0.690 | 0.578  | 0.773  | 0.873   | 56   |
+| DistMult  | Logistic   | True     | 74.25  | 0.385 | 0.271  | 0.467  | 0.602   | 58   |
+| DistMult  | Logsigmoid | False    | 57.77  | 0.687 | 0.577  | 0.772  | 0.869   | 60   |
+| TransE_l1 | Hinge      | False    | 44.74  | 0.703 | 0.607  | 0.778  | 0.855   | 69   |
+| TransE_l1 | Hinge      | True     | 69.58  | 0.488 | 0.283  | 0.653  | 0.796   | 64   |
+| TransE_l1 | Logistic   | False    | 42.39  | 0.669 | 0.551  | 0.761  | 0.851   | 65   |
+| TransE_l1 | Logistic   | True     | 63.34  | 0.488 | 0.337  | 0.593  | 0.739   | 66   |
+| TransE_l1 | Logsigmoid | False    | 43.11  | 0.668 | 0.549  | 0.760  | 0.852   | 67   |
+| RotatE    | Hinge      | False    | 64.33  | 0.692 | 0.605  | 0.751  | 0.837   | 130  |
+| RotatE    | Hinge      | True     | 80.89  | 0.602 | 0.485  | 0.683  | 0.797   | 131  |
+| RotatE    | Logistic   | False    | 39.24  | 0.719 | 0.629  | 0.785  | 0.867   | 132  |
+| RotatE    | Logistic   | True     | 63.72  | 0.586 | 0.466  | 0.666  | 0.789   | 128  |
+| RotatE    | Logsigmoid | False    | 39.42  | 0.720 | 0.631  | 0.786  | 0.865   | 127  |
+

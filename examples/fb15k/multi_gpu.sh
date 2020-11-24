@@ -478,3 +478,242 @@ dglke_eval --model_name SimplE --dataset FB15k --hidden_dim 400 --gamma 295 --ba
 # testing takes 61.748 seconds
 ##################################################
 
+# Loss function training on 8-GPU
+
+# DistMult + Hinge
+dglke_train --model_name DistMult --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 150.0 --lr 0.1 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Hinge --margin 3
+################## Script Result #################
+# training takes 59.78469157218933 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.7754755155370301
+# Test average MR : 111.75126542635134
+# Test average HITS@1 : 0.709476731391038
+# Test average HITS@3 : 0.8274026171894838
+# Test average HITS@10 : 0.8829628751841004
+# -----------------------------------------
+# testing takes 52.860 seconds
+##################################################
+
+# DistMult + pairwise Hinge
+dglke_train --model_name DistMult --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 143.0 --lr 0.1 --batch_size_eval 16 \
+--test --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Hinge --margin 3 --pairwise
+################## Script Result #################
+# training takes 59.09430718421936 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.5389195751412187
+# Test average MR : 100.28602867735437
+# Test average HITS@1 : 0.4113947622352762
+# Test average HITS@3 : 0.6195510487379594
+# Test average HITS@10 : 0.766662152325168
+# -----------------------------------------
+# testing takes 54.329 seconds
+##################################################
+
+# DistMult + Logsigmoid
+dglke_train --model_name DistMult --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 143.0 --lr 0.1 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Logsigmoid
+################## Script Result #################
+# training takes 59.721519231796265 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.6871380814878363
+# Test average MR : 57.77132603138596
+# Test average HITS@1 : 0.5767720201113914
+# Test average HITS@3 : 0.7724094733456349
+# Test average HITS@10 : 0.8696991755683838
+# -----------------------------------------
+# testing takes 55.849 seconds
+##################################################
+
+# Distmult + Logistic
+dglke_train --model_name DistMult --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 143.0 --lr 0.1 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Logistic
+################## Script Result #################
+# training takes 56.380531787872314 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.6896071641924044
+# Test average MR : 57.0942763792724
+# Test average HITS@1 : 0.5784818269540045
+# Test average HITS@3 : 0.7734505933537608
+# Test average HITS@10 : 0.8731695755954698
+# -----------------------------------------
+# testing takes 54.097 seconds
+##################################################
+
+# DistMult + pairwise Logistic
+dglke_train --model_name DistMult --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 400 --gamma 150.0 --lr 0.1 --batch_size_eval 16 \
+--test --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Logistic --pairwise
+################## Script Result #################
+# training takes 57.917012214660645 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.38454335306219695
+# Test average MR : 74.24669465558395
+# Test average HITS@1 : 0.2713175669956493
+# Test average HITS@3 : 0.4369741497519934
+# Test average HITS@10 : 0.6018604729901306
+# -----------------------------------------
+# testing takes 58.437 seconds
+##################################################
+
+# RotatE + Hinge
+dglke_train --model_name RotatE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 200 --gamma 24.0 --lr 0.015 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --double_ent --force_sync_interval 1000 --loss_genre Hinge --margin 3
+################## Script Result #################
+# training takes 130.32349681854248 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.6917848564388618
+# Test average MR : 64.32532037717323
+# Test average HITS@1 : 0.6046537217924193
+# Test average HITS@3 : 0.75125696196103
+# Test average HITS@10 : 0.8372043811684244
+# -----------------------------------------
+# testing takes 58.523 seconds
+##################################################
+
+# RotatE + pairwise Hinge
+dglke_train --model_name RotatE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 200 --gamma 12.0 --lr 0.015 --batch_size_eval 16 \
+--test --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --double_ent --force_sync_interval 1000 --loss_genre Hinge --margin 3 --pairwise
+################## Script Result #################
+# training takes 131.73789978027344 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.6022995211193525
+# Test average MR : 80.89336561087505
+# Test average HITS@1 : 0.48531428281220906
+# Test average HITS@3 : 0.6834995175297524
+# Test average HITS@10 : 0.7969477408542263
+# -----------------------------------------
+# testing takes 56.194 seconds
+##################################################
+
+# RotatE + Logsigmoid
+dglke_train --model_name RotatE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 200 --gamma 12.0 --lr 0.015 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --double_ent --force_sync_interval 1000 --loss_genre Logsigmoid
+################## Script Result #################
+# training takes 127.18009305000305 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.7203891052727601
+# Test average MR : 39.418750317414634
+# Test average HITS@1 : 0.6311134059013729
+# Test average HITS@3 : 0.7863333954055289
+# Test average HITS@10 : 0.8652553706556517
+# -----------------------------------------
+# testing takes 60.876 seconds
+##################################################
+
+# RotatE + Logistic
+dglke_train --model_name RotatE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 200 --gamma 12.0 --lr 0.015 --batch_size_eval 16 \
+--test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --double_ent --force_sync_interval 1000 --loss_genre Logistic
+################## Script Result #################
+# training takes 131.61905479431152 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.7194889832031803
+# Test average MR : 39.242623283844864
+# Test average HITS@1 : 0.6289549863723316
+# Test average HITS@3 : 0.7850552724687241
+# Test average HITS@10 : 0.8672952887203534
+# -----------------------------------------
+# testing takes 59.633 seconds
+##################################################
+
+# RotatE + pairwise Logistic
+dglke_train --model_name RotatE --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --hidden_dim 200 --gamma 12.0 --lr 0.015 --batch_size_eval 16 \
+--test --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
+--gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --double_ent --force_sync_interval 1000 --loss_genre Logistic --pairwise
+################## Script Result #################
+# training takes 128.0637414455413 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.5857013188720447
+# Test average MR : 63.71882141829324
+# Test average HITS@1 : 0.46566843290277804
+# Test average HITS@3 : 0.666435306664861
+# Test average HITS@10 : 0.788796532985729
+# -----------------------------------------
+# testing takes 57.576 seconds
+##################################################
+
+# TransE_l1 + Hinge
+dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --regularization_coef 1e-07 --hidden_dim 400 --gamma 32.0 \
+--lr 0.08 --batch_size_eval 16 --test -adv --max_step 3000 --mix_cpu_gpu --num_thread 4 \
+--num_proc 8 --gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Hinge --margin 3
+################## Script Result #################
+# training takes 68.79845666885376 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.703791435136054
+# Test average MR : 44.73922906333057
+# Test average HITS@1 : 0.6066682466861912
+# Test average HITS@3 : 0.7778943982664929
+# Test average HITS@10 : 0.8546494895972643
+# -----------------------------------------
+# testing takes 48.091 seconds
+##################################################
+
+# TransE_l1 + pairwise Hinge
+dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --regularization_coef 1e-07 --hidden_dim 400 --gamma 16.0 \
+--lr 0.08 --batch_size_eval 16 --test --max_step 3000 --mix_cpu_gpu --num_thread 4 \
+--num_proc 8 --gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Hinge --margin 7 --pairwise
+################## Script Result #################
+# training takes 63.92800164222717 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.48780717724802114
+# Test average MR : 69.5792436220819
+# Test average HITS@1 : 0.2837856139222292
+# Test average HITS@3 : 0.6532816441231738
+# Test average HITS@10 : 0.7959404784073403
+# -----------------------------------------
+# testing takes 52.687 seconds
+##################################################
+
+# TransE_l1 + Logsigmoid
+dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --regularization_coef 1e-07 --hidden_dim 400 --gamma 16.0 \
+--lr 0.01 --batch_size_eval 16 --test -adv --max_step 3000 --mix_cpu_gpu --num_thread 4 \
+--num_proc 8 --gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Logsigmoid
+################## Script Result #################
+# training takes 67.23829913139343 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.6676945471491244
+# Test average MR : 43.106600531563714
+# Test average HITS@1 : 0.549008819894703
+# Test average HITS@3 : 0.7599075688578152
+# Test average HITS@10 : 0.8517631325015659
+# -----------------------------------------
+# testing takes 54.306 seconds
+##################################################
+
+# TransE_l1 + Logistic
+dglke_train --model_name TransE_l1 --dataset FB15k --batch_size 1000 --log_interval 1000 \
+--neg_sample_size 200 --regularization_coef 1e-07 --hidden_dim 400 --gamma 16.0 \
+--lr 0.01 --batch_size_eval 16 --test -adv --max_step 3000 --mix_cpu_gpu --num_thread 4 \
+--num_proc 8 --gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000 --loss_genre Logistic
+################## Script Result #################
+# training takes 64.75518202781677 seconds
+# -------------- Test result --------------
+# Test average MRR : 0.6692648917018105
+# Test average MR : 42.38613702155034
+# Test average HITS@1 : 0.5516920316229622
+# Test average HITS@3 : 0.7610502615496606
+# Test average HITS@10 : 0.8515938446953666
+# -----------------------------------------
+# testing takes 70.450 seconds
+##################################################

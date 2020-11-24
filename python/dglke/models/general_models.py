@@ -33,7 +33,9 @@ import dgl.backend as F
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
+    from .mxnet.tensor_models import masked_select
     from .mxnet.tensor_models import logsigmoid
+    from .mxnet.tensor_models import abs
     from .mxnet.tensor_models import get_device, get_dev
     from .mxnet.tensor_models import norm
     from .mxnet.tensor_models import get_scalar
@@ -45,6 +47,8 @@ if backend.lower() == 'mxnet':
     DEFAULT_INFER_BATCHSIZE = 1024
 else:
     from .pytorch.tensor_models import logsigmoid
+    from .pytorch.tensor_models import abs
+    from .pytorch.tensor_models import masked_select
     from .pytorch.tensor_models import get_device, get_dev
     from .pytorch.tensor_models import norm
     from .pytorch.tensor_models import get_scalar
@@ -53,6 +57,7 @@ else:
     from .pytorch.tensor_models import ExternalEmbedding
     from .pytorch.tensor_models import InferEmbedding
     from .pytorch.score_fun import *
+    from .pytorch.loss import LossGenerator
     DEFAULT_INFER_BATCHSIZE = 2048
 
 EMB_INIT_EPS = 2.0
@@ -184,7 +189,7 @@ class KEModel(object):
         Global configs.
     model_name : str
         Which KG model to use, including 'TransE_l1', 'TransE_l2', 'TransR',
-        'RESCAL', 'DistMult', 'ComplEx', 'RotatE'
+        'RESCAL', 'DistMult', 'ComplEx', 'RotatE', 'SimplE'
     n_entities : int
         Num of entities.
     n_relations : int
@@ -211,11 +216,14 @@ class KEModel(object):
         self.hidden_dim = hidden_dim
         self.eps = EMB_INIT_EPS
         self.emb_init = (gamma + self.eps) / hidden_dim
-
         entity_dim = 2 * hidden_dim if double_entity_emb else hidden_dim
         relation_dim = 2 * hidden_dim if double_relation_emb else hidden_dim
 
         device = get_device(args)
+
+        self.loss_gen = LossGenerator(args, args.loss_genre, args.neg_adversarial_sampling,
+                                      args.adversarial_temperature, args.pairwise)
+
         self.entity_emb = ExternalEmbedding(args, n_entities, entity_dim,
                                             F.cpu() if args.mix_cpu_gpu else device)
         # For RESCAL, relation_emb = relation_dim * entity_dim
@@ -290,7 +298,7 @@ class KEModel(object):
         if self.strict_rel_part or self.soft_rel_part:
             self.global_relation_emb.save(path, dataset+'_'+self.model_name+'_relation')
         else:
-            self.relation_emb.save(path, dataset+'_'+self.model_name+'_relation')
+            self.relation_emb.save(path, dataset+'_'+self.model_name+'_relation')   
 
         self.score_func.save(path, dataset+'_'+self.model_name)
 
@@ -438,31 +446,33 @@ class KEModel(object):
         """
         pos_g.ndata['emb'] = self.entity_emb(pos_g.ndata['id'], gpu_id, False)
         pos_g.edata['emb'] = self.relation_emb(pos_g.edata['id'], gpu_id, False)
-
         self.score_func.prepare(pos_g, gpu_id, False)
 
         batch_size = pos_g.number_of_edges()
         pos_scores = self.predict_score(pos_g)
-        pos_scores = reshape(logsigmoid(pos_scores), batch_size, -1)
+        pos_scores = reshape(pos_scores, batch_size, -1)
 
         neg_scores = self.predict_neg_score(pos_g, neg_g, to_device=cuda,
                                             gpu_id=gpu_id, trace=False,
                                             neg_deg_sample=self.args.neg_deg_sample_eval)
-        neg_scores = reshape(logsigmoid(neg_scores), batch_size, -1)
-
+        neg_scores = reshape(neg_scores, batch_size, -1)
         # We need to filter the positive edges in the negative graph.
         if self.args.eval_filter:
             filter_bias = reshape(neg_g.edata['bias'], batch_size, -1)
             if gpu_id >= 0:
                 filter_bias = cuda(filter_bias, gpu_id)
-            neg_scores += filter_bias
+            # find all indices where it is not false negative sample
+            mask = filter_bias != -1
+
         # To compute the rank of a positive edge among all negative edges,
         # we need to know how many negative edges have higher scores than
         # the positive edge.
-        rankings = F.sum(neg_scores >= pos_scores, dim=1) + 1
-        rankings = F.asnumpy(rankings)
         for i in range(batch_size):
-            ranking = rankings[i]
+            if self.args.eval_filter:
+                # select all the true negative samples where its score >= positive sample
+                ranking = F.asnumpy(F.sum(masked_select(neg_scores[i] >= pos_scores[i], mask[i]), dim=0) + 1)
+            else:
+                ranking = F.asnumpy(F.sum(neg_scores[i] >= pos_scores[i], dim=0) + 1)
             logs.append({
                 'MRR': 1.0 / ranking,
                 'MR': float(ranking),
@@ -493,13 +503,8 @@ class KEModel(object):
         """
         pos_g.ndata['emb'] = self.entity_emb(pos_g.ndata['id'], gpu_id, True)
         pos_g.edata['emb'] = self.relation_emb(pos_g.edata['id'], gpu_id, True)
-
         self.score_func.prepare(pos_g, gpu_id, True)
-
         pos_score = self.predict_score(pos_g)
-        pos_score = logsigmoid(pos_score)
-        if self.has_edge_importance:
-            pos_score = pos_score * F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
         if gpu_id >= 0:
             neg_score = self.predict_neg_score(pos_g, neg_g, to_device=cuda,
                                                gpu_id=gpu_id, trace=True,
@@ -509,13 +514,6 @@ class KEModel(object):
                                                neg_deg_sample=self.args.neg_deg_sample)
 
         neg_score = reshape(neg_score, -1, neg_g.neg_sample_size)
-        # Adversarial sampling
-        if self.args.neg_adversarial_sampling:
-            neg_score = F.sum(F.softmax(neg_score * self.args.adversarial_temperature, dim=1).detach()
-                         * logsigmoid(-neg_score), dim=1)
-        else:
-            neg_score = F.mean(logsigmoid(-neg_score), dim=1)
-
         # subsampling weight
         # TODO: add subsampling to new sampler
         #if self.args.non_uni_weight:
@@ -523,21 +521,8 @@ class KEModel(object):
         #    pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()
         #    neg_score = (neg_score * subsampling_weight).sum() / subsampling_weight.sum()
         #else:
-        if self.has_edge_importance:
-            edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id))
-            pos_score = (pos_score * edge_weight).mean()
-            neg_score = (neg_score * edge_weight).mean()
-        else:
-            pos_score = pos_score.mean()
-            neg_score = neg_score.mean()
-
-        # compute loss
-        loss = -(pos_score + neg_score) / 2
-
-        log = {'pos_loss': - get_scalar(pos_score),
-               'neg_loss': - get_scalar(neg_score),
-               'loss': get_scalar(loss)}
-
+        edge_weight = F.copy_to(pos_g.edata['impts'], get_dev(gpu_id)) if self.has_edge_importance else None
+        loss, log = self.loss_gen.get_total_loss(pos_score, neg_score, edge_weight)
         # regularization: TODO(zihao)
         #TODO: only reg ent&rel embeddings. other params to be added.
         if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
