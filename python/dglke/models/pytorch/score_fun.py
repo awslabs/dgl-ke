@@ -702,7 +702,7 @@ class ConvEScore(nn.Module):
                 return head, tail
             return fn
 
-    def forward(self, concat_emb, tail_emb):
+    def forward(self, args, kwargs):
         """
         Parameters
         ----------
@@ -710,17 +710,38 @@ class ConvEScore(nn.Module):
             embedding concatenated from head and tail and reshaped
         tail_emb : Tensor
             tail embedding
+        mode : str
+            choice = ['conv', 'linear', 'full']. Which part of score function to perform. This is used to accelerate test process.
         """
-        # why use batch and dropout together?
-        # reshape tensor to fit in conv
-        if concat_emb.dim() == 3:
-            batch, height, width = concat_emb.shape
-            concat_emb = concat_emb.view(batch, 1, height, width)
-        x = self.conv(concat_emb)
-        fc_out = self.fc(x.view(x.shape[0], -1))
-        out = th.sum(fc_out * tail_emb, dim=-1, keepdim=True)
-        # we do not use sigmoid here because we can use different score function
-        return th.sigmoid(out)
+        mode = kwargs['mode']
+
+        if mode is 'conv':
+            [concat_emb] = args
+            # reshape tensor to fit in conv
+            if concat_emb.dim() == 3:
+                batch, height, width = concat_emb.shape
+                concat_emb = concat_emb.view(batch, 1, height, width)
+            x = self.conv(concat_emb)
+            fc_out = self.fc(x.view(x.shape[0], -1))
+            return fc_out
+
+        elif mode is 'full':
+            concat_emb, tail_emb = args
+            # reshape tensor to fit in conv
+            if concat_emb.dim() == 3:
+                batch, height, width = concat_emb.shape
+                concat_emb = concat_emb.view(batch, 1, height, width)
+            x = self.conv(concat_emb)
+            fc_out = self.fc(x.view(x.shape[0], -1))
+            out = th.sum(fc_out * tail_emb, dim=-1, keepdim=True)
+            # we do not use sigmoid here because we can use different score function
+            return th.sigmoid(out)
+
+        else:
+            fc, tail_emb = args
+            out = th.sum(fc * tail_emb, dim=-1, keepdim=True)
+            return th.sigmoid(out)
+
 
     def reset_parameters(self):
         # use default init tech of pytorch
@@ -768,7 +789,7 @@ class ConvEScore(nn.Module):
                 return score
             return fn
 
-    def batch_concat(self, tensor_a, tensor_b, dim=-1):
+    def batch_concat(self, tensor_a, tensor_b, dim=-2):
         """ element wise concatenation
 
         """
@@ -791,8 +812,8 @@ class ConvEScore(nn.Module):
         tensor_b = _reshape(tensor_b)
         return th.cat([tensor_a, tensor_b], dim=dim)
 
-    def broadcast_concat(self, tensor_a, tensor_b, chunk_size=16, neg_sample_size=16, dim=-1):
-        """ broadcast concatenation for tensor_a and tensor_bation, it is used only when corrupt negative tensor_a
+    def mutual_concat(self, tensor_a, tensor_b, chunk_size_a=16, chunk_size_b=16, dim=-2):
+        """ broadcast concatenation for tensor_a and tensor_b. it is used only when corrupt negative tensor_a
 
         """
         def _chunk_reshape(tensor, _chunk_size):
@@ -808,13 +829,23 @@ class ConvEScore(nn.Module):
                 assert w == self.w, 'tensor width must match %d.' % self.w
                 return tensor.reshape([-1, _chunk_size, self.h, self.w])
 
-        tensor_a = _chunk_reshape(tensor_a, neg_sample_size)
-        tensor_b = _chunk_reshape(tensor_b, chunk_size)
+        tensor_a = _chunk_reshape(tensor_a, chunk_size_a)
+        tensor_b = _chunk_reshape(tensor_b, chunk_size_b)
         num_chunk, _, h, w = tensor_a.shape
         tensor_a = tensor_a.unsqueeze(1)
         tensor_b = tensor_b.unsqueeze(2)
-        tensor_a = tensor_a.repeat(1, chunk_size, 1, 1, 1)
-        tensor_b = tensor_b.repeat(1, 1, neg_sample_size, 1, 1)
+        tensor_a = tensor_a.repeat(1, chunk_size_b, 1, 1, 1)
+        tensor_b = tensor_b.repeat(1, 1, chunk_size_a, 1, 1)
         cat_res = th.cat([tensor_a, tensor_b], dim=dim)
         cat_res = cat_res.reshape(-1, 2 * h, w)
+        return cat_res
+
+    def broadcast_concat(self, tensor_a, tensor_b, dim=-2):
+        tensor_a = tensor_a.reshape(-1, self.h, self.w)
+        tensor_b = tensor_b.reshape(-1, self.h, self.w)
+        if tensor_a.shape[0] == 1:
+            tensor_a = tensor_a.expand(tensor_b.shape[0], -1, -1)
+        else:
+            tensor_b = tensor_b.expand(tensor_a.shape[0], -1, -1)
+        cat_res = th.cat([tensor_a, tensor_b], dim=dim)
         return cat_res
