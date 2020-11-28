@@ -19,7 +19,7 @@
 
 import argparse
 
-from util.utils import load_entity_data, load_raw_emb_data, load_raw_emb_mapping
+from util.misc import load_entity_data, load_raw_emb_data, load_raw_emb_mapping
 from .models.infer import EmbSimInfer
 
 class ArgParser(argparse.ArgumentParser):

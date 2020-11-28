@@ -30,7 +30,7 @@ import dgl.backend as F
 
 import torch.multiprocessing as mp
 from .train_pytorch import load_model, dist_train_test
-from util.utils import get_compatible_batch_size, CommonArgParser
+from util.misc import get_compatible_batch_size, CommonArgParser
 
 from .train import prepare_save_path
 from .dataloader import TrainDataset, NewBidirectionalOneShotIterator

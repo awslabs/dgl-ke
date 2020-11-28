@@ -20,7 +20,7 @@
 import os
 import argparse
 
-from util.utils import load_model_config, load_raw_triplet_data, load_triplet_data
+from util.misc import load_model_config, load_raw_triplet_data, load_triplet_data
 from .models.infer import ScoreInfer
 
 class ArgParser(argparse.ArgumentParser):

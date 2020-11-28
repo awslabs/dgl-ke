@@ -649,7 +649,10 @@ class ConvEScore(nn.Module):
     """
     def __init__(self, args, hidden_dim, tensor_height, dropout_ratio: tuple = (0, 0, 0), batch_norm=False):
         super(ConvEScore, self).__init__()
+        self._build_model(hidden_dim, tensor_height, dropout_ratio, batch_norm)
 
+
+    def _build_model(self, hidden_dim, tensor_height, dropout_ratio, batch_norm):
         # get height of reshape tensor
         assert hidden_dim % tensor_height == 0, 'input dimension %d must be divisible to tensor height %d' % (hidden_dim, tensor_height)
         self.h = tensor_height
@@ -664,7 +667,7 @@ class ConvEScore(nn.Module):
             conv += [nn.BatchNorm2d(32)]
         conv += [nn.ReLU()]
         if dropout_ratio[1] != 0:
-            conv += [nn.Dropout(p=dropout_ratio[1])]
+            conv += [nn.Dropout2d(p=dropout_ratio[1])]
         self.conv = nn.Sequential(*conv)
         fc = []
         linear_dim = 32 * (self.h * 2 - 2) * (self.w - 2)
@@ -675,8 +678,7 @@ class ConvEScore(nn.Module):
             fc += [nn.BatchNorm1d(hidden_dim)]
         fc += [nn.ReLU()]
         self.fc = nn.Sequential(*fc)
-        # self.register_parameter('b', th.nn.Parameter(th.zeros(hidden_dim)))
-        # is b necessary? hard to implement for now, will see later
+        self.actv = nn.Sigmoid()
 
     def edge_func(self, edges):
         head = edges.src['emb']
@@ -711,36 +713,39 @@ class ConvEScore(nn.Module):
         tail_emb : Tensor
             tail embedding
         mode : str
-            choice = ['conv', 'linear', 'full']. Which part of score function to perform. This is used to accelerate test process.
+            choice = ['lhs', 'rhs', 'full']. Which part of score function to perform. This is used to accelerate test process.
         """
         mode = kwargs['mode']
-
-        if mode is 'conv':
+        if mode is 'lhs':
             [concat_emb] = args
             # reshape tensor to fit in conv
             if concat_emb.dim() == 3:
                 batch, height, width = concat_emb.shape
-                concat_emb = concat_emb.view(batch, 1, height, width)
+                concat_emb = concat_emb.reshape(batch, 1, height, width)
             x = self.conv(concat_emb)
-            fc_out = self.fc(x.view(x.shape[0], -1))
+            x = x.view(x.shape[0], -1)
+            fc_out = self.fc(x)
             return fc_out
 
-        elif mode is 'full':
-            concat_emb, tail_emb = args
+        elif mode is 'all':
+            concat_emb, tail_emb, bias = args
             # reshape tensor to fit in conv
             if concat_emb.dim() == 3:
                 batch, height, width = concat_emb.shape
-                concat_emb = concat_emb.view(batch, 1, height, width)
+                concat_emb = concat_emb.reshape(batch, 1, height, width)
             x = self.conv(concat_emb)
-            fc_out = self.fc(x.view(x.shape[0], -1))
-            out = th.sum(fc_out * tail_emb, dim=-1, keepdim=True)
+            x = x.view(x.shape[0], -1)
+            x = self.fc(x)
+            x = th.sum(x * tail_emb, dim=-1, keepdim=True)
+            x = x + bias
             # we do not use sigmoid here because we can use different score function
-            return th.sigmoid(out)
-
+            out = self.actv(x)
+            return out
         else:
-            fc, tail_emb = args
-            out = th.sum(fc * tail_emb, dim=-1, keepdim=True)
-            return th.sigmoid(out)
+            fc, tail_emb, bias = args
+            x = th.sum(fc * tail_emb, dim=-1, keepdim=True)
+            x = x + bias
+            return self.actv(x)
 
 
     def reset_parameters(self):
@@ -800,9 +805,9 @@ class ConvEScore(nn.Module):
                 return tensor.reshape(batch,  self.h, self.w)
             elif tensor.dim() == 3:
                 batch, h, w = tensor.shape
-                assert h == self.h, 'tensor height must match %d' % self.h
-                assert w == self.w, 'tensor width must match %d' % self.w
-                return tensor.reshape(batch,  h, w)
+                assert h == self.h, 'tensor height must match %d' % h
+                assert w == self.w, 'tensor width must match %d' % w
+                return tensor
             elif tensor.dim() == 4:
                 return tensor
             else:
@@ -812,7 +817,7 @@ class ConvEScore(nn.Module):
         tensor_b = _reshape(tensor_b)
         return th.cat([tensor_a, tensor_b], dim=dim)
 
-    def mutual_concat(self, tensor_a, tensor_b, chunk_size_a=16, chunk_size_b=16, dim=-2):
+    def mutual_concat(self, tensor_a, tensor_b, chunk_size_a=16, chunk_size_b=16, mode='AxB', dim=-2):
         """ broadcast concatenation for tensor_a and tensor_b. it is used only when corrupt negative tensor_a
 
         """
@@ -832,10 +837,16 @@ class ConvEScore(nn.Module):
         tensor_a = _chunk_reshape(tensor_a, chunk_size_a)
         tensor_b = _chunk_reshape(tensor_b, chunk_size_b)
         num_chunk, _, h, w = tensor_a.shape
-        tensor_a = tensor_a.unsqueeze(1)
-        tensor_b = tensor_b.unsqueeze(2)
-        tensor_a = tensor_a.repeat(1, chunk_size_b, 1, 1, 1)
-        tensor_b = tensor_b.repeat(1, 1, chunk_size_a, 1, 1)
+        if mode is 'AxB':
+            tensor_a = tensor_a.unsqueeze(2)
+            tensor_b = tensor_b.unsqueeze(1)
+            tensor_a = tensor_a.repeat(1, 1, chunk_size_b, 1, 1)
+            tensor_b = tensor_b.repeat(1, chunk_size_a, 1, 1, 1)
+        elif mode is 'BxA':
+            tensor_a = tensor_a.unsqueeze(1)
+            tensor_b = tensor_b.unsqueeze(2)
+            tensor_a = tensor_a.repeat(1, chunk_size_b, 1, 1, 1)
+            tensor_b = tensor_b.repeat(1, 1, chunk_size_a, 1, 1)
         cat_res = th.cat([tensor_a, tensor_b], dim=dim)
         cat_res = cat_res.reshape(-1, 2 * h, w)
         return cat_res
@@ -849,3 +860,15 @@ class ConvEScore(nn.Module):
             tensor_b = tensor_b.expand(tensor_a.shape[0], -1, -1)
         cat_res = th.cat([tensor_a, tensor_b], dim=dim)
         return cat_res
+
+
+class ATTHScore(nn.Module):
+    def __init__(self):
+        super(self, ATTHScore).__init__()
+        pass
+
+    def forward(self, args, kwargs):
+        x, v, c = args
+        sqrt_c = c ** 0.5
+        pass
+

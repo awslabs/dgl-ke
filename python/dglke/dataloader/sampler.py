@@ -768,15 +768,15 @@ class SubDataset(Dataset):
             self.impts = g.edata['impts'][edges]
 
     def __getitem__(self, index):
-        head = self.heads[index]
-        tail = self.tails[index]
-        rel = self.rels[index]
+        ret = {'head': self.heads[index],
+               'tail': self.tails[index],
+               'rel': self.rels[index]}
         # TODO: lingfei - fix later, pysudo random
         idx = index if index < len(self.negs) else random.randrange(0, len(self.negs))
-        neg = self.negs[idx]
+        ret['neg'] = self.negs[idx]
         if self.has_importance:
-            impts = self.impts[index]
-        return [head, rel, tail, neg] if not self.has_importance else [head, rel, tail, neg, impts]
+            ret['impts'] = self.impts[index]
+        return ret
 
     def __len__(self):
         return len(self.heads)

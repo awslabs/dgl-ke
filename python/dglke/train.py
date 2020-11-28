@@ -23,7 +23,7 @@ import time
 from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset
 
-from util.utils import get_compatible_batch_size, save_model, CommonArgParser
+from dglke.util import get_compatible_batch_size, save_model, CommonArgParser
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':

@@ -110,6 +110,12 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Random seed for reproducibility')
         self.add_argument('--num_node', type=int, default=1,
                           help='Number of node used for distributed training')
+        # this is used for distributed training. not implemented yet
         self.add_argument('--node_rank', type=int, default=0,
                           help='The rank of node, ranged from [0, num_node - 1]')
+        self.add_argument('--eval_chunk', type=int, default=8,
+                          help='Number of chunk to corrupt for the whole graph to pervent OOM for evaluation. The smaller the more RAM it consumed.')
+        self.add_argument('--mode', type=str, default='fit',
+                          choices=['fit', 'eval'],
+                          help='Whether to train the model or to evaluate.')
 

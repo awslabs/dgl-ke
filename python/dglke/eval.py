@@ -21,7 +21,7 @@ import argparse
 import os
 import time
 
-from util.utils import get_compatible_batch_size
+from util.misc import get_compatible_batch_size
 
 from .dataloader import EvalDataset
 from .dataloader import get_dataset

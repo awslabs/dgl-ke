@@ -25,7 +25,7 @@ if os.name != 'nt':
     import fcntl
     import struct
 
-from util.utils import CommonArgParser
+from util.misc import CommonArgParser
 
 SCRIPT_FILE = 'dglke_start_kvserver_kvclient.sh'
 

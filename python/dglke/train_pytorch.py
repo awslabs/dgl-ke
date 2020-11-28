@@ -26,7 +26,7 @@ if TH_VERSION.version[0] == 1 and TH_VERSION.version[1] < 2:
     raise Exception("DGL-ke has to work with Pytorch version >= 1.2")
 from .models.pytorch.tensor_models import thread_wrapped_func
 from .models import KEModel
-from util.utils import save_model, get_compatible_batch_size
+from util.misc import save_model, get_compatible_batch_size
 
 import logging
 import time
