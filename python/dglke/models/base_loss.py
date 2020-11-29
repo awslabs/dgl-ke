@@ -62,7 +62,7 @@ class BaseLossGenerator(object):
     """ loss generator class is responsible for calculate loss for positive & negative loss / pairwise loss.
     It has different implementations of concrete method in regards of PyTorch and MXNet.
     """
-    def __init__(self, neg_adversarial_sampling, adversarial_temperature, pairwise):
+    def __init__(self, neg_adversarial_sampling, adversarial_temperature, pairwise, label_smooth):
         """ initialize BaseLossGenerator class
 
         Parameters
@@ -76,6 +76,7 @@ class BaseLossGenerator(object):
         """
         self.pairwise = pairwise
         self.neg_adversarial_sampling = neg_adversarial_sampling
+        self.label_smooth = label_smooth
         if self.neg_adversarial_sampling:
             self.adversarial_temperature = adversarial_temperature
         else:
@@ -83,15 +84,15 @@ class BaseLossGenerator(object):
         if self.pairwise is True and self.neg_adversarial_sampling is True:
             raise ValueError('loss cannot be pairwise and adversarial sampled')
 
-    def get_pos_loss(self, pos_score, edge_weight):
+    def _get_pos_loss(self, pos_score, pos_label):
         """ Predict loss for positive labels
 
         Parameters
         ----------
         pos_score : tensor
             Score calculated from positive triples
-        edge_weight : tensor
-            weight for each edge
+        pos_label : tensor
+            ground truth positive label
 
         Returns
         -------
@@ -100,15 +101,15 @@ class BaseLossGenerator(object):
         """
         pass
 
-    def get_neg_loss(self, neg_score, edge_weight):
+    def _get_neg_loss(self, neg_score, neg_label):
         """ Predict loss for negative triples
 
         Parameters
         ----------
         neg_score: tensor
             Score calculated from positive triples
-        edge_weight : tensor
-            weight for each edge
+        neg_label: tensor
+            ground truth negative label
 
         Returns
         -------

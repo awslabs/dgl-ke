@@ -34,6 +34,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from tqdm import trange, tqdm
 import numpy as np
+import time
 from itertools import chain
 
 from torch.nn.parallel import DistributedDataParallel
@@ -55,6 +56,7 @@ from .pytorch.tensor_models import floor_divide
 from .pytorch.train_sampler import TrainSampler
 from .pytorch.loss import LossGenerator
 from .pytorch.score_fun import ConvEScore
+from .pytorch.regularizer import Regularizer
 from util import *
 from dataloader import EvalDataset, TrainDataset, SubDataset
 from dataloader import get_dataset
@@ -1003,12 +1005,13 @@ class DenseModel(BasicGEModel):
         self.lr = args.lr
         self.dist_train = (args.num_node * args.num_proc) != 1
         self.hidden_dim = args.hidden_dim
-
+        self.regularizer = Regularizer(args.regularization_coef, args.regularization_norm)
         self._loss_gen = LossGenerator(args,
                                        args.loss_genre,
                                        args.neg_adversarial_sampling,
                                        args.adversarial_temperature,
-                                       args.pairwise)
+                                       args.pairwise,
+                                       args.label_smooth)
         super(DenseModel, self).__init__(device, model_name, score_func)
 
     def _initialize(self, n_entities, n_relations):
@@ -1566,18 +1569,14 @@ class DenseModel(BasicGEModel):
 
         neg_score = neg_score.reshape(-1, neg_sample_size)
         loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
-        # TODO: linfei - create regularizer class to compute regularization
-        # regularization: TODO(zihao)
-        #TODO: only reg ent&rel embeddings. other params to be added.
-        if self.args.regularization_coef > 0.0 and self.args.regularization_norm > 0:
-            coef, nm = self.args.regularization_coef, self.args.regularization_norm
-            # MARK - whether add weight decay here or in optimizer for score_func
-            reg = norm(self._entity_emb.curr_emb(), nm) + norm(self._relation_emb.curr_emb(), nm)
-            for w in self._score_func.parameters():
-                reg += w.norm(nm)
-            reg *= coef
-            log['regularization'] = get_scalar(reg)
-            loss = loss + reg
+
+        param_list = [self._entity_emb.curr_emb(), self._relation_emb.curr_emb(), self._entity_emb.curr_emb()]
+        for param in self._score_func.parameters():
+            param_list += [param]
+        reg, reg_log = self.regularizer(param_list)
+
+        loss += reg
+        log.update(reg_log)
 
         return loss, log
 
@@ -1587,7 +1586,7 @@ class DenseModel(BasicGEModel):
         head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
         batch_size = head.shape[0]
         log = []
-        global_ranking = th.ones(batch_size, 1)
+        global_ranking = th.ones(batch_size, 1, device=th.device('cpu'))
 
         pos_emb = {'head': self._entity_emb(head, gpu_id=gpu_id, trace=False),
                    'rel': self._relation_emb(rel, gpu_id=gpu_id, trace=False),
@@ -1598,6 +1597,9 @@ class DenseModel(BasicGEModel):
                    'neg_bias': self._entity_bias(neg, gpu_id=gpu_id, trace=False)}
 
         pos_score = self._pos_forward(pos_emb)
+        num_node = len(neg)
+        neg_score_corrupt_tail = th.empty(batch_size, num_node, device=device)
+        neg_score_corrupt_head = th.empty(batch_size, num_node, device=device)
         # hyper-parameter to be determined
         num_chunk = args.eval_chunk
         # for tail corruption
@@ -1617,25 +1619,7 @@ class DenseModel(BasicGEModel):
             chunk_neg_bias = neg_emb['neg_bias'][chunk_neg]
             # reshape fc to (b, 1, hidden_dim); chunk_neg_emb, chunk_neg_bias to (1, chunk_size, hidden_dim) to enable broadcast
             chunk_neg_score = self._score_func(args=[lhs.unsqueeze(1), chunk_neg_emb.unsqueeze(0), chunk_neg_bias.unsqueeze(0)], kwargs={'mode': 'rhs'}).reshape(-1, end_idx - start_idx)
-            # head: (b, 1) -> (b, chunk_size) -> (b_0 x chunk_size, ..., b_n x chunk_size)
-            # chunk_neg: (neg_1, ..., neg_i) for i in range(chunk_size) -> ((neg_1, ..., neg_i)_{b_0}, ..., (neg_1, ..., neg_i)_{b_n} )) for n in range(batch_size)
-            has_edge = graph.has_edges_between(head.repeat(end_idx - start_idx), chunk_neg.repeat(batch_size)).reshape(-1, end_idx - start_idx)
-            mask = th.ones(end_idx - start_idx, device=device, dtype=th.bool)
-            for j in range(batch_size):
-                mask.fill_(1)
-                select_idx = has_edge[j].nonzero()
-                uid, vid, eid = graph.edge_ids(head[j], chunk_neg[select_idx[:, 0]], return_uv=True)
-                # get all u, v, e in the graph where there exists edge
-                rid = graph.edata[self._etid_field][eid]
-                for k in select_idx:
-                    t_where = (vid == chunk_neg[k]).nonzero()
-                    r_where = rid[t_where[:, 0]]
-                    if r_where.shape[0] > 0:
-                        for c_r in r_where:
-                            if c_r == rel[j]:
-                                mask[k] = False
-                                break
-                global_ranking[j] += th.sum((pos_score[j] <= chunk_neg_score[j]) * mask)
+            neg_score_corrupt_tail[:, start_idx: end_idx] = chunk_neg_score
 
         for i in range(num_chunk):
             start_idx = i * batch_neg_size
@@ -1647,23 +1631,41 @@ class DenseModel(BasicGEModel):
                 else self._score_func.mutual_concat(chunk_neg_emb, pos_emb['rel'], end_idx - start_idx, batch_size, mode='BxA')
             chunk_neg_fc = self._score_func(args=[chunk_cat], kwargs={'mode': 'lhs'})
             chunk_neg_score = self._score_func(args=[chunk_neg_fc.reshape(batch_size, end_idx - start_idx, -1), pos_emb['tail'].unsqueeze(1), pos_emb['tail_bias'].unsqueeze(1)], kwargs={'mode': 'rhs'}).reshape(-1, end_idx - start_idx)
-            has_edge = graph.has_edges_between(chunk_neg.repeat(batch_size), tail.repeat(end_idx - start_idx)).reshape(-1, end_idx - start_idx)
-            mask = th.ones(end_idx - start_idx, device=device, dtype=th.bool)
-            # TODO: lingfei - use multi-process to overcome overhead
-            for j in range(batch_size):
-                mask.fill_(1)
-                select_idx = has_edge[j].nonzero()
-                uid, vid, eid = graph.edge_ids(chunk_neg[select_idx[:, 0]], tail[j], return_uv=True)
+            neg_score_corrupt_head[:, start_idx: end_idx] = chunk_neg_score
+
+        def remove_false_negative(pos_score, neg_score, pos_entity, neg_entity, mode='head'):
+            for i in range(batch_size):
+                cand_idx = (pos_score[i] <= neg_score[i]).nonzero().cpu()
+                if len(cand_idx) == 0:
+                    continue
+                cand_num = len(cand_idx)
+                if mode is 'head':
+                    select = graph.has_edges_between(pos_entity[i], neg_entity[cand_idx[:, 0]]).nonzero()[:, 0]
+                    if len(select) > 0:
+                        select_idx = cand_idx[select].view(-1)
+                        uid, vid, eid = graph.edge_ids(pos_entity[i], select_idx, return_uv=True)
+                    else:
+                        global_ranking[i] += cand_num
+                        break
+                else:
+                    select = graph.has_edges_between(neg_entity[cand_idx[:, 0]], pos_entity[i]).nonzero()[:, 0]
+                    if len(select) > 0:
+                        select_idx = cand_idx[select].view(-1)
+                        uid, vid, eid = graph.edge_ids(select_idx, pos_entity[i], return_uv=True)
+                    else:
+                        global_ranking[i] += cand_num
+                        break
                 rid = graph.edata[self._etid_field][eid]
-                for k in select_idx:
-                    h_where = (uid == chunk_neg[k]).nonzero()
-                    r_where = rid[h_where[:, 0]]
-                    if r_where.shape[0] > 0:
-                        for c_r in r_where:
-                            if c_r == rel[j]:
-                                mask[k] = False
-                                break
-                global_ranking[j] += th.sum((pos_score[j] <= chunk_neg_score[j]) * mask)
+                for j in range(len(select_idx)):
+                    where = (select_idx[j] == vid).nonzero() if mode is 'head' else (select_idx[j] == uid).nonzero()
+                    cand_r = rid[where[:, 0]]
+                    for r in cand_r:
+                        if r == rel[i]:
+                            cand_num -= 1
+                            break
+                global_ranking[i] += cand_num
+        remove_false_negative(pos_score, neg_score_corrupt_tail, head, neg, mode='head')
+        remove_false_negative(pos_score, neg_score_corrupt_head, tail, neg, mode='tail')
 
 
         for i in range(batch_size):
@@ -1733,7 +1735,7 @@ def main():
     args = TrainArgParser().parse_args()
     device = th.device('cpu')
     model = ConvEModel(args, device, 'ConvE')
-    if args.mode is 'fit':
+    if args.mode == 'fit':
         model.fit()
     else:
         model.eval()
