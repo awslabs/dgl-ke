@@ -716,37 +716,44 @@ class ConvEScore(nn.Module):
             choice = ['lhs', 'rhs', 'full']. Which part of score function to perform. This is used to accelerate test process.
         """
         mode = kwargs['mode']
-        if mode is 'lhs':
-            [concat_emb] = args
-            # reshape tensor to fit in conv
-            if concat_emb.dim() == 3:
-                batch, height, width = concat_emb.shape
-                concat_emb = concat_emb.reshape(batch, 1, height, width)
-            x = self.conv(concat_emb)
-            x = x.view(x.shape[0], -1)
-            fc_out = self.fc(x)
-            return fc_out
-
-        elif mode is 'all':
-            concat_emb, tail_emb, bias = args
-            # reshape tensor to fit in conv
-            if concat_emb.dim() == 3:
-                batch, height, width = concat_emb.shape
-                concat_emb = concat_emb.reshape(batch, 1, height, width)
-            x = self.conv(concat_emb)
-            x = x.view(x.shape[0], -1)
-            x = self.fc(x)
-            x = th.sum(x * tail_emb, dim=-1, keepdim=True)
-            x = x + bias
-            # we do not use sigmoid here because we can use different score function
-            out = self.actv(x)
-            return out
+        if 'comp' not in kwargs:
+            comp = 'batch'
         else:
-            fc, tail_emb, bias = args
-            x = th.sum(fc * tail_emb, dim=-1, keepdim=True)
-            x = x + bias
-            return self.actv(x)
+            comp = kwargs['comp']
 
+        if mode in ['all', 'lhs']:
+            concat_emb = args[0]
+            # reshape tensor to fit in conv
+            if concat_emb.dim() == 3:
+                batch, height, width = concat_emb.shape
+                concat_emb = concat_emb.reshape(batch, 1, height, width)
+            x = self.conv(concat_emb)
+            x = x.view(x.shape[0], -1)
+            fc = self.fc(x)
+            if mode == 'lhs':
+                return fc
+        else:
+            fc = args[0]
+
+        tail_emb, bias = args[1:]
+
+        if comp == 'batch':
+            assert fc.dim() == tail_emb.dim() == bias.dim(), 'batch operation only allow embedding with same dimension'
+            x = th.sum(fc * tail_emb, dim=-1, keepdim=True)
+        elif comp == 'mm':
+            if tail_emb.dim() == 3:
+                tail_emb = tail_emb.transpose(1, 2)
+                x = th.bmm(fc, tail_emb)
+                bias = bias.transpose(1, 2).expand_as(x)
+            else:
+                tail_emb = tail_emb.transpose(1, 0)
+                x = th.mm(fc, tail_emb)
+                bias = bias.transpose(1, 0).expand_as(x)
+        else:
+            raise ValueError(f'comp {comp} is not supported')
+        x = x + bias
+        out = self.actv(x)
+        return out
 
     def reset_parameters(self):
         # use default init tech of pytorch
