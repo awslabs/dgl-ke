@@ -34,13 +34,14 @@ def hyp_distance_multi_c(x, y, c, mode='batch'):
     sqrt_c = c ** 0.5
     if mode == 'mm':
         ynorm = th.norm(y, p=2, dim=-1, keepdim=True).transpose(1, 2)
-        xy = th.mm(x, y.transpose(1, 2)) / ynorm
+        xy = th.bmm(x, y.transpose(1, 2)) / ynorm
+        gamma = tanh(th.bmm(sqrt_c, ynorm)) / sqrt_c
     elif mode == 'batch':
         ynorm = th.norm(y, p=2, dim=-1, keepdim=True)
         xy = th.sum(x * y / ynorm, dim=-1, keepdim=True)
+        gamma = tanh(sqrt_c * ynorm) / sqrt_c
     else:
         raise ValueError(f'{mode} mode is not supported. Choose from [batch, mm]')
-    gamma = tanh(sqrt_c * ynorm) / sqrt_c
     x2 = th.sum(x * x, dim=-1, keepdim=True)
     c1 = 1 - 2 * c * gamma * xy + c * gamma ** 2
     c2 = 1 - c * x2
@@ -88,7 +89,7 @@ def givens_rotations(r, x, comp='batch'):
     else:
         givens = r.view((r.shape[0], r.shape[1], -1, 2))
         givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True)
-        x = x.view((r.shape[0], r.shape[1], -1, 2))
+        x = x.view((x.shape[0], x.shape[1], -1, 2))
         x_rot_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2), x)
         x_rot_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2),
                             th.cat((-x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
@@ -107,10 +108,10 @@ def givens_reflection(r, x, comp='batch'):
     else:
         givens = r.view((r.shape[0], r.shape[1], -1, 2))
         givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True)
-        x = x.view((r.shape[0], r.shape[1], -1, 2))
-        x_ref_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1],
+        x = x.view((x.shape[0], x.shape[1], -1, 2))
+        x_ref_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2),
                             th.cat((x[:, :, :, 0:1], -x[:, :, :, 1:]), dim=-1))
-        x_ref_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:], th.cat((x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
+        x_ref_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2), th.cat((x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
         x_ref = x_ref_a + x_ref_b
         return x_ref.view((r.shape[0], r.shape[1], x.shape[1], -1))
 

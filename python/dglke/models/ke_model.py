@@ -1291,7 +1291,10 @@ class DenseModel(ABC, BasicGEModel):
             print('testing takes {:.3f} seconds'.format(time.time() - start))
 
     def compute_ranking(self, pos_score, neg_score, pos_entity, neg_entity, relation, graph, mode='tail', eval_filter=True):
+
         b_size = pos_entity.shape[0]
+        pos_score = pos_score.view(b_size, -1)
+        neg_score = neg_score.view(b_size, -1)
         ranking = th.ones(b_size, 1, device=th.device('cpu'))
         log = []
         for i in range(b_size):
@@ -1323,13 +1326,13 @@ class DenseModel(ABC, BasicGEModel):
             ranking[i] += cand_num
 
         for i in range(b_size):
-            ranking = get_scalar(ranking[i])
+            ranking_i = get_scalar(ranking[i])
             log.append({
-                'MRR': 1.0 / ranking,
-                'MR': float(ranking),
-                'HITS@1': 1.0 if ranking <= 1 else 0.0,
-                'HITS@3': 1.0 if ranking <= 3 else 0.0,
-                'HITS@10': 1.0 if ranking <= 10 else 0.0
+                'MRR': 1.0 / ranking_i,
+                'MR': float(ranking_i),
+                'HITS@1': 1.0 if ranking_i <= 1 else 0.0,
+                'HITS@3': 1.0 if ranking_i <= 3 else 0.0,
+                'HITS@10': 1.0 if ranking_i <= 10 else 0.0
             })
 
         return ranking, log
@@ -1389,8 +1392,8 @@ class DenseModel(ABC, BasicGEModel):
                                     drop_last=True)
         step_range = trange(0, args.max_step, desc='train') if rank == 0 else range(0, args.max_step)
         for step in step_range:
-            # neg_type = 'head' if step % 2 == 0 else 'tail'
-            neg_type = 'tail'
+            neg_type = 'head' if step % 2 == 0 else 'tail'
+            # neg_type = 'tail'
             start1 = time.time()
             # get pos training data
             try:
@@ -1410,7 +1413,7 @@ class DenseModel(ABC, BasicGEModel):
             sample_time += time.time() - start1
 
             loss, log = self.train_forward(data, neg_type, gpu_id)
-
+            step_range.set_postfix(loss=f'{loss.item():.4f}')
             forward_time += time.time() - start1
 
             start1 = time.time()
@@ -1492,7 +1495,7 @@ class DenseModel(ABC, BasicGEModel):
                                     drop_last=False)
         with th.no_grad():
             logs = []
-            iterator = tqdm(iter(pos_dataloader), desc='eval') if rank == 0 else iter(pos_dataloader)
+            iterator = tqdm(iter(pos_dataloader), desc='evaluation') if rank == 0 else iter(pos_dataloader)
             for data in iterator:
                 # update data[-1] to all the nodes in the graph to perform corruption for all the nodes
                 data['neg'] = eval_dataset.g.nodes()
@@ -1690,7 +1693,6 @@ class ConvEModel(DenseModel):
         args = self.args
         chunk_size = args.neg_sample_size
         neg_sample_size = args.neg_sample_size
-        has_edge_importance = args.has_edge_importance
 
         pos_head_emb = self._entity_emb(data['head'], gpu_id=gpu_id, trace=True)
         pos_tail_emb = self._entity_emb(data['tail'], gpu_id=gpu_id, trace=True)
@@ -1792,21 +1794,87 @@ class AttHModel(DenseModel):
         self._context = KGEmbedding(device)
         self._head_bias = KGEmbedding(device)
         self._tail_bias = KGEmbedding(device)
-        self.multi_c = args.multi_c
+        # self.multi_c = args.multi_c
         self.gamma = args.gamma
         self.bias = args.bias
-        self._scale = th.tensor([1. / np.sqrt(args.hidden_dim)])
+        self._scale = 1. / np.sqrt(args.hidden_dim)
 
     def _initialize(self, n_entities, n_relations, init_strat='uniform'):
         args = self.args
         init_scale = args.init_scale
         self._entity_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat='normal')
-        self._relation_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2, init_strat='normal')
-        self._rel_diag.init(emb_init=2, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2, init_strat='normal')
-        self._c.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations if self.multi_c else 1, dim=1, init_strat='constant')
+        self._relation_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat='normal')
+        self._rel_diag.init(emb_init=1, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2, init_strat='normal')
+        self._c.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=1, init_strat='constant')
         self._context.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat='normal')
         self._head_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='constant')
         self._tail_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='constant')
+
+    def load(self, model_path):
+        rel_diag_file = 'rel_diag.npy'
+        curvature_file = 'curvature.npy'
+        context_file = 'context.npy'
+        head_bias_file = 'head_bias.npy'
+        tail_bias_file = 'tail_bias.npy'
+
+        self._rel_diag.load(rel_diag_file)
+        self._c.load(curvature_file)
+        self._context.load(context_file)
+        self._head_bias.load(head_bias_file)
+        self._tail_bias.load(tail_bias_file)
+
+        super(AttHModel, self).load(model_path)
+
+
+    def save(self, emap_file, rmap_file):
+
+        rel_diag_file = 'rel_diag.npy'
+        curvature_file = 'curvature.npy'
+        context_file = 'context.npy'
+        head_bias_file = 'head_bias.npy'
+        tail_bias_file = 'tail_bias.npy'
+
+        self._rel_diag.save(rel_diag_file)
+        self._c.save(curvature_file)
+        self._context.save(context_file)
+        self._head_bias.save(head_bias_file)
+        self._tail_bias.save(tail_bias_file)
+
+        super(AttHModel, self).save(emap_file, rmap_file)
+
+    def share_memory(self):
+        self._rel_diag.share_memory()
+        self._c.share_memory()
+        self._context.share_memory()
+        self._head_bias.share_memory()
+        self._tail_bias.share_memory()
+
+        super(AttHModel, self).share_memory()
+
+    def to_train(self):
+        super(AttHModel, self).to_train()
+        self._rel_diag.train()
+        self._c.train()
+        self._context.train()
+        self._head_bias.train()
+        self._tail_bias.train()
+
+    def to_eval(self):
+        super(AttHModel, self).to_eval()
+        self._rel_diag.eval()
+        self._c.eval()
+        self._context.eval()
+        self._head_bias.eval()
+        self._tail_bias.eval()
+
+    def update(self, gpu_id):
+        super(AttHModel, self).update(gpu_id)
+        self._rel_diag.update(gpu_id)
+        self._c.update(gpu_id)
+        self._context.update(gpu_id)
+        self._head_bias.update(gpu_id)
+        self._tail_bias.update(gpu_id)
+
 
     def _get_score(self, lhs_e, head_bias, rhs_e, tail_bias, c, comp='batch'):
         score = self._score_func(lhs_e, rhs_e, c, comp)
@@ -1815,8 +1883,8 @@ class AttHModel(DenseModel):
         elif self.bias == 'learn':
             if comp == 'batch':
                 return head_bias + tail_bias + score
-            elif comp == 'mm':
-                return head_bias.unsqueeze(2) + tail_bias.unsqueeze(1) + score
+            else:
+                return head_bias.unsqueeze(2) + tail_bias.unsqueeze(1) + score.unsqueeze(-1)
         else:
             return score
 
@@ -1839,7 +1907,6 @@ class AttHModel(DenseModel):
         att_weights = F.softmax(att_weights, dim=1)
         att_q = th.sum(att_weights * cands, dim=1)
         lhs = expmap0(att_q, c)
-        rel, _ = th.chunk(rel, 2, dim=1)
         rel = expmap0(rel, c)
         lhs = project(mobius_add(lhs, rel, c), c)
 
@@ -1850,17 +1917,38 @@ class AttHModel(DenseModel):
         score = self._get_score(lhs, head_bias, rhs, tail_bias, c, comp='batch')
         return score
 
-    def _neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
+    def _neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, mode='train_head'):
 
-        def prepare_data(_pos_emb, _neg_emb, _neg_type, _chunk_size, _neg_sample_size):
+        def prepare_data(_pos_emb, _neg_emb, _neg_type, _chunk_size, _neg_sample_size, mode='train_head'):
             pos_batch_size = _pos_emb['head'].shape[0]
             neg_batch_size = _neg_emb[_neg_type].shape[0]
-            for k in _pos_emb.keys():
-                _pos_emb[k] = _pos_emb[k].view(pos_batch_size // _chunk_size, _chunk_size, -1)
-            for k in _neg_emb.key():
-                _neg_emb[k] = _neg_emb[k].view(neg_batch_size // _neg_sample_size, _neg_sample_size, -1)
+            pos_emb_reshape = {}
+            neg_emb_reshape = {}
+            if mode == 'train_head':
+                for k in _pos_emb.keys():
+                    pos_emb_reshape[k] = _pos_emb[k].view(pos_batch_size // _chunk_size, _chunk_size, -1)
+                for k in _neg_emb.keys():
+                    neg_emb_reshape[k] = _neg_emb[k].view(neg_batch_size // _neg_sample_size, _neg_sample_size, -1)
+            elif mode == 'train_tail':
+                pos_emb_reshape.update(_pos_emb)
+                pos_emb_reshape['head_bias'] = pos_emb_reshape['head_bias'].view(pos_batch_size // _chunk_size, _chunk_size, -1)
+                for k in _neg_emb.keys():
+                    neg_emb_reshape[k] = _neg_emb[k].view(neg_batch_size // _neg_sample_size, _neg_sample_size, -1)
+            elif mode == 'eval_head':
+                for k in _pos_emb.keys():
+                    pos_emb_reshape[k] = _pos_emb[k].view(1, pos_batch_size, -1)
+                for k in _neg_emb.keys():
+                    neg_emb_reshape[k] = _neg_emb[k].view(1, neg_batch_size, -1)
+            elif mode == 'eval_tail':
+                pos_emb_reshape.update(_pos_emb)
+                pos_emb_reshape['head_bias'] = pos_emb_reshape['head_bias'].view(1, pos_batch_size, -1)
+                for k in _neg_emb.keys():
+                    neg_emb_reshape[k] = _neg_emb[k].view(1, neg_batch_size, -1)
+            return pos_emb_reshape, neg_emb_reshape
 
-        prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size)
+
+
+        pos_emb, neg_emb = prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, mode=mode)
 
         if neg_type == 'head':
             #  for head
@@ -1887,11 +1975,11 @@ class AttHModel(DenseModel):
             attn_weights = th.sum(context_vec * cands * self._scale, dim=-1, keepdim=True)
             attn_weights = F.softmax(attn_weights, dim=-2)
             att_q = th.sum(attn_weights * cands, dim=-2)
-
-            lhs_tmp = expmap0(att_q, c.unsqueeze(2))
+            expand_c = c.unsqueeze(2)
+            lhs = expmap0(att_q, expand_c)
             rel = expmap0(rel, c).unsqueeze(2)
-            lhs = project(mobius_add(lhs_tmp, rel, c,), c)
-            score = self._get_score(lhs, head_bias, rhs, tail_bias, c, comp='batch')
+            lhs = project(mobius_add(lhs, rel, expand_c), expand_c)
+            score = self._get_score(lhs, head_bias, rhs, tail_bias, expand_c, comp='batch')
             return score
 
         elif neg_type == 'tail':
@@ -1919,25 +2007,26 @@ class AttHModel(DenseModel):
             att_weights = F.softmax(att_weights, dim=1)
             att_q = th.sum(att_weights * cands, dim=1)
             lhs = expmap0(att_q, c)
-            rel, _ = th.chunk(rel, 2, dim=1)
             rel = expmap0(rel, c)
             lhs = project(mobius_add(lhs, rel, c), c)
-            score = self._get_score(lhs, head_bias, rhs, tail_bias, c, comp='mm')
+            c = c.view(c.shape[0] // chunk_size, chunk_size, -1)
+            score = self._get_score(lhs.view(lhs.shape[0] // chunk_size, chunk_size, -1), head_bias, rhs, tail_bias, c, comp='mm')
             return score
 
     def train_forward(self, data, neg_type, gpu_id):
         args = self.args
         chunk_size = args.neg_sample_size
         neg_sample_size = args.neg_sample_size
-        pos_emb = {'head': self._entity_emb(data['head'], gpu_id=gpu_id, trace=True),
+        pos_emb = {'c': self._c(data['rel'], gpu_id=gpu_id, trace=True),
+                   'head': self._entity_emb(data['head'], gpu_id=gpu_id, trace=True),
                    'tail': self._entity_emb(data['tail'], gpu_id=gpu_id, trace=True),
-                   'rel': self._rel_diag(data['rel'], gpu_id=gpu_id, trace=True),
-                   'c': self._c(data['rel'], gpu_id=gpu_id, trace=True),
+                   'rel': self._relation_emb(data['rel'], gpu_id=gpu_id, trace=True),
+                   'rel_diag': self._rel_diag(data['rel'], gpu_id=gpu_id, trace=True),
                    'context_vec': self._context(data['rel'], gpu_id=gpu_id, trace=True),
                    'head_bias': self._head_bias(data['head'], gpu_id=gpu_id, trace=True),
-                   'tail_bias': self._tail_bias(data['tail'], gpu_id=gpu_id, trace=True)}
+                   'tail_bias': self._tail_bias(data['tail'], gpu_id=gpu_id, trace=True), }
 
-        edge_impts = to_device(data['impts'], gpu_id) if args.has_edge_imporrance else None
+        edge_impts = to_device(data['impts'], gpu_id) if args.has_edge_importance else None
 
         if neg_type == 'head':
             neg_emb = {'head': self._entity_emb(data['neg'], gpu_id=gpu_id, trace=True),
@@ -1947,7 +2036,8 @@ class AttHModel(DenseModel):
                        'tail_bias': self._tail_bias(data['neg'], gpu_id=gpu_id, trace=True)}
 
         pos_score = self._pos_forward(pos_emb)
-        neg_score = self._neg_forward(pos_score, neg_emb, neg_type, chunk_size, neg_sample_size)
+        mode = 'train_' + neg_type
+        neg_score = self._neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, mode=mode)
         neg_score = neg_score.reshape(-1, neg_sample_size, 1)
         loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
 
@@ -1959,13 +2049,14 @@ class AttHModel(DenseModel):
         return loss, log
 
     def test_forward(self, data, gpu_id):
-        pos_emb = {'head': self._entity_emb(data['head'], gpu_id=gpu_id, trace=False),
+        pos_emb = {'c': self._c(data['rel'], gpu_id=gpu_id, trace=False),
+                   'head': self._entity_emb(data['head'], gpu_id=gpu_id, trace=False),
                    'tail': self._entity_emb(data['tail'], gpu_id=gpu_id, trace=False),
-                   'rel': self._rel_diag(data['rel'], gpu_id=gpu_id, trace=False),
-                   'c': self._c(data['rel'], gpu_id=gpu_id, trace=False),
+                   'rel': self._relation_emb(data['rel'], gpu_id=gpu_id, trace=False),
+                   'rel_diag': self._rel_diag(data['rel'], gpu_id=gpu_id, trace=False),
                    'context_vec': self._context(data['rel'], gpu_id=gpu_id, trace=False),
                    'head_bias': self._head_bias(data['head'], gpu_id=gpu_id, trace=False),
-                   'tail_bias': self._tail_bias(data['tail'], gpu_id=gpu_id, trace=False)}
+                   'tail_bias': self._tail_bias(data['tail'], gpu_id=gpu_id, trace=False),}
 
         neg_emb = {'head': self._entity_emb(data['neg'], gpu_id=gpu_id, trace=False),
                    'head_bias': self._head_bias(data['neg'], gpu_id=gpu_id, trace=False),
@@ -1976,10 +2067,11 @@ class AttHModel(DenseModel):
         g = self.graph
         log = []
         head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
+        batch_size = head.shape[0]
         pos_score = self._pos_forward(pos_emb)
         num_node = len(neg)
-        neg_score_corr_head = self._neg_forward(pos_emb, neg_emb, 'head', chunk_size=1, neg_sample_size=num_node)
-        neg_score_corr_tail = self._neg_forward(pos_emb, neg_emb, 'tail', chunk_size=1, neg_sample_size=num_node)
+        neg_score_corr_head = self._neg_forward(pos_emb, neg_emb, 'head', chunk_size=batch_size, neg_sample_size=num_node, mode='eval_head').squeeze(-1)
+        neg_score_corr_tail = self._neg_forward(pos_emb, neg_emb, 'tail', chunk_size=batch_size, neg_sample_size=num_node, mode='eval_tail').squeeze(-1)
         ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, neg, rel, g, mode='tail', eval_filter=not args.no_eval_filter)
         ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, tail, neg, rel, g, mode='head', eval_filter=not args.no_eval_filter)
         log += log_corr_tail
@@ -1988,7 +2080,7 @@ class AttHModel(DenseModel):
 
 
     def setup_model(self, rank, world_size, gpu_id):
-        return None
+        pass
 
     def cleanup(self):
         pass
@@ -1997,7 +2089,10 @@ class AttHModel(DenseModel):
 def main():
     args = TrainArgParser().parse_args()
     device = th.device('cpu')
-    model = ConvEModel(args, device, 'ConvE')
+    if args.model_name == 'ConvE':
+        model = ConvEModel(args, device, 'ConvE')
+    elif args.model_name == 'AttH':
+        model = AttHModel(args, device, 'AttH')
     if args.mode == 'fit':
         model.fit()
     else:

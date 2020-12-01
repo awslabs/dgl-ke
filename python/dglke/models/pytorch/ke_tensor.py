@@ -62,7 +62,7 @@ class KGEmbedding:
 
         Parameters
         ----------
-        emb_init : float
+        emb_init : float or tuple
             The intial embedding range should be [-emb_init, emb_init].
         """
         if self.emb is None:
@@ -78,8 +78,16 @@ class KGEmbedding:
         if init_strat == 'uniform':
             INIT.uniform_(self.emb, -emb_init, emb_init)
         elif init_strat == 'normal':
-            INIT.normal_(self.emb.data)
-            self.emb *= emb_init
+            if type(emb_init) is tuple or type(emb_init) is list:
+                if len(emb_init) == 0:
+                    mean = emb_init
+                    std = 1
+                else:
+                    mean, std = emb_init
+            else:
+                mean = emb_init
+                std = 1
+            INIT.normal_(self.emb.data, mean, std)
         elif init_strat == 'xavier':
             INIT.xavier_normal_(self.emb.data)
         elif init_strat == 'constant':
