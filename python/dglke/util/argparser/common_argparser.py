@@ -120,4 +120,15 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('--mode', type=str, default='fit',
                           choices=['fit', 'eval'],
                           help='Whether to train the model or to evaluate.')
+        self.add_argument('--init_strat', type=str, default='uniform',
+                          choices=['uniform', 'xavier', 'constant'],
+                          help='Initial strategy for embeddings.')
+        self.add_argument('--num_workers', type=int, default=8,
+                          help='Number of process to fetch data for training/validation dataset.')
 
+        # hyper-parameter for hyperbolic embeddings
+        self.add_argument('--init_scale', type=float, default=1e-3,
+                          help='Initialization scale for entity embedding, relation embedding, curvature, attention in hyperbolic embeddings')
+        self.add_argument('--bias', type=str, default='learn',
+                          choices=['learn', 'constant'],
+                          help='Which kind of bias is added to score of hyperbolic embeddings.')

@@ -41,7 +41,8 @@ from itertools import chain
 from torch.nn.parallel import DistributedDataParallel
 # MARK - TBD use adam or adagrad
 from torch.optim import Adagrad
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
+import torch.nn.functional as F
 
 
 from .pytorch.tensor_models import logsigmoid
@@ -59,7 +60,7 @@ from .pytorch.loss import LossGenerator
 from .pytorch.score_fun import ConvEScore
 from .pytorch.regularizer import Regularizer
 from util import *
-from dataloader import EvalDataset, TrainDataset, SubDataset
+from dataloader import EvalDataset, TrainDataset, SubDataset, NegSampleDataset
 from dataloader import get_dataset
 import time
 import logging
@@ -1017,12 +1018,12 @@ class DenseModel(ABC, BasicGEModel):
         super(DenseModel, self).__init__(device, model_name, score_func)
 
 
-    def _initialize(self, n_entities, n_relations):
+    def _initialize(self, n_entities, n_relations, init_strat='uniform'):
         args = self.args
         eps = EMB_INIT_EPS
         emb_init = (args.gamma + eps) / args.hidden_dim
-        self._relation_emb.init(emb_init=emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim)
-        self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim)
+        self._relation_emb.init(emb_init=emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat=init_strat)
+        self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat=init_strat)
 
     def load(self, model_path):
         entity_emb_file = 'entity.npy'
@@ -1065,6 +1066,10 @@ class DenseModel(ABC, BasicGEModel):
         self._entity_emb.eval()
         self._relation_emb.eval()
 
+    def _get_param_list(self):
+        param_list = [self._entity_emb.curr_emb(), self._relation_emb.curr_emb()]
+        return param_list
+
     def update(self, gpu_id):
         self._entity_emb.update(gpu_id)
         self._relation_emb.update(gpu_id)
@@ -1082,7 +1087,7 @@ class DenseModel(ABC, BasicGEModel):
         pass
 
     @abstractmethod
-    def test_forward(self, data, gpu_id, graph):
+    def test_forward(self, data, gpu_id):
         pass
 
 
@@ -1111,11 +1116,8 @@ class DenseModel(ABC, BasicGEModel):
         if args.neg_deg_sample_eval:
             assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
-        # TODO: lingfei - use share_memory to fix partition overhead
-        args.num_workers = 1 # fix num_worker to 8
-
         # need to change to num_nodes if use 0.6.0 dgl version
-        self._initialize(dataset.n_entities, dataset.n_relations)
+        self._initialize(dataset.n_entities, dataset.n_relations, args.init_strat)
         if self.dist_train:
             # share memory for multiprocess to access
             self.share_memory()
@@ -1197,18 +1199,14 @@ class DenseModel(ABC, BasicGEModel):
             assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
         args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
-        train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
-        args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part is False)
+        train_dataset = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
+        args.strict_rel_part = args.mix_cpu_gpu and (train_dataset.cross_part is False)
         # TODO: lingfei - use share_memory to fix partition overhead
-        args.num_workers = 1 # fix num_worker to 8
 
 
         # need to change to num_nodes if use 0.6.0 dgl version
-        self._initialize(dataset.n_entities, dataset.n_relations)
+        self._initialize(dataset.n_entities, dataset.n_relations, args.init_strat)
 
-        if self.dist_train:
-            # share memory for multiprocess to access
-            self.share_memory()
 
         eval_dataset = None
         if args.valid or args.test:
@@ -1222,6 +1220,13 @@ class DenseModel(ABC, BasicGEModel):
                 assert dataset.test is not None, 'test set is not provided'
             eval_dataset = EvalDataset(dataset, args)
             self.attach_graph(eval_dataset.g)
+
+
+        neg_dataset = NegSampleDataset(self.graph)
+
+        if self.dist_train:
+            # share memory for multiprocess to access
+            self.share_memory()
 
         emap_file = dataset.emap_fname
         rmap_file = dataset.rmap_fname
@@ -1242,13 +1247,13 @@ class DenseModel(ABC, BasicGEModel):
             # barrier = mp.Barrier(args.num_proc)
             processes = []
             for rank in range(args.num_proc):
-                p = mp.Process(target=self.train_proc, args=(rank, train_data, eval_dataset))
+                p = mp.Process(target=self.train_proc, args=(rank, train_dataset, eval_dataset, neg_dataset))
                 p.start()
                 processes.append(p)
             for p in processes:
                 p.join()
         else:
-            self.train_proc(0, train_data, eval_dataset)
+            self.train_proc(0, train_dataset, eval_dataset, neg_dataset)
         print('training takes {} seconds'.format(time.time() - start))
 
         if not args.no_save_emb:
@@ -1285,6 +1290,50 @@ class DenseModel(ABC, BasicGEModel):
                 self.eval_proc(rank=0, eval_dataset=eval_dataset, mode='test')
             print('testing takes {:.3f} seconds'.format(time.time() - start))
 
+    def compute_ranking(self, pos_score, neg_score, pos_entity, neg_entity, relation, graph, mode='tail', eval_filter=True):
+        b_size = pos_entity.shape[0]
+        ranking = th.ones(b_size, 1, device=th.device('cpu'))
+        log = []
+        for i in range(b_size):
+            cand_idx = (pos_score[i] <= neg_score[i]).nonzero().cpu()
+            if len(cand_idx) == 0:
+                continue
+            cand_num = len(cand_idx)
+            if not eval_filter:
+                ranking[i] += cand_num
+                continue
+            if mode is 'tail':
+                select = graph.has_edges_between(pos_entity[i], neg_entity[cand_idx[:, 0]]).nonzero()[:, 0]
+                if len(select) > 0:
+                    select_idx = cand_idx[select].view(-1)
+                    uid, vid, eid = graph.edge_ids(pos_entity[i], select_idx, return_uv=True)
+                else:
+                    ranking[i] += cand_num
+                    break
+            else:
+                select = graph.has_edges_between(neg_entity[cand_idx[:, 0]], pos_entity[i]).nonzero()[:, 0]
+                if len(select) > 0:
+                    select_idx = cand_idx[select].view(-1)
+                    uid, vid, eid = graph.edge_ids(select_idx, pos_entity[i], return_uv=True)
+                else:
+                    ranking[i] += cand_num
+                    break
+            rid = graph.edata[self._etid_field][eid]
+            cand_num -= th.sum(rid == relation[i])
+            ranking[i] += cand_num
+
+        for i in range(b_size):
+            ranking = get_scalar(ranking[i])
+            log.append({
+                'MRR': 1.0 / ranking,
+                'MR': float(ranking),
+                'HITS@1': 1.0 if ranking <= 1 else 0.0,
+                'HITS@3': 1.0 if ranking <= 3 else 0.0,
+                'HITS@10': 1.0 if ranking <= 10 else 0.0
+            })
+
+        return ranking, log
+
     @abstractmethod
     def setup_model(self, rank, world_size, gpu_id):
         pass
@@ -1293,14 +1342,15 @@ class DenseModel(ABC, BasicGEModel):
     def cleanup(self):
         pass
 
-    def train_proc(self, rank, train_dataset, eval_dataset):
+
+    def train_proc(self, rank, train_datasetset, eval_dataset, neg_dataset):
         """ training process for fit(). it will read data, forward embedding data, compute loss and update param using gradients
 
         Parameters
         ----------
         rank : int
             process id in regards of world size
-        train_dataset : KGDataset
+        train_datasetset : KGDataset
             dataset used for training
         eval_dataset : KGDataset
             dataset used for evaluation
@@ -1325,24 +1375,38 @@ class DenseModel(ABC, BasicGEModel):
         forward_time = 0
         backward_time = 0
 
-        dataloader = DataLoader(dataset=SubDataset(train_dataset, rank, world_size, 'train'),
-                                batch_size=args.batch_size,
-                                shuffle=True,
-                                num_workers=args.num_workers,
-                                drop_last=True)
+        sub_dataset = SubDataset(train_datasetset, rank, world_size, 'train')
+        pos_dataloader = DataLoader(dataset=sub_dataset,
+                                    batch_size=args.batch_size,
+                                    shuffle=True,
+                                    num_workers=args.num_workers,
+                                    drop_last=True)
+        neg_sampler = RandomSampler(neg_dataset, replacement=True, num_samples=args.batch_size * args.max_step)
+        neg_dataloader = DataLoader(dataset=neg_dataset,
+                                    sampler=neg_sampler,
+                                    batch_size=args.batch_size,
+                                    num_workers=args.num_workers,
+                                    drop_last=True)
         step_range = trange(0, args.max_step, desc='train') if rank == 0 else range(0, args.max_step)
         for step in step_range:
-            neg_type = 'head' if step % 2 == 0 else 'tail'
+            # neg_type = 'head' if step % 2 == 0 else 'tail'
+            neg_type = 'tail'
             start1 = time.time()
             # get pos training data
             try:
-                data = next(iterator)
+                pos_data = next(pos_iter)
             except (UnboundLocalError, StopIteration):
-                # shuffle false negative sample
-                dataloader.dataset.shuffle_neg_sample()
-                iterator = iter(dataloader)
-                data = next(iterator)
+                pos_iter = iter(pos_dataloader)
+                pos_data = next(pos_iter)
+            try:
+                neg_data = next(neg_iter)
+            except (UnboundLocalError, StopIteration):
+                neg_iter = iter(neg_dataloader)
+                neg_data = next(neg_iter)
 
+            data = dict()
+            data.update(pos_data)
+            data.update(neg_data)
             sample_time += time.time() - start1
 
             loss, log = self.train_forward(data, neg_type, gpu_id)
@@ -1419,18 +1483,20 @@ class DenseModel(ABC, BasicGEModel):
         if mode is not 'valid':
             self.setup_model(rank, world_size, gpu_id)
             self.to_eval()
-        dataloader = DataLoader(dataset=SubDataset(eval_dataset, rank, world_size, mode),
-                                batch_size=args.batch_size_eval,
-                                shuffle=False,
-                                num_workers=args.num_workers,
-                                drop_last=False)
+
+        sub_dataset = SubDataset(eval_dataset, rank, world_size, mode)
+        pos_dataloader = DataLoader(dataset=sub_dataset,
+                                    batch_size=args.batch_size_eval,
+                                    shuffle=False,
+                                    num_workers=args.num_workers,
+                                    drop_last=False)
         with th.no_grad():
             logs = []
-            iterator = tqdm(iter(dataloader), desc='eval') if rank == 0 else iter(dataloader)
+            iterator = tqdm(iter(pos_dataloader), desc='eval') if rank == 0 else iter(pos_dataloader)
             for data in iterator:
                 # update data[-1] to all the nodes in the graph to perform corruption for all the nodes
                 data['neg'] = eval_dataset.g.nodes()
-                log = self.test_forward(data, gpu_id, eval_dataset.g)
+                log = self.test_forward(data, gpu_id)
                 logs += log
 
             if queue is not None:
@@ -1457,13 +1523,13 @@ class ConvEModel(DenseModel):
         self._entity_bias = KGEmbedding(device)
         super(ConvEModel, self).__init__(args, device, model_name, score_func)
 
-    def _initialize(self, n_entities, n_relations):
-        super(ConvEModel, self)._initialize(n_entities, n_relations)
-        self._entity_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1)
+    def _initialize(self, n_entities, n_relations, init_strat='xavier'):
+        super(ConvEModel, self)._initialize(n_entities, n_relations, init_strat=init_strat)
+        self._entity_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='uniform')
 
 
     def load(self, model_path):
-        super(self, ConvEModel).load(model_path)
+        super(ConvEModel, self).load(model_path)
         score_func_file = 'score_func.pth'
         entity_bias_file = 'bias.npy'
 
@@ -1471,7 +1537,7 @@ class ConvEModel(DenseModel):
         self._entity_bias.load(model_path, entity_bias_file)
 
     def save(self, emap_file, rmap_file):
-        super(self, ConvEModel).save(emap_file, rmap_file)
+        super(ConvEModel, self).save(emap_file, rmap_file)
         args = self.args
         model_path = args.save_path
         score_func_file = 'score_func.pth'
@@ -1485,7 +1551,7 @@ class ConvEModel(DenseModel):
         """ Used for distributed training.
         share parameters of _entity_emb  and _relation_emb in cpu so that every gpu can have access to it.
         """
-        super(self, ConvEModel).share_memory()
+        super(ConvEModel, self).share_memory()
         self._entity_bias.share_memory()
 
     # misc for DataParallelTraining
@@ -1537,16 +1603,22 @@ class ConvEModel(DenseModel):
     def to_train(self):
         """ Change model state to train so that gradient will be kept.
         """
-        super(self, ConvEModel).to_train()
+        super(ConvEModel, self).to_train()
         self._score_func.train()
         self._entity_bias.train()
 
     def to_eval(self):
         """ Change model state to evaluation so that no gradient will be kept.
         """
-        super(self, ConvEModel).to_eval()
+        super(ConvEModel, self).to_eval()
         self._score_func.eval()
         self._entity_bias.eval()
+
+    def _get_param_list(self):
+        param_list = [self._entity_emb.curr_emb(), self._relation_emb.curr_emb()]
+        for param in self._score_func.parameters():
+            param_list += [param]
+        return param_list
 
     def _pos_forward(self, pos_emb):
         """ Positive forward for positive embedding [head, relation, tail], the method first concatenates head with
@@ -1638,57 +1710,22 @@ class ConvEModel(DenseModel):
         neg_score = neg_score.reshape(-1, neg_sample_size, 1)
         loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
 
-        param_list = [self._entity_emb.curr_emb(), self._relation_emb.curr_emb(), self._entity_emb.curr_emb()]
-        for param in self._score_func.parameters():
-            param_list += [param]
-        reg, reg_log = self.regularizer(param_list)
+        reg, reg_log = self.regularizer(self._get_param_list())
 
         loss += reg
         log.update(reg_log)
 
         return loss, log
 
-    def test_forward(self, data, gpu_id, graph):
+    def test_forward(self, data, gpu_id):
 
-        def remove_false_negative(pos_score, neg_score, pos_entity, neg_entity, ranking, mode='tail'):
-            for i in range(batch_size):
-                cand_idx = (pos_score[i] <= neg_score[i]).nonzero().cpu()
-                if len(cand_idx) == 0:
-                    continue
-                cand_num = len(cand_idx)
-                if mode is 'tail':
-                    select = graph.has_edges_between(pos_entity[i], neg_entity[cand_idx[:, 0]]).nonzero()[:, 0]
-                    if len(select) > 0:
-                        select_idx = cand_idx[select].view(-1)
-                        uid, vid, eid = graph.edge_ids(pos_entity[i], select_idx, return_uv=True)
-                    else:
-                        ranking[i] += cand_num
-                        break
-                else:
-                    select = graph.has_edges_between(neg_entity[cand_idx[:, 0]], pos_entity[i]).nonzero()[:, 0]
-                    if len(select) > 0:
-                        select_idx = cand_idx[select].view(-1)
-                        uid, vid, eid = graph.edge_ids(select_idx, pos_entity[i], return_uv=True)
-                    else:
-                        ranking[i] += cand_num
-                        break
-                rid = graph.edata[self._etid_field][eid]
-                for j in range(len(select_idx)):
-                    where = (select_idx[j] == vid).nonzero() if mode is 'tail' else (select_idx[j] == uid).nonzero()
-                    cand_r = rid[where[:, 0]]
-                    for r in cand_r:
-                        if r == rel[i]:
-                            cand_num -= 1
-                            break
-                ranking[i] += cand_num
 
         args = self.args
+        g = self.graph
         device = th.device('cuda: %d' % gpu_id if gpu_id != -1 else 'cpu')
         head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
         batch_size = head.shape[0]
         log = []
-        ranking_corr_tail = th.ones(batch_size, 1, device=th.device('cpu'))
-        ranking_corr_head = th.ones(batch_size, 1, device=th.device('cpu'))
 
         pos_emb = {'head': self._entity_emb(head, gpu_id=gpu_id, trace=False),
                    'rel': self._relation_emb(rel, gpu_id=gpu_id, trace=False),
@@ -1700,7 +1737,6 @@ class ConvEModel(DenseModel):
 
         pos_score = self._pos_forward(pos_emb)
         num_node = len(neg)
-        neg_score_corrupt_tail = th.empty(batch_size, num_node, device=device)
         neg_score_corrupt_head = th.empty(batch_size, num_node, device=device)
         # hyper-parameter to be determined
         num_chunk = args.eval_chunk
@@ -1718,42 +1754,23 @@ class ConvEModel(DenseModel):
         chunk_neg_score = self._score_func(args=[lhs, chunk_neg_emb, chunk_neg_bias], kwargs={'mode': 'rhs', 'comp': 'mm'})
         neg_score_corrupt_tail = chunk_neg_score
 
-        remove_false_negative(pos_score, neg_score_corrupt_tail, head, neg, ranking_corr_tail, mode='tail')
 
-        for i in range(num_chunk):
-            start_idx = i * batch_neg_size
-            end_idx = min((i + 1) * batch_neg_size, neg.shape[0])
-            chunk_neg = neg[start_idx: end_idx]
-            chunk_neg_emb = neg_emb['neg'][chunk_neg]
-            # num_chunk, chunk_size, batch_size
-            chunk_cat = self._score_func.module.mutual_concat(chunk_neg_emb, pos_emb['rel'], end_idx - start_idx, batch_size, mode='BxA') if hasattr(self._score_func, 'module') \
-                else self._score_func.mutual_concat(chunk_neg_emb, pos_emb['rel'], end_idx - start_idx, batch_size, mode='BxA')
-            chunk_neg_fc = self._score_func(args=[chunk_cat], kwargs={'mode': 'lhs'})
-            chunk_neg_score = self._score_func(args=[chunk_neg_fc.reshape(batch_size, end_idx - start_idx, -1), pos_emb['tail'].unsqueeze(1), pos_emb['tail_bias'].unsqueeze(1)], kwargs={'mode': 'rhs', 'comp': 'batch'}).reshape(-1, end_idx - start_idx)
-            neg_score_corrupt_head[:, start_idx: end_idx] = chunk_neg_score
+        # for i in range(num_chunk):
+        #     start_idx = i * batch_neg_size
+        #     end_idx = min((i + 1) * batch_neg_size, neg.shape[0])
+        #     chunk_neg = neg[start_idx: end_idx]
+        #     chunk_neg_emb = neg_emb['neg'][chunk_neg]
+        #     # num_chunk, chunk_size, batch_size
+        #     chunk_cat = self._score_func.module.mutual_concat(chunk_neg_emb, pos_emb['rel'], end_idx - start_idx, batch_size, mode='BxA') if hasattr(self._score_func, 'module') \
+        #         else self._score_func.mutual_concat(chunk_neg_emb, pos_emb['rel'], end_idx - start_idx, batch_size, mode='BxA')
+        #     chunk_neg_fc = self._score_func(args=[chunk_cat], kwargs={'mode': 'lhs'})
+        #     chunk_neg_score = self._score_func(args=[chunk_neg_fc.reshape(batch_size, end_idx - start_idx, -1), pos_emb['tail'].unsqueeze(1), pos_emb['tail_bias'].unsqueeze(1)], kwargs={'mode': 'rhs', 'comp': 'batch'}).reshape(-1, end_idx - start_idx)
+        #     neg_score_corrupt_head[:, start_idx: end_idx] = chunk_neg_score
 
-        remove_false_negative(pos_score, neg_score_corrupt_head, tail, neg, ranking_corr_head, mode='head')
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corrupt_tail, head, neg, rel, g, mode='tail', eval_filter=not args.no_eval_filter)
+        log.append(log_corr_tail)
+        # cal_ranking_per_entity(pos_score, neg_score_corrupt_head, tail, neg, ranking_corr_head, g, mode='head', eval_filter=not args.no_eval_filter)
 
-
-        for i in range(batch_size):
-            ranking = get_scalar(ranking_corr_head[i])
-            log.append({
-                'MRR': 1.0 / ranking,
-                'MR': float(ranking),
-                'HITS@1': 1.0 if ranking <= 1 else 0.0,
-                'HITS@3': 1.0 if ranking <= 3 else 0.0,
-                'HITS@10': 1.0 if ranking <= 10 else 0.0
-            })
-
-        for i in range(batch_size):
-            ranking = get_scalar(ranking_corr_tail[i])
-            log.append({
-                'MRR': 1.0 / ranking,
-                'MR': float(ranking),
-                'HITS@1': 1.0 if ranking <= 1 else 0.0,
-                'HITS@3': 1.0 if ranking <= 3 else 0.0,
-                'HITS@10': 1.0 if ranking <= 10 else 0.0
-            })
         return log
 
     def update(self, gpu_id):
@@ -1763,7 +1780,7 @@ class ConvEModel(DenseModel):
         ----------
         gpu_id  which gpu_id is the source gradient
         """
-        super(self, ConvEModel).update(gpu_id)
+        super(ConvEModel, self).update(gpu_id)
         self._entity_bias.update(gpu_id)
 
 class AttHModel(DenseModel):
@@ -1771,26 +1788,210 @@ class AttHModel(DenseModel):
         score_func = ATTHScore()
         super(AttHModel, self).__init__(args, device, model_name, score_func)
         self._rel_diag = KGEmbedding(device)
-        self.c = KGEmbedding(device)
+        self._c = KGEmbedding(device)
         self._context = KGEmbedding(device)
         self._head_bias = KGEmbedding(device)
         self._tail_bias = KGEmbedding(device)
         self.multi_c = args.multi_c
-        self.scale = th.tensor([1. / np.sqrt(args.hidden_dim)])
+        self.gamma = args.gamma
+        self.bias = args.bias
+        self._scale = th.tensor([1. / np.sqrt(args.hidden_dim)])
 
-    def _initialize(self, n_entities, n_relations):
-        super(AttHModel, self)._initialize(n_entities, n_relations)
+    def _initialize(self, n_entities, n_relations, init_strat='uniform'):
         args = self.args
-        eps = EMB_INIT_EPS
-        emb_init = (args.gamma + eps) / self.hidden_dim
-        self._rel_diag.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2)
-        self.c.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_relations if self.multi_c else 1, dim=1)
-        self._context.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim)
-        self._head_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1)
-        self._tail_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1)
+        init_scale = args.init_scale
+        self._entity_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat='normal')
+        self._relation_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2, init_strat='normal')
+        self._rel_diag.init(emb_init=2, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2, init_strat='normal')
+        self._c.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations if self.multi_c else 1, dim=1, init_strat='constant')
+        self._context.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat='normal')
+        self._head_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='constant')
+        self._tail_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='constant')
+
+    def _get_score(self, lhs_e, head_bias, rhs_e, tail_bias, c, comp='batch'):
+        score = self._score_func(lhs_e, rhs_e, c, comp)
+        if self.bias == 'constant':
+            return self.gamma + score
+        elif self.bias == 'learn':
+            if comp == 'batch':
+                return head_bias + tail_bias + score
+            elif comp == 'mm':
+                return head_bias.unsqueeze(2) + tail_bias.unsqueeze(1) + score
+        else:
+            return score
+
+    def _pos_forward(self, pos_emb):
+        # get lhs
+        rel_c = pos_emb['c']
+        head = pos_emb['head']
+        rel_diag = pos_emb['rel_diag']
+        context_vec = pos_emb['context_vec']
+        rel = pos_emb['rel']
+        head_bias = pos_emb['head_bias']
+
+        c = F.softplus(rel_c)
+        rot_mat, ref_mat = th.chunk(rel_diag, 2, dim=1)
+        rot_q = givens_rotations(rot_mat, head).view(-1, 1, self.hidden_dim)
+        ref_q = givens_reflection(ref_mat, head).view(-1, 1, self.hidden_dim)
+        cands = th.cat([ref_q, rot_q], dim=1)
+        context_vec = context_vec.view(-1, 1, self.hidden_dim)
+        att_weights = th.sum(context_vec * cands * self._scale, dim=-1, keepdim=True)
+        att_weights = F.softmax(att_weights, dim=1)
+        att_q = th.sum(att_weights * cands, dim=1)
+        lhs = expmap0(att_q, c)
+        rel, _ = th.chunk(rel, 2, dim=1)
+        rel = expmap0(rel, c)
+        lhs = project(mobius_add(lhs, rel, c), c)
+
+        # get rhs
+        rhs = pos_emb['tail']
+        tail_bias = pos_emb['tail_bias']
+
+        score = self._get_score(lhs, head_bias, rhs, tail_bias, c, comp='batch')
+        return score
+
+    def _neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
+
+        def prepare_data(_pos_emb, _neg_emb, _neg_type, _chunk_size, _neg_sample_size):
+            pos_batch_size = _pos_emb['head'].shape[0]
+            neg_batch_size = _neg_emb[_neg_type].shape[0]
+            for k in _pos_emb.keys():
+                _pos_emb[k] = _pos_emb[k].view(pos_batch_size // _chunk_size, _chunk_size, -1)
+            for k in _neg_emb.key():
+                _neg_emb[k] = _neg_emb[k].view(neg_batch_size // _neg_sample_size, _neg_sample_size, -1)
+
+        prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size)
+
+        if neg_type == 'head':
+            #  for head
+            head = neg_emb['head']
+            head_bias = neg_emb['head_bias'].unsqueeze(1)
+
+            #  for relation
+            rel_diag = pos_emb['rel_diag']
+            rel_c = pos_emb['c']
+            rel = pos_emb['rel']
+            context_vec = pos_emb['context_vec']
+
+            # for tail
+            rhs = pos_emb['tail'].unsqueeze(2)
+            tail_bias = pos_emb['tail_bias'].unsqueeze(2)
+
+            c = F.softplus(rel_c)
+            rot_mat, ref_mat = th.chunk(rel_diag, 2, dim=-1)
+            # batch, chunk, neg, hidden
+            rot_q = givens_rotations(rot_mat, head, comp='mm').unsqueeze(-2)
+            ref_q = givens_reflection(ref_mat, head, comp='mm').unsqueeze(-2)
+            cands = th.cat([ref_q, rot_q], dim=-2)
+            context_vec = context_vec.unsqueeze(2).unsqueeze(3)
+            attn_weights = th.sum(context_vec * cands * self._scale, dim=-1, keepdim=True)
+            attn_weights = F.softmax(attn_weights, dim=-2)
+            att_q = th.sum(attn_weights * cands, dim=-2)
+
+            lhs_tmp = expmap0(att_q, c.unsqueeze(2))
+            rel = expmap0(rel, c).unsqueeze(2)
+            lhs = project(mobius_add(lhs_tmp, rel, c,), c)
+            score = self._get_score(lhs, head_bias, rhs, tail_bias, c, comp='batch')
+            return score
+
+        elif neg_type == 'tail':
+            #  for head
+            head = pos_emb['head']
+            head_bias = pos_emb['head_bias']
+
+            #  for relation
+            rel_c = pos_emb['c']
+            rel = pos_emb['rel']
+            rel_diag = pos_emb['rel_diag']
+            context_vec = pos_emb['context_vec']
+
+            # for tail
+            rhs = neg_emb['tail']
+            tail_bias = neg_emb['tail_bias']
+
+            c = F.softplus(rel_c)
+            rot_mat, ref_mat = th.chunk(rel_diag, 2, dim=-1)
+            rot_q = givens_rotations(rot_mat, head).view(-1, 1, self.hidden_dim)
+            ref_q = givens_reflection(ref_mat, head).view(-1, 1, self.hidden_dim)
+            cands = th.cat([ref_q, rot_q], dim=1)
+            context_vec = context_vec.view(-1, 1, self.hidden_dim)
+            att_weights = th.sum(context_vec * cands * self._scale, dim=-1, keepdim=True)
+            att_weights = F.softmax(att_weights, dim=1)
+            att_q = th.sum(att_weights * cands, dim=1)
+            lhs = expmap0(att_q, c)
+            rel, _ = th.chunk(rel, 2, dim=1)
+            rel = expmap0(rel, c)
+            lhs = project(mobius_add(lhs, rel, c), c)
+            score = self._get_score(lhs, head_bias, rhs, tail_bias, c, comp='mm')
+            return score
+
+    def train_forward(self, data, neg_type, gpu_id):
+        args = self.args
+        chunk_size = args.neg_sample_size
+        neg_sample_size = args.neg_sample_size
+        pos_emb = {'head': self._entity_emb(data['head'], gpu_id=gpu_id, trace=True),
+                   'tail': self._entity_emb(data['tail'], gpu_id=gpu_id, trace=True),
+                   'rel': self._rel_diag(data['rel'], gpu_id=gpu_id, trace=True),
+                   'c': self._c(data['rel'], gpu_id=gpu_id, trace=True),
+                   'context_vec': self._context(data['rel'], gpu_id=gpu_id, trace=True),
+                   'head_bias': self._head_bias(data['head'], gpu_id=gpu_id, trace=True),
+                   'tail_bias': self._tail_bias(data['tail'], gpu_id=gpu_id, trace=True)}
+
+        edge_impts = to_device(data['impts'], gpu_id) if args.has_edge_imporrance else None
+
+        if neg_type == 'head':
+            neg_emb = {'head': self._entity_emb(data['neg'], gpu_id=gpu_id, trace=True),
+                       'head_bias': self._head_bias(data['neg'], gpu_id=gpu_id, trace=True)}
+        else:
+            neg_emb = {'tail': self._entity_emb(data['neg'], gpu_id=gpu_id, trace=True),
+                       'tail_bias': self._tail_bias(data['neg'], gpu_id=gpu_id, trace=True)}
+
+        pos_score = self._pos_forward(pos_emb)
+        neg_score = self._neg_forward(pos_score, neg_emb, neg_type, chunk_size, neg_sample_size)
+        neg_score = neg_score.reshape(-1, neg_sample_size, 1)
+        loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
+
+        reg, reg_log = self.regularizer(self._get_param_list())
+
+        loss += reg
+        log.update(reg_log)
+
+        return loss, log
+
+    def test_forward(self, data, gpu_id):
+        pos_emb = {'head': self._entity_emb(data['head'], gpu_id=gpu_id, trace=False),
+                   'tail': self._entity_emb(data['tail'], gpu_id=gpu_id, trace=False),
+                   'rel': self._rel_diag(data['rel'], gpu_id=gpu_id, trace=False),
+                   'c': self._c(data['rel'], gpu_id=gpu_id, trace=False),
+                   'context_vec': self._context(data['rel'], gpu_id=gpu_id, trace=False),
+                   'head_bias': self._head_bias(data['head'], gpu_id=gpu_id, trace=False),
+                   'tail_bias': self._tail_bias(data['tail'], gpu_id=gpu_id, trace=False)}
+
+        neg_emb = {'head': self._entity_emb(data['neg'], gpu_id=gpu_id, trace=False),
+                   'head_bias': self._head_bias(data['neg'], gpu_id=gpu_id, trace=False),
+                   'tail': self._entity_emb(data['neg'], gpu_id=gpu_id, trace=False),
+                   'tail_bias': self._tail_bias(data['neg'], gpu_id=gpu_id, trace=False)}
+
+        args = self.args
+        g = self.graph
+        log = []
+        head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
+        pos_score = self._pos_forward(pos_emb)
+        num_node = len(neg)
+        neg_score_corr_head = self._neg_forward(pos_emb, neg_emb, 'head', chunk_size=1, neg_sample_size=num_node)
+        neg_score_corr_tail = self._neg_forward(pos_emb, neg_emb, 'tail', chunk_size=1, neg_sample_size=num_node)
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, neg, rel, g, mode='tail', eval_filter=not args.no_eval_filter)
+        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, tail, neg, rel, g, mode='head', eval_filter=not args.no_eval_filter)
+        log += log_corr_tail
+        log += log_corr_head
+        return log
 
 
+    def setup_model(self, rank, world_size, gpu_id):
+        return None
 
+    def cleanup(self):
+        pass
 
 
 def main():

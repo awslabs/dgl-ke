@@ -21,6 +21,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as functional
 import torch.nn.init as INIT
+from dglke.util.math import hyp_distance_multi_c
 import numpy as np
 import os
 
@@ -871,11 +872,14 @@ class ConvEScore(nn.Module):
 
 class ATTHScore(nn.Module):
     def __init__(self):
-        super(self, ATTHScore).__init__()
+        super(ATTHScore, self).__init__()
         pass
 
-    def forward(self, args, kwargs):
-        x, v, c = args
-        sqrt_c = c ** 0.5
-        pass
+    def forward(self, lhs_e, rhs_e, c, comp='batch'):
+        return - hyp_distance_multi_c(lhs_e, rhs_e, c, comp) ** 2
+
+
+
+
+
 

@@ -57,7 +57,7 @@ class KGEmbedding:
         self.is_train = False
         self.async_q = None
 
-    def init(self, emb_init, lr, async_threads, num=-1, dim=-1):
+    def init(self, emb_init, lr, async_threads, num=-1, dim=-1, init_strat='uniform'):
         """Initializing the embeddings for training.
 
         Parameters
@@ -75,9 +75,17 @@ class KGEmbedding:
         self.state_step = 0
         self.has_cross_rel = False
         self.lr = lr
-
-        INIT.uniform_(self.emb, -emb_init, emb_init)
+        if init_strat == 'uniform':
+            INIT.uniform_(self.emb, -emb_init, emb_init)
+        elif init_strat == 'normal':
+            INIT.normal_(self.emb.data)
+            self.emb *= emb_init
+        elif init_strat == 'xavier':
+            INIT.xavier_normal_(self.emb.data)
+        elif init_strat == 'constant':
+            INIT.constant_(self.emb.data, emb_init)
         INIT.zeros_(self.state_sum)
+
 
     def load(self, path, name):
         """Load embeddings.

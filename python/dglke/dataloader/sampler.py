@@ -27,7 +27,7 @@ import os
 import sys
 import pickle
 import time
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
 import torch as th
 
 from dgl.base import NID, EID
@@ -327,7 +327,7 @@ class TrainDataset(object):
     ranks:
         Number of partitions.
     """
-    def __init__(self, dataset, args, ranks=64, has_importance=False):
+    def __init__(self, dataset, args, ranks=1, has_importance=False):
         triples = dataset.train
         num_train = len(triples[0])
         self.has_importance = has_importance
@@ -762,18 +762,20 @@ class SubDataset(Dataset):
         heads, tails = g.all_edges(order='eid')
         self.heads = heads[edges]
         self.tails = tails[edges]
-
-        self.negs = g.nodes()
         if self.has_importance:
-            self.impts = g.edata['impts'][edges]
+            self.impts = th.tensor(g.edata['impts'][edges], device=device)
+
+    # def share_memory(self):
+    #     if self.has_importance:
+    #         self.impts.share_memory_()
+    #     self.rels.share_memory_()
+    #     self.heads.share_memory_()
+    #     self.tails.share_memory_()
 
     def __getitem__(self, index):
         ret = {'head': self.heads[index],
                'tail': self.tails[index],
                'rel': self.rels[index]}
-        # TODO: lingfei - fix later, pysudo random
-        idx = index if index < len(self.negs) else random.randrange(0, len(self.negs))
-        ret['neg'] = self.negs[idx]
         if self.has_importance:
             ret['impts'] = self.impts[index]
         return ret
@@ -783,3 +785,15 @@ class SubDataset(Dataset):
 
     def shuffle_neg_sample(self):
         self.negs = self.negs[th.randperm(len(self.negs))]
+
+class NegSampleDataset(Dataset):
+    def __init__(self, graph):
+        self.nodes = graph.nodes()
+
+    def __getitem__(self, index):
+        ret = dict()
+        ret['neg'] = self.nodes[index]
+        return ret
+
+    def __len__(self):
+        return len(self.nodes)
