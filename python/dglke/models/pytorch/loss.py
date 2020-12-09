@@ -26,7 +26,7 @@ class LogisticLoss(BaseLogisticLoss):
 class BCELoss(BaseBCELoss):
     def __init__(self):
         super(BCELoss, self).__init__()
-        self.loss = th.nn.BCELoss(reduction='none')
+        self.loss = th.nn.BCEWithLogitsLoss(reduction='none')
 
     def __call__(self, score: th.Tensor, label):
         if type(label) is int or type(label) is float:

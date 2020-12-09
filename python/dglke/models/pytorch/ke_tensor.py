@@ -22,6 +22,7 @@ KG Sparse embedding
 """
 import os
 import numpy as np
+import copy
 
 import torch as th
 import torch.nn as nn
@@ -75,6 +76,7 @@ class KGEmbedding:
         self.state_step = 0
         self.has_cross_rel = False
         self.lr = lr
+
         if init_strat == 'uniform':
             INIT.uniform_(self.emb, -emb_init, emb_init)
         elif init_strat == 'normal':
@@ -84,16 +86,27 @@ class KGEmbedding:
                     std = 1
                 else:
                     mean, std = emb_init
+                INIT.normal_(self.emb.data, mean, std)
             else:
-                mean = emb_init
-                std = 1
-            INIT.normal_(self.emb.data, mean, std)
+                init_size = emb_init
+                INIT.normal_(self.emb.data)
+                self.emb.data *= init_size
+        elif init_strat == 'random':
+            if type(emb_init) is tuple:
+                x, y = emb_init
+                self.emb.data = th.rand(num, dim, dtype=th.float32, device=self.device) * x + y
         elif init_strat == 'xavier':
             INIT.xavier_normal_(self.emb.data)
         elif init_strat == 'constant':
             INIT.constant_(self.emb.data, emb_init)
         INIT.zeros_(self.state_sum)
 
+    def clone(self, device):
+        clone_emb = copy.deepcopy(self)
+        clone_emb.device = device
+        clone_emb.emb = clone_emb.emb.to(device)
+        clone_emb.state_sum = clone_emb.state_sum.to(device)
+        return clone_emb
 
     def load(self, path, name):
         """Load embeddings.
@@ -256,6 +269,12 @@ class KGEmbedding:
                     # TODO(zhengda) the overhead is here.
                     self.emb.index_add_(0, grad_indices, tmp)
         self.trace = []
+
+    def create_async_update(self):
+        pass
+
+    def finish_async_update(self):
+        pass
 
     def curr_emb(self):
         """Return embeddings in trace.

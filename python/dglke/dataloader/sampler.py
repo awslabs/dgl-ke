@@ -751,9 +751,9 @@ class NewBidirectionalOneShotIterator:
                 yield pos_g, neg_g
 
 
-class SubDataset(Dataset):
+class PartitionDataset(Dataset):
     def __init__(self, dataset, rank, world_size, mode='train'):
-        super(SubDataset, self).__init__()
+        super(PartitionDataset, self).__init__()
         g = dataset.g
         self.has_importance = dataset.has_importance if mode is 'train' else False
         # get the sample edge index
@@ -763,7 +763,7 @@ class SubDataset(Dataset):
         self.heads = heads[edges]
         self.tails = tails[edges]
         if self.has_importance:
-            self.impts = th.tensor(g.edata['impts'][edges], device=device)
+            self.impts = th.tensor(g.edata['impts'][edges])
 
     # def share_memory(self):
     #     if self.has_importance:
@@ -797,3 +797,41 @@ class NegSampleDataset(Dataset):
 
     def __len__(self):
         return len(self.nodes)
+
+class SequentialRandomSampler(Sampler):
+    r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
+    If with replacement, then user can specify :attr:`num_samples` to draw.
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+        replacement (bool): samples are drawn with replacement if ``True``, default=``False``
+        num_samples (int): number of samples to draw, default=`len(dataset)`. This argument
+            is supposed to be specified only when `replacement` is ``True``.
+    """
+
+    def __init__(self, data_source, num_samples=None):
+        self.data_source = data_source
+        self._num_samples = num_samples
+
+    @property
+    def num_samples(self):
+        # dataset size might change at runtime
+        if self._num_samples is None:
+            return len(self.data_source)
+        return self._num_samples
+
+    def __iter__(self):
+        n = len(self.data_source)
+        num_epoch = int(np.ceil(self._num_samples / n))
+        index_list = []
+        idx = 0
+        for i in range(num_epoch):
+            tmp = np.random.permutation(n)
+            tmp = tmp[:min(self._num_samples - idx, n)]
+            idx += len(tmp)
+            index_list += list(tmp)
+
+        return iter(index_list)
+
+    def __len__(self):
+        return self.num_samples

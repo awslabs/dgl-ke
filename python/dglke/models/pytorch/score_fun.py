@@ -75,8 +75,10 @@ class TransEScore(nn.Module):
             return head, tail
         return fn
 
-    def forward(self, g):
-        g.apply_edges(lambda edges: self.edge_func(edges))
+    # def forward(self, g):
+    #     g.apply_edges(lambda edges: self.edge_func(edges))
+    def forward(self, head_emb, rel_emb, tail_emb):
+        return self.gamma - th.norm(head_emb + rel_emb - tail_emb, p=self.dist_ord, dim=-1)
 
     def update(self, gpu_id=-1):
         pass
@@ -679,7 +681,6 @@ class ConvEScore(nn.Module):
             fc += [nn.BatchNorm1d(hidden_dim)]
         fc += [nn.ReLU()]
         self.fc = nn.Sequential(*fc)
-        self.actv = nn.Sigmoid()
 
     def edge_func(self, edges):
         head = edges.src['emb']
@@ -753,8 +754,7 @@ class ConvEScore(nn.Module):
         else:
             raise ValueError(f'comp {comp} is not supported')
         x = x + bias
-        out = self.actv(x)
-        return out
+        return x
 
     def reset_parameters(self):
         # use default init tech of pytorch

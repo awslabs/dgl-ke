@@ -51,7 +51,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='The number of negative samples we use to evaluate a positive sample.')
         self.add_argument('--eval_percent', type=float, default=1,
                           help='Randomly sample some percentage of edges for evaluation.')
-        self.add_argument('--no_eval_filter', action='store_true',
+        self.add_argument('--no_eval_filter', action='store_false', dest='eval_filter',
                           help='Disable filter positive edges from randomly constructed negative edges for evaluation')
         self.add_argument('-log', '--log_interval', type=int, default=1000,
                           help='Print runtime of different components every x steps.')
@@ -99,7 +99,7 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('-m', '--margin', type=float, default=1.0,
                           help='hyper-parameter for hinge loss.')
         # args for ConvE
-        self.add_argument('--tensor_height', type=int, default=20,
+        self.add_argument('--tensor_height', type=int, default=10,
                           help='Tensor height for ConvE. Note hidden_dim must be divisible by it')
         self.add_argument('--dropout_ratio', type=float, nargs='+', default=0,
                           help='Dropout ratio for input, conv, linear respectively. If 0 is specified, ConvE will not use dropout for that layer')
@@ -127,7 +127,7 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Number of process to fetch data for training/validation dataset.')
 
         # hyper-parameter for hyperbolic embeddings
-        self.add_argument('--init_scale', type=float, default=1e-3,
+        self.add_argument('--init_scale', type=float, default=0.001,
                           help='Initialization scale for entity embedding, relation embedding, curvature, attention in hyperbolic embeddings')
         self.add_argument('--bias', type=str, default='learn',
                           choices=['learn', 'constant'],
