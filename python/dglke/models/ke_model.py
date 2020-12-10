@@ -1308,7 +1308,7 @@ class DenseModel(ABC, BasicGEModel):
                 self.eval_proc(rank=0, eval_dataset=eval_dataset, mode='test')
             print('testing takes {:.3f} seconds'.format(time.time() - start))
 
-    def compute_ranking(self, pos_score, neg_score, pos_head, relation, pos_tail, neg_entity, mode='tail', eval_filter=True):
+    def compute_ranking(self, pos_score, neg_score, pos_head, relation, pos_tail, neg_entity, mode='tail', eval_filter=True, self_loop_filter=True):
 
         b_size = pos_head.shape[0]
         pos_score = pos_score.view(b_size, -1)
@@ -1316,14 +1316,20 @@ class DenseModel(ABC, BasicGEModel):
         ranking = th.zeros(b_size, 1, device=th.device('cpu'))
         log = []
         for i in range(b_size):
-            # might cause floating point precision issue
-            cand_idx = (neg_score[i] - pos_score[i] >= - PRECISION_EPS).nonzero().cpu()
+            cand_idx = (neg_score[i] >= pos_score[i]).nonzero().cpu()
+            # there might be precision error where pos_score[i] actually equals neg_score[i, pos_entity[i]]
+            # we explicitly add this index to cand_idx to overcome this issue
             if mode == 'tail':
                 if pos_tail[i] not in cand_idx:
                     cand_idx = th.cat([cand_idx, pos_tail[i].detach().cpu().view(-1, 1)], dim=0)
+                # here we filter out self-loop(head-relation-head)
+                if self_loop_filter and pos_head[i] in cand_idx:
+                    cand_idx = cand_idx[cand_idx != pos_head[i]].view(-1, 1)
             else:
                 if pos_head[i] not in cand_idx:
                     cand_idx = th.cat([cand_idx, pos_head[i].detach().cpu().view(-1, 1)], dim=0)
+                if self_loop_filter and pos_tail[i] in cand_idx:
+                    cand_idx = cand_idx[cand_idx != pos_tail[i]].view(-1, 1)
             cand_num = len(cand_idx)
             if not eval_filter:
                 ranking[i] = cand_num
@@ -1631,6 +1637,11 @@ class DenseModel(ABC, BasicGEModel):
     def test_forward(self, data, gpu_id):
         pass
 
+    @abstractmethod
+    def prepare_data(self, data):
+        pass
+
+
 class ConvEModel(DenseModel):
     def __init__(self, args, device, model_name):
         score_func = ConvEScore(args,
@@ -1761,8 +1772,8 @@ class ConvEModel(DenseModel):
         #     chunk_neg_score = self._score_func(args=[chunk_neg_fc.reshape(batch_size, end_idx - start_idx, -1), pos_emb['tail'].unsqueeze(1), pos_emb['tail_bias'].unsqueeze(1)], kwargs={'mode': 'rhs', 'comp': 'batch'}).reshape(-1, end_idx - start_idx)
         #     neg_score_corrupt_head[:, start_idx: end_idx] = chunk_neg_score
         #
-        # ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corrupt_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter)
-        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corrupt_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter)
+        # ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corrupt_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corrupt_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
 
         # log += log_corr_head
         log += log_corr_tail
@@ -1998,8 +2009,8 @@ class AttHModel(DenseModel):
         num_node = len(neg)
         neg_score_corr_head = self.neg_forward(pos_emb, neg_emb, 'head', chunk_size=batch_size, neg_sample_size=num_node, mode='eval_head').squeeze(-1)
         neg_score_corr_tail = self.neg_forward(pos_emb, neg_emb, 'tail', chunk_size=batch_size, neg_sample_size=num_node, mode='eval_tail').squeeze(-1)
-        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, rel, tail, neg, mode='tail', eval_filter=args.no_eval_filter)
-        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, head, rel, tail, neg, mode='head', eval_filter=args.no_eval_filter)
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
+        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
         log += log_corr_tail
         log += log_corr_head
         return log
@@ -2007,7 +2018,7 @@ class AttHModel(DenseModel):
 
 class TransEModel(DenseModel):
     def __init__(self, args, device, model_name):
-        score_func = TransEScore(args.gamma)
+        score_func = TransEScore(args.gamma, dist_func='l1')
         super(TransEModel, self).__init__(args, device, model_name, score_func)
 
     def categorize_embedding(self):
@@ -2021,8 +2032,11 @@ class TransEModel(DenseModel):
         self._relation_emb.init(emb_init=emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat=init_strat)
         self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat=init_strat)
 
+    def prepare_data(self, data):
+        pass
+
     def pos_forward(self, pos_emb):
-        return self._score_func(pos_emb['head'], pos_emb['rel'], pos_emb['tail'])
+        return self._score_func.predict(pos_emb)
 
     def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
         heads = pos_emb['head']
@@ -2081,14 +2095,15 @@ class TransEModel(DenseModel):
         num_node = len(neg)
         neg_score_corr_head = self.neg_forward(pos_emb, neg_emb, 'head', chunk_size=batch_size, neg_sample_size=num_node).squeeze(-1)
         neg_score_corr_tail = self.neg_forward(pos_emb, neg_emb, 'tail', chunk_size=batch_size, neg_sample_size=num_node).squeeze(-1)
-        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter)
-        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter)
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
+        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
         log += log_corr_tail
         log += log_corr_head
         return log
 
 def main():
     args = TrainArgParser().parse_args()
+    set_seed(args)
     device = th.device('cpu')
     if args.model_name == 'ConvE':
         model = ConvEModel(args, device, 'ConvE')

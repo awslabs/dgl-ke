@@ -75,10 +75,17 @@ class TransEScore(nn.Module):
             return head, tail
         return fn
 
-    # def forward(self, g):
-    #     g.apply_edges(lambda edges: self.edge_func(edges))
-    def forward(self, head_emb, rel_emb, tail_emb):
-        return self.gamma - th.norm(head_emb + rel_emb - tail_emb, p=self.dist_ord, dim=-1)
+    def predict(self, emb):
+        head = emb['head']
+        tail = emb['tail']
+        rel = emb['rel']
+        score = head + rel - tail
+        return self.gamma - th.norm(score, p=self.dist_ord, dim=-1)
+
+    def forward(self, g):
+        g.apply_edges(lambda edges: self.edge_func(edges))
+    # def forward(self, head_emb, rel_emb, tail_emb):
+    #     return self.gamma - th.norm(head_emb + rel_emb - tail_emb, p=self.dist_ord, dim=-1)
 
     def update(self, gpu_id=-1):
         pass

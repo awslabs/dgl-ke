@@ -53,6 +53,8 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Randomly sample some percentage of edges for evaluation.')
         self.add_argument('--no_eval_filter', action='store_false', dest='eval_filter',
                           help='Disable filter positive edges from randomly constructed negative edges for evaluation')
+        self.add_argument('--no_self_loop_filter', action='store_false', dest='self_loop_filter',
+                          help='Disable filter triple like (head - relation - head) score for evaluation')
         self.add_argument('-log', '--log_interval', type=int, default=1000,
                           help='Print runtime of different components every x steps.')
         self.add_argument('--eval_interval', type=int, default=1,
