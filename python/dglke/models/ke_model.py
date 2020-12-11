@@ -45,7 +45,6 @@ from torch.optim import Adagrad
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-
 from .pytorch.tensor_models import logsigmoid
 from .pytorch.tensor_models import none
 from .pytorch.score_fun import *
@@ -70,15 +69,17 @@ EMB_INIT_EPS = 2.0
 PRECISION_EPS = 1e-5
 DEFAULT_INFER_BATCHSIZE = 1024
 
-to_device = lambda x, gpu_id : x.to(th.device('cpu')) if gpu_id == -1 else x.to(th.device('cuda: %d' % gpu_id))
-none = lambda x : x
-norm = lambda x, p: x.norm(p=p)**p
+to_device = lambda x, gpu_id: x.to(th.device('cpu')) if gpu_id == -1 else x.to(th.device('cuda: %d' % gpu_id))
+none = lambda x: x
+norm = lambda x, p: x.norm(p=p) ** p
 get_scalar = lambda x: x.detach().item()
 reshape = lambda arr, x, y: arr.view(x, y)
+
 
 class BasicGEModel(object):
     """ Basic Graph Embeding Model
     """
+
     def __init__(self, device, model_name, score_func):
         self._g = None
         self._model_name = model_name
@@ -185,15 +186,15 @@ class BasicGEModel(object):
             # calculate scores in mini-batches
             # so we can use GPU to accelerate the speed with avoiding GPU OOM
             for i in range((num_head + batch_size - 1) // batch_size):
-                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
-                                                   if (i + 1) * batch_size < num_head \
-                                                   else num_head]
-                sr_emb = rel_emb[i * batch_size : (i + 1) * batch_size \
-                                                  if (i + 1) * batch_size < num_head \
-                                                  else num_head]
-                st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
-                                                   if (i + 1) * batch_size < num_head \
-                                                   else num_head]
+                sh_emb = head_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
+                sr_emb = rel_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
+                st_emb = tail_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
                 edata = FakeEdge(sh_emb, sr_emb, st_emb, self._device)
                 score.append(self._score_func.edge_func(edata)['score'].to(th.device('cpu')))
             score = th.cat(score, dim=0)
@@ -210,15 +211,15 @@ class BasicGEModel(object):
             # calculating scores using mini-batch, the default batchsize if 1024
             # This can avoid OOM when using GPU
             for i in range((num_head + batch_size - 1) // batch_size):
-                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
-                                                   if (i + 1) * batch_size < num_head \
-                                                   else num_head]
+                sh_emb = head_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
                 s_score = []
                 sh_emb = sh_emb.to(self._device)
                 for j in range((num_tail + batch_size - 1) // batch_size):
-                    st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
-                                                       if (j + 1) * batch_size < num_tail \
-                                                       else num_tail]
+                    st_emb = tail_emb[j * batch_size: (j + 1) * batch_size \
+                        if (j + 1) * batch_size < num_tail \
+                        else num_tail]
                     st_emb = st_emb.to(self._device)
                     s_score.append(self._score_func.infer(sh_emb, rel_emb, st_emb).to(th.device('cpu')))
                 score.append(th.cat(s_score, dim=2))
@@ -322,8 +323,8 @@ class BasicGEModel(object):
                     break
 
                 cur_k += batch_size
-                batch_size = topk - len(res_head) # check more edges
-                batch_size = 16 if batch_size < 16 else batch_size # avoid tailing issue
+                batch_size = topk - len(res_head)  # check more edges
+                batch_size = 16 if batch_size < 16 else batch_size  # avoid tailing issue
             res_head = th.tensor(res_head)
             res_rel = th.tensor(res_rel)
             res_tail = th.tensor(res_tail)
@@ -424,7 +425,7 @@ class BasicGEModel(object):
               3) call _exclude_pos if figure out existing edges
         """
         if exclude_mode == 'exclude':
-            if idx.shape[0] < topk * 4: # TODO(xiangsx): Find a better value of topk * n
+            if idx.shape[0] < topk * 4:  # TODO(xiangsx): Find a better value of topk * n
                 topk_score, topk_sidx = th.topk(score, k=idx.shape[0], dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
@@ -438,7 +439,7 @@ class BasicGEModel(object):
                                            exec_mode=exec_mode,
                                            exclude_mode=exclude_mode)
             else:
-                topk_score, topk_sidx = th.topk(score, k= topk * 4, dim=0)
+                topk_score, topk_sidx = th.topk(score, k=topk * 4, dim=0)
                 sidx = th.argsort(topk_score, dim=0, descending=True)
                 sidx = topk_sidx[sidx]
                 result = self._exclude_pos(sidx=sidx,
@@ -477,7 +478,8 @@ class BasicGEModel(object):
                                        exclude_mode=exclude_mode)
         return result
 
-    def link_predict(self, head=None, rel=None, tail=None, exec_mode='all', sfunc='none', topk=10, exclude_mode=None, batch_size=DEFAULT_INFER_BATCHSIZE):
+    def link_predict(self, head=None, rel=None, tail=None, exec_mode='all', sfunc='none', topk=10, exclude_mode=None,
+                     batch_size=DEFAULT_INFER_BATCHSIZE):
         """ Predicts missing entities or relations in a triplet.
 
         Given head_id, relation_id and tail_id, return topk most relevent triplet.
@@ -592,7 +594,7 @@ class BasicGEModel(object):
             result = []
             with th.no_grad():
                 raw_score = self._infer_score_func(head, rel, tail)
-                raw_score = th.reshape(raw_score, (head.shape[0]*rel.shape[0]*tail.shape[0],))
+                raw_score = th.reshape(raw_score, (head.shape[0] * rel.shape[0] * tail.shape[0],))
                 score = sfunc(raw_score)
             idx = th.arange(0, num_head * num_rel * num_tail)
 
@@ -609,7 +611,7 @@ class BasicGEModel(object):
             with th.no_grad():
                 raw_score = self._infer_score_func(head, rel, tail)
             for i in range(num_head):
-                score = sfunc(th.reshape(raw_score[i,:,:], (rel.shape[0]*tail.shape[0],)))
+                score = sfunc(th.reshape(raw_score[i, :, :], (rel.shape[0] * tail.shape[0],)))
                 idx = th.arange(0, num_rel * num_tail)
 
                 res = self._topk_exclude_pos(score=score,
@@ -627,7 +629,7 @@ class BasicGEModel(object):
             with th.no_grad():
                 raw_score = self._infer_score_func(head, rel, tail)
             for i in range(num_rel):
-                score = sfunc(th.reshape(raw_score[:,i,:], (head.shape[0]*tail.shape[0],)))
+                score = sfunc(th.reshape(raw_score[:, i, :], (head.shape[0] * tail.shape[0],)))
                 idx = th.arange(0, num_head * num_tail)
 
                 res = self._topk_exclude_pos(score=score,
@@ -645,7 +647,7 @@ class BasicGEModel(object):
             with th.no_grad():
                 raw_score = self._infer_score_func(head, rel, tail)
             for i in range(num_tail):
-                score = sfunc(th.reshape(raw_score[:,:,i], (head.shape[0]*rel.shape[0],)))
+                score = sfunc(th.reshape(raw_score[:, :, i], (head.shape[0] * rel.shape[0],)))
                 idx = th.arange(0, num_head * num_rel)
 
                 res = self._topk_exclude_pos(score=score,
@@ -664,7 +666,7 @@ class BasicGEModel(object):
         return result
 
     def _embed_sim(self, head, tail, emb, sfunc='cosine', bcast=False, pair_ws=False, topk=10):
-        batch_size=DEFAULT_INFER_BATCHSIZE
+        batch_size = DEFAULT_INFER_BATCHSIZE
         if head is None:
             head = th.arange(0, emb.shape[0])
         else:
@@ -697,13 +699,13 @@ class BasicGEModel(object):
             # calculating scores using mini-batch, the default batchsize if 1024
             # This can avoid OOM when using GPU
             for i in range((num_head + batch_size - 1) // batch_size):
-                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
-                                                   if (i + 1) * batch_size < num_head \
-                                                   else num_head]
+                sh_emb = head_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
                 sh_emb = sh_emb.to(self._device)
-                st_emb = tail_emb[i * batch_size : (i + 1) * batch_size \
-                                                   if (i + 1) * batch_size < num_head \
-                                                   else num_head]
+                st_emb = tail_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
                 st_emb = st_emb.to(self._device)
                 score.append(sim_func(sh_emb, st_emb, pw=True).to(th.device('cpu')))
             score = th.cat(score, dim=0)
@@ -725,15 +727,15 @@ class BasicGEModel(object):
             # This can avoid OOM when using GPU
             score = []
             for i in range((num_head + batch_size - 1) // batch_size):
-                sh_emb = head_emb[i * batch_size : (i + 1) * batch_size \
-                                            if (i + 1) * batch_size < num_head \
-                                            else num_head]
+                sh_emb = head_emb[i * batch_size: (i + 1) * batch_size \
+                    if (i + 1) * batch_size < num_head \
+                    else num_head]
                 sh_emb = sh_emb.to(self._device)
                 s_score = []
                 for j in range((num_tail + batch_size - 1) // batch_size):
-                    st_emb = tail_emb[j * batch_size : (j + 1) * batch_size \
-                                                    if (j + 1) * batch_size < num_tail \
-                                                    else num_tail]
+                    st_emb = tail_emb[j * batch_size: (j + 1) * batch_size \
+                        if (j + 1) * batch_size < num_tail \
+                        else num_tail]
                     st_emb = st_emb.to(self._device)
                     s_score.append(sim_func(sh_emb, st_emb).to(th.device('cpu')))
                 score.append(th.cat(s_score, dim=1))
@@ -742,7 +744,7 @@ class BasicGEModel(object):
             if bcast is False:
                 result = []
                 idx = th.arange(0, num_head * num_tail)
-                score = th.reshape(score, (num_head * num_tail, ))
+                score = th.reshape(score, (num_head * num_tail,))
 
                 topk_score, topk_sidx = th.topk(score,
                                                 k=topk if score.shape[0] > topk else score.shape[0],
@@ -759,7 +761,7 @@ class BasicGEModel(object):
                                tail[tail_idx],
                                score))
 
-            else: # bcast at head
+            else:  # bcast at head
                 result = []
                 for i in range(num_head):
                     i_score = score[i]
@@ -772,12 +774,13 @@ class BasicGEModel(object):
                     idx = topk_sidx[sidx]
 
                     result.append((th.full((topk,), head[i], dtype=head[i].dtype),
-                                  tail[idx],
-                                  i_score))
+                                   tail[idx],
+                                   i_score))
 
         return result
 
-    def embed_sim(self, left=None, right=None, embed_type='entity', sfunc='cosine', bcast=False, pair_ws=False, topk=10):
+    def embed_sim(self, left=None, right=None, embed_type='entity', sfunc='cosine', bcast=False, pair_ws=False,
+                  topk=10):
         """ Finds the most similar entity/relation embeddings for
         some pre-defined similarity functions given a set of
         entities or relations.
@@ -875,9 +878,11 @@ class BasicGEModel(object):
     def graph(self):
         return self._g
 
+
 class KGEModel(BasicGEModel):
     """ Basic Knowledge Graph Embedding Model
     """
+
     def __init__(self, device, model_name, score_func):
         super(KGEModel, self).__init__(device, model_name, score_func)
 
@@ -887,6 +892,7 @@ class KGEModel(BasicGEModel):
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
         self._score_func.load(model_path, self.model_name)
+
 
 # class TransEModel(KGEModel):
 #     """ TransE Model
@@ -900,24 +906,29 @@ class KGEModel(BasicGEModel):
 class TransE_l2Model(KGEModel):
     """ TransE_l2 Model
     """
+
     def __init__(self, device, gamma):
         model_name = 'TransE_l2'
         score_func = TransEScore(gamma, 'l2')
         self._gamma = gamma
         super(TransE_l2Model, self).__init__(device, model_name, score_func)
 
+
 class TransE_l1Model(KGEModel):
     """ TransE_l1 Model
     """
+
     def __init__(self, device, gamma):
         model_name = 'TransE_l1'
         score_func = TransEScore(gamma, 'l1')
         self._gamma = gamma
         super(TransE_l1Model, self).__init__(device, model_name, score_func)
 
+
 class TransRModel(KGEModel):
     """ TransR Model
     """
+
     def __init__(self, device, gamma):
         model_name = 'TransR'
         # TransR score initialization is done at fit or load model
@@ -931,25 +942,31 @@ class TransRModel(KGEModel):
         self._score_func.relation_dim = self._relation_emb.emb.shape[1]
         self._score_func.entity_dim = self._entity_emb.emb.shape[1]
 
+
 class DistMultModel(KGEModel):
     """ DistMult Model
     """
+
     def __init__(self, device):
         model_name = 'DistMult'
         score_func = DistMultScore()
         super(DistMultModel, self).__init__(device, model_name, score_func)
 
+
 class ComplExModel(KGEModel):
     """ ComplEx Model
     """
+
     def __init__(self, device):
         model_name = 'ComplEx'
         score_func = ComplExScore()
         super(ComplExModel, self).__init__(device, model_name, score_func)
 
+
 class RESCALModel(KGEModel):
     """ RESCAL Model
     """
+
     def __init__(self, device):
         model_name = 'RESCAL'
         score_func = RESCALScore(-1, -1)
@@ -960,9 +977,11 @@ class RESCALModel(KGEModel):
         self._score_func.entity_dim = self._entity_emb.emb.shape[1]
         self._score_func.relation_dim = self._relation_emb.emb.shape[1] // self._score_func.entity_dim
 
+
 class RotatEModel(KGEModel):
     """ RotatE Model
     """
+
     def __init__(self, device, gamma):
         model_name = 'RotatE'
         self._gamma = gamma
@@ -977,9 +996,11 @@ class RotatEModel(KGEModel):
         emb_init = (self._gamma + EMB_INIT_EPS) / hidden_dim
         self._score_func.emb_init = emb_init
 
+
 class GNNModel(BasicGEModel):
     """ Basic GNN Model
     """
+
     def __init__(self, device, model_name, gamma=0):
         if model_name == 'TransE' or model_name == 'TransE_l2':
             score_func = TransEScore(gamma, 'l2')
@@ -1004,6 +1025,7 @@ class GNNModel(BasicGEModel):
 class DenseModel(ABC, BasicGEModel):
     """ ConvE model
     """
+
     def __init__(self, args, device, model_name, score_func):
         self.args = args
         self.has_edge_importance = args.has_edge_importance
@@ -1104,7 +1126,6 @@ class DenseModel(ABC, BasicGEModel):
         if self._optim is not None:
             self._optim.step()
 
-
     def create_async_update(self):
         for emb in self._entity_related_emb.values():
             emb.create_async_update()
@@ -1112,7 +1133,6 @@ class DenseModel(ABC, BasicGEModel):
     def finish_async_update(self):
         for emb in self._entity_related_emb.values():
             emb.finish_async_update()
-
 
     def test(self):
         # put it in train
@@ -1262,10 +1282,10 @@ class DenseModel(ABC, BasicGEModel):
         self.train()
 
         if args.num_proc > 1:
-            # barrier = mp.Barrier(args.num_proc)
             processes = []
             for rank in range(args.num_proc):
-                p = mp.Process(target=self.train_proc, args=(rank, train_dataset, eval_dataset, neg_dataset, rel_parts, cross_rels))
+                p = mp.Process(target=self.train_proc,
+                               args=(rank, train_dataset, eval_dataset, neg_dataset, rel_parts, cross_rels))
                 p.start()
                 processes.append(p)
             for p in processes:
@@ -1308,9 +1328,9 @@ class DenseModel(ABC, BasicGEModel):
                 self.eval_proc(rank=0, eval_dataset=eval_dataset, mode='test')
             print('testing takes {:.3f} seconds'.format(time.time() - start))
 
-    def compute_ranking(self, pos_score, neg_score, pos_head, relation, pos_tail, neg_entity, mode='tail', eval_filter=True, self_loop_filter=True):
-
-        b_size = pos_head.shape[0]
+    def compute_ranking(self, pos_score, neg_score, data, mode='tail', eval_filter=True, self_loop_filter=True):
+        head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
+        b_size = data['head'].shape[0]
         pos_score = pos_score.view(b_size, -1)
         neg_score = neg_score.view(b_size, -1)
         ranking = th.zeros(b_size, 1, device=th.device('cpu'))
@@ -1320,38 +1340,38 @@ class DenseModel(ABC, BasicGEModel):
             # there might be precision error where pos_score[i] actually equals neg_score[i, pos_entity[i]]
             # we explicitly add this index to cand_idx to overcome this issue
             if mode == 'tail':
-                if pos_tail[i] not in cand_idx:
-                    cand_idx = th.cat([cand_idx, pos_tail[i].detach().cpu().view(-1, 1)], dim=0)
+                if tail[i] not in cand_idx:
+                    cand_idx = th.cat([cand_idx, tail[i].detach().cpu().view(-1, 1)], dim=0)
                 # here we filter out self-loop(head-relation-head)
-                if self_loop_filter and pos_head[i] in cand_idx:
-                    cand_idx = cand_idx[cand_idx != pos_head[i]].view(-1, 1)
+                if self_loop_filter and head[i] in cand_idx:
+                    cand_idx = cand_idx[cand_idx != head[i]].view(-1, 1)
             else:
-                if pos_head[i] not in cand_idx:
-                    cand_idx = th.cat([cand_idx, pos_head[i].detach().cpu().view(-1, 1)], dim=0)
-                if self_loop_filter and pos_tail[i] in cand_idx:
-                    cand_idx = cand_idx[cand_idx != pos_tail[i]].view(-1, 1)
+                if head[i] not in cand_idx:
+                    cand_idx = th.cat([cand_idx, head[i].detach().cpu().view(-1, 1)], dim=0)
+                if self_loop_filter and tail[i] in cand_idx:
+                    cand_idx = cand_idx[cand_idx != tail[i]].view(-1, 1)
             cand_num = len(cand_idx)
             if not eval_filter:
                 ranking[i] = cand_num
                 continue
             if mode is 'tail':
-                select = self.graph.has_edges_between(pos_head[i], neg_entity[cand_idx[:, 0]]).nonzero()[:, 0]
+                select = self.graph.has_edges_between(head[i], neg[cand_idx[:, 0]]).nonzero()[:, 0]
                 if len(select) > 0:
                     select_idx = cand_idx[select].view(-1)
-                    uid, vid, eid = self.graph.edge_ids(pos_head[i], select_idx, return_uv=True)
+                    uid, vid, eid = self.graph.edge_ids(head[i], select_idx, return_uv=True)
                 else:
                     raise ValueError('at least one element should have the same score with pos_score. That is itself!')
             else:
-                select = self.graph.has_edges_between(neg_entity[cand_idx[:, 0]], pos_tail[i]).nonzero()[:, 0]
+                select = self.graph.has_edges_between(neg[cand_idx[:, 0]], tail[i]).nonzero()[:, 0]
                 if len(select) > 0:
                     select_idx = cand_idx[select].view(-1)
-                    uid, vid, eid = self.graph.edge_ids(select_idx, pos_tail[i], return_uv=True)
+                    uid, vid, eid = self.graph.edge_ids(select_idx, tail[i], return_uv=True)
                 else:
                     raise ValueError('at least one element should have the same score with pos_score. That is itself!')
 
             rid = self.graph.edata[self._etid_field][eid]
             #  - 1 to exclude rank for positive score itself
-            cand_num -= th.sum(rid == relation[i]) - 1
+            cand_num -= th.sum(rid == rel[i]) - 1
             ranking[i] = cand_num
 
         for i in range(b_size):
@@ -1394,7 +1414,9 @@ class DenseModel(ABC, BasicGEModel):
         # broadcast_buffers=False to enable batch normalization
         params = []
         for name, module in self._torch_model.items():
-            self._torch_model[name] = module if not self.dist_train else DistributedDataParallel(module, device_ids=[gpu_id], broadcast_buffers=False)
+            self._torch_model[name] = module if not self.dist_train else DistributedDataParallel(module,
+                                                                                                 device_ids=[gpu_id],
+                                                                                                 broadcast_buffers=False)
             for param in self._torch_model[name].parameters():
                 params += [param]
 
@@ -1434,7 +1456,6 @@ class DenseModel(ABC, BasicGEModel):
                 local_idx = idx
             #  MARK - TBD, whether detach here
             self._global_relation_related_emb[name].emb[local_idx] = embeddings.emb.detach().clone().cpu()[local_idx]
-
 
     def train_proc(self, rank, train_dataset, eval_dataset, neg_dataset, rel_parts=None, cross_rels=None):
         """ training process for fit(). it will read data, forward embedding data, compute loss and update param using gradients
@@ -1560,19 +1581,6 @@ class DenseModel(ABC, BasicGEModel):
         self.cleanup()
 
     def eval_proc(self, rank, eval_dataset, mode='valid', queue=None):
-        """ evaluation process for validation/test
-
-        Parameters
-        ----------
-        rank : int
-            process id in regards of world size
-        eval_dataset : KGDataset
-            evaluation dataset
-        mode : str
-            choose from ['valid', 'test'], to run valid or test
-        queue : torch.multiprocessing.queue
-            If it's distributed training, the main process need to collect all the evaluation results from subprocess using queue
-        """
         args = self.args
         if len(args.gpu) > 0:
             gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
@@ -1613,6 +1621,53 @@ class DenseModel(ABC, BasicGEModel):
         if mode is not 'valid':
             self.cleanup()
 
+    def train_forward(self, data, neg_type, gpu_id):
+        args = self.args
+        chunk_size = args.neg_sample_size
+        neg_sample_size = args.neg_sample_size
+
+        pos_emb = self.acquire_embedding(data=data, gpu_id=gpu_id, pos=True, train=True, neg_type=neg_type)
+
+        edge_impts = to_device(data['impts'], gpu_id) if args.has_edge_importance else None
+
+        pos_score = self.pos_forward(pos_emb)
+
+        neg_emb = self.acquire_embedding(data=data, gpu_id=gpu_id, pos=False, train=True, neg_type=neg_type)
+
+        neg_score = self.neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True)
+        neg_score = neg_score.reshape(-1, neg_sample_size, 1)
+
+        loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
+        reg, reg_log = self.regularizer(self.get_param_list())
+
+        loss += reg
+        log.update(reg_log)
+
+        return loss, log
+
+    def test_forward(self, data, gpu_id):
+        args = self.args
+        log = []
+        pos_emb = self.acquire_embedding(data, gpu_id, pos=True, train=False)
+        neg_emb = self.acquire_embedding(data, gpu_id, pos=False, train=False)
+        batch_size = data['head'].shape[0]
+        num_node = len(data['neg'])
+        pos_score = self.pos_forward(pos_emb)
+        neg_score_corr_head = self.neg_forward(pos_emb, neg_emb, 'head', chunk_size=batch_size, neg_sample_size=num_node, train=False)
+        neg_score_corr_tail = self.neg_forward(pos_emb, neg_emb, 'tail', chunk_size=batch_size, neg_sample_size=num_node, train=False)
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, data, mode='tail',
+                                                                eval_filter=args.eval_filter,
+                                                                self_loop_filter=args.self_loop_filter)
+        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, data, mode='head',
+                                                                eval_filter=args.eval_filter,
+                                                                self_loop_filter=args.self_loop_filter)
+        log += log_corr_tail
+        log += log_corr_head
+        return log
+
+    def prepare_data(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
+        return pos_emb, neg_emb
+
     @abstractmethod
     def categorize_embedding(self):
         pass
@@ -1626,19 +1681,11 @@ class DenseModel(ABC, BasicGEModel):
         pass
 
     @abstractmethod
-    def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
+    def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
         pass
 
     @abstractmethod
-    def train_forward(self, data, neg_type, gpu_id):
-        pass
-
-    @abstractmethod
-    def test_forward(self, data, gpu_id):
-        pass
-
-    @abstractmethod
-    def prepare_data(self, data):
+    def acquire_embedding(self, data, gpu_id=-1, pos=True, train=True, neg_type='head'):
         pass
 
 
@@ -1662,28 +1709,38 @@ class ConvEModel(DenseModel):
         args = self.args
         eps = EMB_INIT_EPS
         emb_init = (args.gamma + eps) / args.hidden_dim
-        self._relation_emb.init(emb_init=emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat=init_strat)
-        self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat=init_strat)
+        self._relation_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim,
+                                init_strat=init_strat)
+        self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim,
+                              init_strat=init_strat)
         self._entity_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='uniform')
 
     def pos_forward(self, pos_emb):
-        concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(self._score_func, 'module') \
+        concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(
+            self._score_func, 'module') \
             else self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2)
-        return self._score_func(args=[concat_emb, pos_emb['tail'], pos_emb['tail_bias']], kwargs={'mode': 'all', 'comp': 'batch'})
+        return self._score_func(args=[concat_emb, pos_emb['tail'], pos_emb['tail_bias']],
+                                kwargs={'mode': 'all', 'comp': 'batch'})
 
     def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
         if neg_type == 'head':
             b_size, hidden_dim = pos_emb['tail'].shape
-            concat_emb = self._score_func.module.mutual_concat(neg_emb['head'], pos_emb['rel'], chunk_size_a=neg_sample_size, chunk_size_b=chunk_size, mode='BxA') if hasattr(self._score_func, 'module') \
-                else self._score_func.mutual_concat(neg_emb['head'], pos_emb['rel'], chunk_size_a=neg_sample_size, chunk_size_b=chunk_size, mode='BxA')
-            fc = self._score_func(args=[concat_emb], kwargs={'mode': 'lhs', 'comp': 'batch'}).reshape(-1, chunk_size, neg_sample_size, hidden_dim)
+            concat_emb = self._score_func.module.mutual_concat(neg_emb['head'], pos_emb['rel'],
+                                                               chunk_size_a=neg_sample_size, chunk_size_b=chunk_size,
+                                                               mode='BxA') if hasattr(self._score_func, 'module') \
+                else self._score_func.mutual_concat(neg_emb['head'], pos_emb['rel'], chunk_size_a=neg_sample_size,
+                                                    chunk_size_b=chunk_size, mode='BxA')
+            fc = self._score_func(args=[concat_emb], kwargs={'mode': 'lhs', 'comp': 'batch'}).reshape(-1, chunk_size,
+                                                                                                      neg_sample_size,
+                                                                                                      hidden_dim)
             tail_emb = pos_emb['tail'].reshape(-1, chunk_size, 1, hidden_dim)
             tail_bias = pos_emb['tail_bias'].reshape(-1, chunk_size, 1, 1)
             return self._score_func(args=[fc, tail_emb, tail_bias], kwargs={'mode': 'rhs', 'comp': 'batch'})
         else:
-            concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(self._score_func, 'module') \
+            concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2) if hasattr(
+                self._score_func, 'module') \
                 else self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'], dim=-2)
-            b,  h, w = concat_emb.shape
+            b, h, w = concat_emb.shape
             lhs = self._score_func(args=[concat_emb], kwargs={'mode': 'lhs'}).reshape(b // chunk_size, chunk_size, -1)
 
             tail_emb = neg_emb['tail']
@@ -1694,7 +1751,6 @@ class ConvEModel(DenseModel):
             # bmm
             score = self._score_func(args=[lhs, tail_emb, tail_bias], kwargs={'mode': 'rhs', 'comp': 'mm'})
             return score
-
 
     def train_forward(self, data, neg_type, gpu_id):
         args = self.args
@@ -1746,7 +1802,8 @@ class ConvEModel(DenseModel):
         # hyper-parameter to be determined
         num_chunk = args.eval_chunk
         # for tail corruption
-        concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel']) if hasattr(self._score_func, 'module') else \
+        concat_emb = self._score_func.module.batch_concat(pos_emb['head'], pos_emb['rel']) if hasattr(self._score_func,
+                                                                                                      'module') else \
             self._score_func.batch_concat(pos_emb['head'], pos_emb['rel'])
         lhs = self._score_func(args=[concat_emb], kwargs={'mode': 'lhs', 'comp': 'batch'})
         batch_neg_size = neg.shape[0] // num_chunk
@@ -1756,9 +1813,9 @@ class ConvEModel(DenseModel):
         chunk_neg_emb = neg_emb['neg']
         chunk_neg_bias = neg_emb['neg_bias']
         # reshape fc to (b, 1, hidden_dim); chunk_neg_emb, chunk_neg_bias to (1, chunk_size, hidden_dim) to enable broadcast
-        chunk_neg_score = self._score_func(args=[lhs, chunk_neg_emb, chunk_neg_bias], kwargs={'mode': 'rhs', 'comp': 'mm'})
+        chunk_neg_score = self._score_func(args=[lhs, chunk_neg_emb, chunk_neg_bias],
+                                           kwargs={'mode': 'rhs', 'comp': 'mm'})
         neg_score_corrupt_tail = chunk_neg_score
-
 
         # for i in range(num_chunk):
         #     start_idx = i * batch_neg_size
@@ -1773,12 +1830,15 @@ class ConvEModel(DenseModel):
         #     neg_score_corrupt_head[:, start_idx: end_idx] = chunk_neg_score
         #
         # ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corrupt_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
-        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corrupt_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
+        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corrupt_tail, head, rel, tail, neg,
+                                                                mode='tail', eval_filter=args.eval_filter,
+                                                                self_loop_filter=args.self_loop_filter)
 
         # log += log_corr_head
         log += log_corr_tail
 
         return log
+
 
 class AttHModel(DenseModel):
     def __init__(self, args, device, model_name):
@@ -1808,29 +1868,57 @@ class AttHModel(DenseModel):
     def initialize(self, n_entities, n_relations, init_strat='uniform'):
         args = self.args
         init_scale = args.init_scale
-        self._entity_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat='normal')
-        self._relation_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat='normal')
-        self._rel_diag.init(emb_init=(2, -1), lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2, init_strat='random')
+        self._entity_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim,
+                              init_strat='normal')
+        self._relation_emb.init(init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim,
+                                init_strat='normal')
+        self._rel_diag.init(emb_init=(2, -1), lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim * 2,
+                            init_strat='random')
         self._c.init(emb_init=1, lr=self.lr, async_threads=None, num=n_relations, dim=1, init_strat='constant')
-        self._context.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat='normal')
+        self._context.init(emb_init=init_scale, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim,
+                           init_strat='normal')
         self._head_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='constant')
         self._tail_bias.init(emb_init=0, lr=self.lr, async_threads=None, num=n_entities, dim=1, init_strat='constant')
 
+
+    def prepare_data(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
+        pos_batch_size = pos_emb['head'].shape[0]
+        neg_batch_size = neg_emb[neg_type].shape[0]
+        pos_emb_reshape = {}
+        neg_emb_reshape = {}
+        if train and neg_type == 'head':
+            for k in pos_emb.keys():
+                pos_emb_reshape[k] = pos_emb[k].view(pos_batch_size // chunk_size, chunk_size, -1)
+            for k in neg_emb.keys():
+                neg_emb_reshape[k] = neg_emb[k].view(neg_batch_size // neg_sample_size, neg_sample_size, -1)
+        elif train and neg_type == 'tail':
+            pos_emb_reshape.update(pos_emb)
+            pos_emb_reshape['head_bias'] = pos_emb_reshape['head_bias'].view(pos_batch_size // chunk_size,
+                                                                             chunk_size, -1)
+            for k in neg_emb.keys():
+                neg_emb_reshape[k] = neg_emb[k].view(neg_batch_size // neg_sample_size, neg_sample_size, -1)
+        elif not train and neg_type == 'head':
+            for k in pos_emb.keys():
+                pos_emb_reshape[k] = pos_emb[k].view(1, pos_batch_size, -1)
+            for k in neg_emb.keys():
+                neg_emb_reshape[k] = neg_emb[k].view(1, neg_batch_size, -1)
+        elif not train and neg_type == 'tail':
+            pos_emb_reshape.update(pos_emb)
+            pos_emb_reshape['head_bias'] = pos_emb_reshape['head_bias'].view(1, pos_batch_size, -1)
+            for k in neg_emb.keys():
+                neg_emb_reshape[k] = neg_emb[k].view(1, neg_batch_size, -1)
+        return pos_emb_reshape, neg_emb_reshape
+
     def get_score(self, lhs_e, head_bias, rhs_e, tail_bias, c, comp='batch'):
         score = self._score_func(lhs_e, rhs_e, c, comp)
-        if self.bias == 'constant':
-            return self.gamma + score
-        elif self.bias == 'learn':
-            if comp == 'batch':
-                return head_bias + tail_bias + score
-            else:
-                return head_bias.unsqueeze(2) + tail_bias.unsqueeze(1) + score.unsqueeze(-1)
+        if comp == 'batch':
+            return self.gamma + head_bias + tail_bias + score
         else:
-            return score
+            return self.gamma + head_bias.unsqueeze(2) + tail_bias.unsqueeze(1) + score.unsqueeze(-1)
 
     def pos_forward(self, pos_emb):
         # get lhs
-        rel_c = pos_emb['c']
+        rel_c = pos_emb['curvature']
         head = pos_emb['head']
         rel_diag = pos_emb['rel_diag']
         context_vec = pos_emb['context_vec']
@@ -1857,36 +1945,8 @@ class AttHModel(DenseModel):
         score = self.get_score(lhs, head_bias, rhs, tail_bias, c, comp='batch')
         return score
 
-    def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, mode='train_head'):
-
-        def prepare_data(_pos_emb, _neg_emb, _neg_type, _chunk_size, _neg_sample_size, mode='train_head'):
-            pos_batch_size = _pos_emb['head'].shape[0]
-            neg_batch_size = _neg_emb[_neg_type].shape[0]
-            pos_emb_reshape = {}
-            neg_emb_reshape = {}
-            if mode == 'train_head':
-                for k in _pos_emb.keys():
-                    pos_emb_reshape[k] = _pos_emb[k].view(pos_batch_size // _chunk_size, _chunk_size, -1)
-                for k in _neg_emb.keys():
-                    neg_emb_reshape[k] = _neg_emb[k].view(neg_batch_size // _neg_sample_size, _neg_sample_size, -1)
-            elif mode == 'train_tail':
-                pos_emb_reshape.update(_pos_emb)
-                pos_emb_reshape['head_bias'] = pos_emb_reshape['head_bias'].view(pos_batch_size // _chunk_size, _chunk_size, -1)
-                for k in _neg_emb.keys():
-                    neg_emb_reshape[k] = _neg_emb[k].view(neg_batch_size // _neg_sample_size, _neg_sample_size, -1)
-            elif mode == 'eval_head':
-                for k in _pos_emb.keys():
-                    pos_emb_reshape[k] = _pos_emb[k].view(1, pos_batch_size, -1)
-                for k in _neg_emb.keys():
-                    neg_emb_reshape[k] = _neg_emb[k].view(1, neg_batch_size, -1)
-            elif mode == 'eval_tail':
-                pos_emb_reshape.update(_pos_emb)
-                pos_emb_reshape['head_bias'] = pos_emb_reshape['head_bias'].view(1, pos_batch_size, -1)
-                for k in _neg_emb.keys():
-                    neg_emb_reshape[k] = _neg_emb[k].view(1, neg_batch_size, -1)
-            return pos_emb_reshape, neg_emb_reshape
-
-        pos_emb, neg_emb = prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, mode=mode)
+    def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
+        pos_emb, neg_emb = self.prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=train)
 
         if neg_type == 'head':
             #  for head
@@ -1948,46 +2008,29 @@ class AttHModel(DenseModel):
             rel = expmap0(rel, c)
             lhs = project(mobius_add(lhs, rel, c), c)
             c = c.view(c.shape[0] // chunk_size, chunk_size, -1)
-            score = self.get_score(lhs.view(lhs.shape[0] // chunk_size, chunk_size, -1), head_bias, rhs, tail_bias, c, comp='mm')
+            score = self.get_score(lhs.view(lhs.shape[0] // chunk_size, chunk_size, -1), head_bias, rhs, tail_bias, c,
+                                   comp='mm')
             return score
 
-    def train_forward(self, data, neg_type, gpu_id):
-        args = self.args
-        chunk_size = args.neg_sample_size
-        neg_sample_size = args.neg_sample_size
-        pos_emb = {'curvature': self._relation_related_emb['curvature'](data['rel'], gpu_id=gpu_id, trace=True),
-                   'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=True),
-                   'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=True),
+    def acquire_embedding(self, data, gpu_id=-1, pos=True, train=True, neg_type='head'):
+        if pos and train:
+            emb = {'curvature': self._relation_related_emb['curvature'](data['rel'], gpu_id=gpu_id, trace=True),
                    'rel': self._relation_related_emb['relation_emb'](data['rel'], gpu_id=gpu_id, trace=True),
                    'rel_diag': self._relation_related_emb['rel_diag'](data['rel'], gpu_id=gpu_id, trace=True),
                    'context_vec': self._relation_related_emb['context'](data['rel'], gpu_id=gpu_id, trace=True),
+                   'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=True),
+                   'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=True),
                    'head_bias': self._entity_related_emb['head_bias'](data['head'], gpu_id=gpu_id, trace=True),
                    'tail_bias': self._entity_related_emb['tail_bias'](data['tail'], gpu_id=gpu_id, trace=True), }
-
-        edge_impts = to_device(data['impts'], gpu_id) if args.has_edge_importance else None
-
-        pos_score = self.pos_forward(pos_emb)
-        mode = 'train_' + neg_type
-
-        if neg_type == 'head':
-            neg_emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True),
+        elif not pos and train:
+            if neg_type == 'head':
+                emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True),
                        'head_bias': self._entity_related_emb['head_bias'](data['neg'], gpu_id=gpu_id, trace=True)}
-        else:
-            neg_emb = {'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True),
+            else:
+                emb = {'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True),
                        'tail_bias': self._entity_related_emb['tail_bias'](data['neg'], gpu_id=gpu_id, trace=True)}
-
-        neg_score = self.neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, mode=mode)
-        neg_score = neg_score.reshape(-1, neg_sample_size, 1)
-        loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
-        reg, reg_log = self.regularizer(self.get_param_list())
-
-        loss += reg
-        log.update(reg_log)
-
-        return loss, log
-
-    def test_forward(self, data, gpu_id):
-        pos_emb = {'curvature': self._relation_related_emb['curvature'](data['rel'], gpu_id=gpu_id, trace=False),
+        elif pos and not train:
+            emb = {'curvature': self._relation_related_emb['curvature'](data['rel'], gpu_id=gpu_id, trace=False),
                    'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=False),
                    'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=False),
                    'rel': self._relation_related_emb['relation_emb'](data['rel'], gpu_id=gpu_id, trace=False),
@@ -1995,25 +2038,12 @@ class AttHModel(DenseModel):
                    'context_vec': self._relation_related_emb['context'](data['rel'], gpu_id=gpu_id, trace=False),
                    'head_bias': self._entity_related_emb['head_bias'](data['head'], gpu_id=gpu_id, trace=False),
                    'tail_bias': self._entity_related_emb['tail_bias'](data['tail'], gpu_id=gpu_id, trace=False), }
-
-        neg_emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False),
+        else:
+            emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False),
                    'head_bias': self._entity_related_emb['head_bias'](data['neg'], gpu_id=gpu_id, trace=False),
                    'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False),
                    'tail_bias': self._entity_related_emb['tail_bias'](data['neg'], gpu_id=gpu_id, trace=False)}
-
-        args = self.args
-        log = []
-        head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
-        batch_size = head.shape[0]
-        pos_score = self.pos_forward(pos_emb)
-        num_node = len(neg)
-        neg_score_corr_head = self.neg_forward(pos_emb, neg_emb, 'head', chunk_size=batch_size, neg_sample_size=num_node, mode='eval_head').squeeze(-1)
-        neg_score_corr_tail = self.neg_forward(pos_emb, neg_emb, 'tail', chunk_size=batch_size, neg_sample_size=num_node, mode='eval_tail').squeeze(-1)
-        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
-        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
-        log += log_corr_tail
-        log += log_corr_head
-        return log
+        return emb
 
 
 class TransEModel(DenseModel):
@@ -2029,20 +2059,37 @@ class TransEModel(DenseModel):
         args = self.args
         eps = EMB_INIT_EPS
         emb_init = (args.gamma + eps) / args.hidden_dim
-        self._relation_emb.init(emb_init=emb_init,lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim, init_strat=init_strat)
-        self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim, init_strat=init_strat)
+        self._relation_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_relations, dim=self.hidden_dim,
+                                init_strat=init_strat)
+        self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=None, num=n_entities, dim=self.hidden_dim,
+                              init_strat=init_strat)
 
-    def prepare_data(self, data):
-        pass
+    def acquire_embedding(self, data, gpu_id=-1, pos=True, train=True, neg_type='head'):
+        if pos and train:
+            emb = {'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=True),
+                   'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=True),
+                   'rel': self._relation_related_emb['relation_emb'](data['rel'], gpu_id=gpu_id, trace=True), }
+        elif not pos and train:
+            if neg_type == 'head':
+                emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True), }
+            else:
+                emb = {'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True), }
+        elif pos and not train:
+            emb = {'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=False),
+                   'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=False),
+                   'rel': self._relation_related_emb['relation_emb'](data['rel'], gpu_id=gpu_id, trace=False), }
+        else:
+            emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False),
+                   'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False), }
+        return emb
 
     def pos_forward(self, pos_emb):
         return self._score_func.predict(pos_emb)
 
-    def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size):
-        heads = pos_emb['head']
-        relations = pos_emb['rel']
-        tails = pos_emb['tail']
-        neg = neg_emb[neg_type]
+
+    def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
+        pos_emb, neg_emb = self.prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train)
+        heads, relations, tails, neg = pos_emb['head'], pos_emb['rel'], pos_emb['tail'], neg_emb[neg_type]
         num_chunk = len(heads) // chunk_size
         if neg_type == 'head':
             func = self._score_func.create_neg(True)
@@ -2051,55 +2098,6 @@ class TransEModel(DenseModel):
             func = self._score_func.create_neg(False)
             return func(heads, relations, neg, num_chunk, chunk_size, neg_sample_size)
 
-    def train_forward(self, data, neg_type, gpu_id):
-        args = self.args
-        chunk_size = args.neg_sample_size
-        neg_sample_size = args.neg_sample_size
-        pos_emb = {'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=True),
-                   'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=True),
-                   'rel': self._relation_related_emb['relation_emb'](data['rel'], gpu_id=gpu_id, trace=True),}
-
-        edge_impts = to_device(data['impts'], gpu_id) if args.has_edge_importance else None
-
-        pos_score = self.pos_forward(pos_emb)
-
-        if neg_type == 'head':
-            neg_emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True),}
-        else:
-            neg_emb = {'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=True),}
-
-        neg_score = self.neg_forward(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size)
-        neg_score = neg_score.reshape(-1, neg_sample_size, 1)
-        loss, log = self._loss_gen.get_total_loss(pos_score, neg_score, edge_impts)
-        reg, reg_log = self.regularizer(self.get_param_list())
-
-        loss += reg
-        log.update(reg_log)
-
-        return loss, log
-
-
-    def test_forward(self, data, gpu_id):
-        pos_emb = {'head': self._entity_related_emb['entity_emb'](data['head'], gpu_id=gpu_id, trace=False),
-                   'tail': self._entity_related_emb['entity_emb'](data['tail'], gpu_id=gpu_id, trace=False),
-                   'rel': self._relation_related_emb['relation_emb'](data['rel'], gpu_id=gpu_id, trace=False),}
-
-        neg_emb = {'head': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False),
-                   'tail': self._entity_related_emb['entity_emb'](data['neg'], gpu_id=gpu_id, trace=False),}
-
-        args = self.args
-        log = []
-        head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
-        batch_size = head.shape[0]
-        pos_score = self.pos_forward(pos_emb)
-        num_node = len(neg)
-        neg_score_corr_head = self.neg_forward(pos_emb, neg_emb, 'head', chunk_size=batch_size, neg_sample_size=num_node).squeeze(-1)
-        neg_score_corr_tail = self.neg_forward(pos_emb, neg_emb, 'tail', chunk_size=batch_size, neg_sample_size=num_node).squeeze(-1)
-        ranking_corr_tail, log_corr_tail = self.compute_ranking(pos_score, neg_score_corr_tail, head, rel, tail, neg, mode='tail', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
-        ranking_corr_head, log_corr_head = self.compute_ranking(pos_score, neg_score_corr_head, head, rel, tail, neg, mode='head', eval_filter=args.eval_filter, self_loop_filter=args.self_loop_filter)
-        log += log_corr_tail
-        log += log_corr_head
-        return log
 
 def main():
     args = TrainArgParser().parse_args()
@@ -2115,6 +2113,7 @@ def main():
         model.fit()
     else:
         model.test()
+
 
 if __name__ == '__main__':
     main()

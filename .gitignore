@@ -153,4 +153,5 @@ cscope.*
 
 # local test file
 ke_test.py
-dglke/*.sh
+python/**/*.sh
+python/dglke/script

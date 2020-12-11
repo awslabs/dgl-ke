@@ -84,8 +84,6 @@ class TransEScore(nn.Module):
 
     def forward(self, g):
         g.apply_edges(lambda edges: self.edge_func(edges))
-    # def forward(self, head_emb, rel_emb, tail_emb):
-    #     return self.gamma - th.norm(head_emb + rel_emb - tail_emb, p=self.dist_ord, dim=-1)
 
     def update(self, gpu_id=-1):
         pass
