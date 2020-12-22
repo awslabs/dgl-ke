@@ -18,8 +18,6 @@
 #
 
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
-import torch.optim as optim
 import torch as th
 
 from distutils.version import LooseVersion
@@ -28,16 +26,15 @@ if TH_VERSION.version[0] == 1 and TH_VERSION.version[1] < 2:
     raise Exception("DGL-ke has to work with Pytorch version >= 1.2")
 from .models.pytorch.tensor_models import thread_wrapped_func
 from .models import KEModel
-from .utils import save_model, get_compatible_batch_size
+from util.misc import save_model, get_compatible_batch_size
 
-import os
 import logging
 import time
-from functools import wraps
 
 import dgl
 from dgl.contrib import KVClient
 import dgl.backend as F
+from pyinstrument import Profiler
 
 from .dataloader import EvalDataset
 from .dataloader import get_dataset
@@ -99,7 +96,7 @@ def load_model(args, n_entities, n_relations, ckpt=None):
                     args.hidden_dim, args.gamma,
                     double_entity_emb=args.double_ent, double_relation_emb=args.double_rel)
     if ckpt is not None:
-        assert False, "We do not support loading model emb for genernal Embedding"
+        assert False, "We do not support loading model emb for genernal Em/barriebedding"
     return model
 
 def load_model_from_checkpoint(args, n_entities, n_relations, ckpt_path):
@@ -108,6 +105,10 @@ def load_model_from_checkpoint(args, n_entities, n_relations, ckpt_path):
     return model
 
 def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=None, cross_rels=None, barrier=None, client=None):
+    if rank == 0:
+        profiler = Profiler()
+        profiler.start()
+
     logs = []
     for arg in vars(args):
         logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
@@ -195,6 +196,10 @@ def train(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=Non
         model.finish_async_update()
     if args.strict_rel_part or args.soft_rel_part:
         model.writeback_relation(rank, rel_parts)
+    if rank == 0:
+        profiler.stop()
+        print(profiler.output_text(unicode=True, color=True))
+
 
 def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
     if len(args.gpu) > 0:

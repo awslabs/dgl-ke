@@ -36,7 +36,13 @@ from functools import wraps
 
 from .. import *
 
-logsigmoid = functional.logsigmoid
+logsigmoid = th.nn.LogSigmoid
+
+def abs(val):
+    return th.abs(val)
+
+def masked_select(input, mask):
+    return th.masked_select(input, mask)
 
 def abs(val):
     return th.abs(val)
@@ -49,6 +55,9 @@ def get_dev(gpu):
 
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
+
+def floor_divide(input, other):
+    return th.floor_divide(input, other)
 
 none = lambda x : x
 norm = lambda x, p: x.norm(p=p)**p
@@ -405,3 +414,5 @@ class ExternalEmbedding:
         """
         file_name = os.path.join(path, name+'.npy')
         self.emb = th.Tensor(np.load(file_name))
+
+

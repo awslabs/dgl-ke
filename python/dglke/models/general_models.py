@@ -470,9 +470,9 @@ class KEModel(object):
         for i in range(batch_size):
             if self.args.eval_filter:
                 # select all the true negative samples where its score >= positive sample
-                ranking = F.asnumpy(F.sum(masked_select(neg_scores[i] >= pos_scores[i], mask[i]), dim=0) + 1)
+                ranking = F.asnumpy(F.sum(masked_select(neg_scores[i] - pos_scores[i] >= 1e-5, mask[i]), dim=0) + 1)
             else:
-                ranking = F.asnumpy(F.sum(neg_scores[i] >= pos_scores[i], dim=0) + 1)
+                ranking = F.asnumpy(F.sum(neg_scores[i] - pos_scores[i] >= 1e-5, dim=0) + 1)
             logs.append({
                 'MRR': 1.0 / ranking,
                 'MR': float(ranking),

@@ -4,8 +4,8 @@ import torch as th
 import torch.nn.functional as functional
 
 logsigmoid = functional.logsigmoid
-softplus  = functional.softplus
-sigmoid = functional.sigmoid
+softplus = functional.softplus
+sigmoid = th.sigmoid
 
 class HingeLoss(BaseHingeLoss):
     def __init__(self, margin):
@@ -26,9 +26,12 @@ class LogisticLoss(BaseLogisticLoss):
 class BCELoss(BaseBCELoss):
     def __init__(self):
         super(BCELoss, self).__init__()
+        self.loss = th.nn.BCEWithLogitsLoss(reduction='none')
 
     def __call__(self, score: th.Tensor, label):
-        return -(label * th.log(sigmoid(score)) + (1 - label) * th.log(1 - sigmoid(score)))
+        if type(label) is int or type(label) is float:
+            label = th.full_like(score, label)
+        return self.loss(score, label)
 
 class LogsigmoidLoss(BaseLogsigmoidLoss):
     def __init__(self):
@@ -40,8 +43,9 @@ class LogsigmoidLoss(BaseLogsigmoidLoss):
 
 class LossGenerator(BaseLossGenerator):
     def __init__(self, args, loss_genre='Logsigmoid', neg_adversarial_sampling=False, adversarial_temperature=1.0,
-                 pairwise=False):
-        super(LossGenerator, self).__init__(neg_adversarial_sampling, adversarial_temperature, pairwise)
+                 pairwise=False, label_smooth=.0):
+        super(LossGenerator, self).__init__(neg_adversarial_sampling, adversarial_temperature, pairwise, label_smooth)
+        self.pos_label = 1
         if loss_genre == 'Hinge':
             self.neg_label = -1
             self.loss_criterion = HingeLoss(args.margin)
@@ -60,11 +64,11 @@ class LossGenerator(BaseLossGenerator):
         if self.pairwise and loss_genre not in ['Logistic', 'Hinge']:
             raise ValueError('{} loss cannot be applied to pairwise loss function'.format(loss_genre))
 
-    def _get_pos_loss(self, pos_score):
-        return self.loss_criterion(pos_score, 1)
+    def _get_pos_loss(self, pos_score, pos_label):
+        return self.loss_criterion(pos_score, pos_label)
 
-    def _get_neg_loss(self, neg_score):
-        return self.loss_criterion(neg_score, self.neg_label)
+    def _get_neg_loss(self, neg_score, neg_label):
+        return self.loss_criterion(neg_score, neg_label)
 
     def get_total_loss(self, pos_score, neg_score, edge_weight=None):
         log = {}
@@ -75,9 +79,10 @@ class LossGenerator(BaseLossGenerator):
             loss = th.mean(self.loss_criterion((pos_score - neg_score), 1) * edge_weight)
             log['loss'] = get_scalar(loss)
             return loss, log
-
-        pos_loss = self._get_pos_loss(pos_score) * edge_weight
-        neg_loss = self._get_neg_loss(neg_score) * edge_weight
+        pos_label = (1 - self.label_smooth) * self.pos_label + (self.label_smooth / (neg_score.shape[-1] + 1))
+        neg_label = (1 - self.label_smooth) * self.neg_label + (self.label_smooth / (neg_score.shape[-1] + 1))
+        pos_loss = self._get_pos_loss(pos_score, pos_label) * edge_weight
+        neg_loss = self._get_neg_loss(neg_score, neg_label) * edge_weight
         # MARK - would average twice make loss function lose precision?
         # do mean over neg_sample
         if self.neg_adversarial_sampling:

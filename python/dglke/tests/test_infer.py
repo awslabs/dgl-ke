@@ -21,6 +21,7 @@ from __future__ import absolute_import
 
 import os
 import scipy as sp
+import dgl
 import numpy as np
 import dgl.backend as F
 import dgl
@@ -79,8 +80,6 @@ def generate_rand_emb(func_name, bcast):
         return head_emb, rel_emb, tail_emb, (dim, dim)
     elif func_name == 'RotatE':
         return head_emb, rel_emb, tail_emb, (12.0, 1.0)
-    elif func_name == 'SimplE':
-        return head_emb, rel_emb, tail_emb, None
     else:
         return head_emb, rel_emb, tail_emb, None
 
@@ -91,8 +90,7 @@ ke_infer_funcs = {'TransE': TransEScore,
                   'ComplEx': ComplExScore,
                   'RESCAL': RESCALScore,
                   'TransR': TransRScore,
-                  'RotatE': RotatEScore,
-                  'SimplE': SimplEScore}
+                  'RotatE': RotatEScore}
 
 class FakeEdge:
     def __init__(self, hemb, temb, remb):
@@ -264,13 +262,9 @@ def test_score_func_rescal():
 def test_score_func_rotate():
     check_infer_score('RotatE')
 
-def test_score_func_simple():
-    check_infer_score('SimplE')
-
 if __name__ == '__main__':
     test_score_func_transe()
     test_score_func_distmult()
     test_score_func_complex()
     test_score_func_rescal()
     test_score_func_rotate()
-    test_score_func_simple()

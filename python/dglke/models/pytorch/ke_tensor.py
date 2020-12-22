@@ -22,21 +22,16 @@ KG Sparse embedding
 """
 import os
 import numpy as np
+import copy
 
 import torch as th
-import torch.nn as nn
-import torch.nn.functional as functional
 import torch.nn.init as INIT
 
+from .ke_optimizer import *
+from dglke.util import thread_wrapped_func
 import torch.multiprocessing as mp
 from torch.multiprocessing import Queue
-from _thread import start_new_thread
-import traceback
-from functools import wraps
 
-from .. import *
-
-from .tensor_models import thread_wrapped_func
 
 class KGEmbedding:
     """Sparse Embedding for Knowledge Graph
@@ -52,31 +47,65 @@ class KGEmbedding:
         Device to store the embedding.
     """
     def __init__(self, device):
-        self.device = device
         self.emb = None
         self.is_train = False
+        self.async_q = None
+        self.device = device
 
-    def init(self, emb_init, lr, async_threads, num=-1, dim=-1):
+    def init(self, emb_init, lr, async_threads, num=-1, dim=-1, init_strat='uniform', optimizer='Adagrad', device=None):
         """Initializing the embeddings for training.
 
         Parameters
         ----------
-        emb_init : float
+        emb_init : float or tuple
             The intial embedding range should be [-emb_init, emb_init].
         """
+        self.async_threads = async_threads
+        if device is not None:
+            self.device = device
         if self.emb is None:
             self.emb = th.empty(num, dim, dtype=th.float32, device=self.device)
-        else:
             self.num = self.emb.shape[0]
             self.dim = self.emb.shape[1]
-        self.state_sum = self.emb.new().resize_(self.emb.size(0)).zero_()
-        self.trace = []
-        self.state_step = 0
-        self.has_cross_rel = False
-        self.lr = lr
+        if optimizer == 'Adagrad':
+            self.optim = Adagrad(self.emb, device=self.device, lr=lr)
+        elif optimizer == 'Adam':
+            self.optim = Adam(self.emb, device=self.device, lr=lr)
+        else:
+            raise NotImplementedError(f'optimizer {optimizer} is not supported by dglke yet.')
 
-        INIT.uniform_(self.emb, -emb_init, emb_init)
-        INIT.zeros_(self.state_sum)
+        self.trace = []
+        self.has_cross_rel = False
+
+        if init_strat == 'uniform':
+            INIT.uniform_(self.emb, -emb_init, emb_init)
+        elif init_strat == 'normal':
+            if type(emb_init) is tuple or type(emb_init) is list:
+                if len(emb_init) == 0:
+                    mean = emb_init
+                    std = 1
+                else:
+                    mean, std = emb_init
+                INIT.normal_(self.emb.data, mean, std)
+            else:
+                init_size = emb_init
+                INIT.normal_(self.emb.data)
+                self.emb.data *= init_size
+        elif init_strat == 'random':
+            if type(emb_init) is tuple:
+                x, y = emb_init
+                self.emb.data = th.rand(num, dim, dtype=th.float32, device=self.device) * x + y
+        elif init_strat == 'xavier':
+            INIT.xavier_normal_(self.emb.data)
+        elif init_strat == 'constant':
+            INIT.constant_(self.emb.data, emb_init)
+
+    def clone(self, device):
+        clone_emb = copy.deepcopy(self)
+        clone_emb.device = device
+        clone_emb.emb = clone_emb.emb.to(device)
+        clone_emb.optim = clone_emb.optim.to(device)
+        return clone_emb
 
     def load(self, path, name):
         """Load embeddings.
@@ -140,7 +169,7 @@ class KGEmbedding:
         """Use torch.tensor.share_memory_() to allow cross process tensor access
         """
         self.emb.share_memory_()
-        self.state_sum.share_memory_()
+        self.optim.share_memory()
 
     def __call__(self, idx, gpu_id=-1, trace=True):
         """ Return sliced tensor.
@@ -158,7 +187,7 @@ class KGEmbedding:
         """
         # for inference or evaluation
         if self.is_train is False:
-            return self.emb[idx].to(gpu_id)
+            return self.emb[idx].cuda(gpu_id, non_blocking=True)
 
         if self.has_cross_rel:
             cpu_idx = idx.cpu()
@@ -167,10 +196,10 @@ class KGEmbedding:
             cpu_idx = th.unique(cpu_idx)
             if cpu_idx.shape[0] != 0:
                 cpu_emb = self.global_emb.emb[cpu_idx]
-                self.emb[cpu_idx] = cpu_emb.cuda(gpu_id)
+                self.emb[cpu_idx] = cpu_emb.cuda(gpu_id, non_blocking=True)
         s = self.emb[idx]
         if gpu_id >= 0:
-            s = s.cuda(gpu_id)
+            s = s.cuda(gpu_id, non_blocking=True)
         # During the training, we need to trace the computation.
         # In this case, we need to record the computation path and compute the gradients.
         if trace:
@@ -190,14 +219,9 @@ class KGEmbedding:
         gpu_id : int
             Which gpu to accelerate the calculation. if -1 is provided, cpu is used.
         """
-        self.state_step += 1
         with th.no_grad():
             for idx, data in self.trace:
                 grad = data.grad.data
-
-                clr = self.lr
-                #clr = self.lr / (1 + (self.state_step - 1) * group['lr_decay'])
-
                 # the update is non-linear so indices must be unique
                 grad_indices = idx
                 grad_values = grad
@@ -206,39 +230,43 @@ class KGEmbedding:
                     grad_values.share_memory_()
                     self.async_q.put((grad_indices, grad_values, gpu_id))
                 else:
-                    grad_sum = (grad_values * grad_values).mean(1)
-                    device = self.state_sum.device
-                    if device != grad_indices.device:
-                        grad_indices = grad_indices.to(device)
-                    if device != grad_sum.device:
-                        grad_sum = grad_sum.to(device)
-
                     if self.has_cross_rel:
                         cpu_mask = self.cpu_bitmap[grad_indices]
                         cpu_idx = grad_indices[cpu_mask]
                         if cpu_idx.shape[0] > 0:
                             cpu_grad = grad_values[cpu_mask]
-                            cpu_sum = grad_sum[cpu_mask].cpu()
-                            cpu_idx = cpu_idx.cpu()
-                            self.global_emb.state_sum.index_add_(0, cpu_idx, cpu_sum)
-                            std = self.global_emb.state_sum[cpu_idx]
-                            if gpu_id >= 0:
-                                std = std.cuda(gpu_id)
-                            std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-                            tmp = (-clr * cpu_grad / std_values)
-                            tmp = tmp.cpu()
-                            self.global_emb.emb.index_add_(0, cpu_idx, tmp)
-                    self.state_sum.index_add_(0, grad_indices, grad_sum)
-                    std = self.state_sum[grad_indices]  # _sparse_mask
-                    if gpu_id >= 0:
-                        std = std.cuda(gpu_id)
-                    std_values = std.sqrt_().add_(1e-10).unsqueeze(1)
-                    tmp = (-clr * grad_values / std_values)
-                    if tmp.device != device:
-                        tmp = tmp.to(device)
-                    # TODO(zhengda) the overhead is here.
-                    self.emb.index_add_(0, grad_indices, tmp)
+                            self.global_emb.optim.step(cpu_idx, self.global_emb.emb, cpu_grad, gpu_id)
+                    self.optim.step(grad_indices, self.emb, grad_values, gpu_id)
         self.trace = []
+
+    def create_async_update(self):
+        """Set up the async update subprocess.
+        """
+        self.async_q = Queue(1)
+        self.async_p = mp.Process(target=self.async_update)
+        self.async_p.start()
+
+    def finish_async_update(self):
+        """Notify the async update subprocess to quit.
+        """
+        self.async_q.put((None, None, None))
+        self.async_p.join()
+
+    def async_update(self):
+        th.set_num_threads(self.async_threads)
+        while True:
+            (grad_indices, grad_values, gpu_id) = self.async_q.get()
+            if grad_indices is None:
+                return
+            with th.no_grad():
+                if self.has_cross_rel:
+                    cpu_mask = self.cpu_bitmap[grad_indices]
+                    cpu_idx = grad_indices[cpu_mask]
+                    if cpu_idx.shape[0] > 0:
+                        cpu_grad = grad_values[cpu_mask]
+                        self.global_emb.optim.step(cpu_idx, self.global_emb.emb, cpu_grad, gpu_id)
+                self.optim.step(grad_indices, self.emb, grad_values, gpu_id)
+
 
     def curr_emb(self):
         """Return embeddings in trace.

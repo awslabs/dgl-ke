@@ -18,13 +18,12 @@
 #
 
 import os
-import logging
 import time
 
 from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset
 
-from .utils import get_compatible_batch_size, save_model, CommonArgParser
+from dglke.util import get_compatible_batch_size, save_model, CommonArgParser
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
 if backend.lower() == 'mxnet':
@@ -102,7 +101,7 @@ def main():
     if args.num_proc > 1:
         args.force_sync_interval = 1000
 
-    args.eval_filter = not args.no_eval_filter
+    # TODO lingfei: implement this in the new train sampler
     if args.neg_deg_sample_eval:
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 

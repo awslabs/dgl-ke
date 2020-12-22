@@ -22,10 +22,8 @@ import numpy as np
 import scipy as sp
 import dgl.backend as F
 import dgl
-import os
-import sys
-import pickle
-import time
+from torch.utils.data import Dataset, Sampler
+import torch as th
 
 from dgl.base import NID, EID
 
@@ -324,23 +322,44 @@ class TrainDataset(object):
     ranks:
         Number of partitions.
     """
-    def __init__(self, dataset, args, ranks=64, has_importance=False):
+    def __init__(self, dataset, args, ranks=1, has_importance=False):
         triples = dataset.train
         num_train = len(triples[0])
+        self.has_importance = has_importance
         print('|Train|:', num_train)
 
         if ranks > 1 and args.rel_part:
             self.edge_parts, self.rel_parts, self.cross_part, self.cross_rels = \
             SoftRelationPartition(triples, ranks, has_importance=has_importance)
+            self.edge_parts = self.to_tensor(self.edge_parts)
+            self.rel_parts = self.to_tensor(self.rel_parts)
+            self.cross_rels = self.to_tensor(self.cross_rels)
         elif ranks > 1:
-            self.edge_parts = RandomPartition(triples, ranks, has_importance=has_importance)
+            self.edge_parts = self.to_tensor(RandomPartition(triples, ranks, has_importance=has_importance))
             self.cross_part = True
         else:
-            self.edge_parts = [np.arange(num_train)]
-            self.rel_parts = [np.arange(dataset.n_relations)]
+            self.edge_parts = [self.to_tensor(np.arange(num_train))]
+            self.rel_parts = [self.to_tensor(np.arange(dataset.n_relations))]
             self.cross_part = False
 
         self.g = ConstructGraph(triples, dataset.n_entities, args)
+
+    def to_tensor(self, part):
+        if type(part) is list:
+            return [self.to_tensor(p) for p in part]
+        elif type(part) is np.ndarray:
+            return th.from_numpy(part)
+        else:
+            return part
+
+    def share_memory(self):
+        if hasattr(self, 'cross_rels'):
+            self.cross_rels.share_memory_()
+        if hasattr(self, 'rel_parts'):
+            for r in self.rel_parts:
+                r.share_memory_()
+        for e in self.edge_parts:
+            e.share_memory_()
 
     def create_sampler(self, batch_size, neg_sample_size=2, neg_chunk_size=None, mode='head', num_workers=32,
                        shuffle=True, exclude_positive=False, rank=0):
@@ -386,6 +405,12 @@ class TrainDataset(object):
                            shuffle=shuffle,
                            exclude_positive=exclude_positive,
                            return_false_neg=False)
+
+    def part_edge(self, rank, world_size, mode):
+        edges = self.edge_parts[rank]
+        if edges is None:
+            edges = F.arange(0, self.g.number_of_edges())
+        return edges
 
 class ChunkNegEdgeSubgraph(dgl.DGLGraph):
     """Wrapper for negative graph
@@ -678,6 +703,14 @@ class EvalDataset(object):
         return EvalSampler(self.g, edges, batch_size, neg_sample_size, neg_chunk_size,
                            mode, num_workers, filter_false_neg)
 
+    def part_edge(self, rank, world_size, mode):
+        edges = self.get_edges(mode)
+        step_size = (edges.shape[0] + world_size - 1) // world_size
+        beg = step_size * rank
+        end = min(step_size * (rank + 1), edges.shape[0])
+        edges = edges[beg: end]
+        return edges
+
 class NewBidirectionalOneShotIterator:
     """Grouped sampler iterator
 
@@ -732,3 +765,214 @@ class NewBidirectionalOneShotIterator:
                 if has_edge_importance:
                     pos_g.edata['impts'] = pos_g._parent.edata['impts'][pos_g.parent_eid]
                 yield pos_g, neg_g
+
+class PartitionDataset(Dataset):
+    def __init__(self, dataset, rank, world_size, mode):
+        g = dataset.g
+        self.has_importance = False
+        self.mode = mode
+        # get the sample edge index
+        edges = dataset.part_edge(rank, world_size, mode)
+        self.rels = g.edata['tid'][edges]
+        heads, tails = g.all_edges(order='eid')
+        self.heads = heads[edges]
+        self.tails = tails[edges]
+        self.num_of_nodes = len(g.nodes())
+        if mode is not 'train':
+            self.negs = th.arange(0, self.num_of_nodes)
+
+    def share_memory(self):
+        self.heads.share_memory_()
+        self.tails.share_memory_()
+        self.rels.share_memory_()
+        self.negs.share_memory_()
+        if self.has_importance:
+            self.impts.share_memory_()
+
+    def pin_memory(self):
+        self.heads = self.heads.pin_memory()
+        self.tails = self.tails.pin_memory()
+        self.rels = self.rels.pin_memory()
+        self.negs = self.negs.pin_memory()
+        if self.has_importance:
+            self.impts = self.impts.pin_memory()
+
+    def create_neg_sample(self, *args):
+        raise NotImplementedError
+
+    def __getitem__(self, index):
+        raise NotImplementedError
+
+    def __len__(self):
+        raise NotImplementedError
+
+class PartitionChunkDataset(PartitionDataset):
+    def __init__(self, dataset, rank, world_size, mode, *args):
+        super(PartitionChunkDataset, self).__init__(dataset, rank, world_size, mode)
+        neg_sample_size, num_iter, batch_size = args
+        if mode is 'train':
+            self.chunk_size = neg_sample_size
+            self.batch_size = batch_size
+            self.has_importance = dataset.has_importance
+            self.negs = self.create_neg_sample(neg_sample_size, num_iter, batch_size)
+
+    def create_neg_sample(self, *args):
+        neg_sample_size, num_iter, batch_size = args
+        neg = []
+        num_epoch = int(np.ceil(num_iter * batch_size / self.__len__()))
+        total_neg_sample_size = num_epoch * neg_sample_size
+        for i in range(self.__len__()):
+            idx = 0
+            neg_i = []
+            while idx < total_neg_sample_size:
+                neg_i += [np.random.permutation(self.num_of_nodes)]
+                idx += self.num_of_nodes
+            neg += [np.concatenate(neg_i, axis=None)[:total_neg_sample_size].reshape(1, -1)]
+        neg = np.concatenate(neg, axis=0)
+        return th.from_numpy(neg)
+
+    def __getitem__(self, index):
+        if self.mode is 'train':
+            chunk_idx = index % self.__len__()
+            if (chunk_idx + 1) * self.chunk_size > len(self.heads):
+                perm_idx = np.random.choice(chunk_idx * self.chunk_size, self.chunk_size * (chunk_idx + 1) - len(self.heads),
+                                            replace=False)
+                heads = th.cat([self.heads[chunk_idx * self.chunk_size:], self.heads[perm_idx]], dim=0)
+                tails = th.cat([self.tails[chunk_idx * self.chunk_size:], self.tails[perm_idx]], dim=0)
+                rels = th.cat([self.rels[chunk_idx * self.chunk_size:], self.rels[perm_idx]], dim=0)
+                if self.has_importance:
+                    impts = th.cat([self.impts[chunk_idx * self.chunk_size:], self.impts[perm_idx]], dim=0)
+            else:
+                heads = self.heads[chunk_idx * self.chunk_size: (chunk_idx + 1) * self.chunk_size]
+                tails = self.tails[chunk_idx * self.chunk_size: (chunk_idx + 1) * self.chunk_size]
+                rels = self.rels[chunk_idx * self.chunk_size: (chunk_idx + 1) * self.chunk_size]
+                if self.has_importance:
+                    impts = self.impts[chunk_idx * self.chunk_size: (chunk_idx + 1) * self.chunk_size]
+            negs = self.negs[chunk_idx, index // self.__len__() * self.chunk_size: (index // self.__len__() + 1) * self.chunk_size]
+            ret = {'head': heads,
+                   'tail': tails,
+                   'rel': rels,
+                   'neg': negs}
+        else:
+            heads = self.heads[index]
+            tails = self.tails[index]
+            rels = self.rels[index]
+            ret = {'head': heads,
+                   'tail': tails,
+                   'rel': rels,}
+        if self.has_importance:
+            ret['impts'] = impts
+        return ret
+
+    def __len__(self):
+        return ((len(self.heads) + self.chunk_size - 1) // self.chunk_size) if self.mode is 'train' else len(self.heads)
+
+class PartitionBatchDataset(Dataset):
+    def __init__(self, dataset, rank, world_size, mode, *args):
+        batch_size, max_step = args
+        super(PartitionBatchDataset, self).__init__(dataset, rank, world_size, mode)
+        g = dataset.g
+        self.has_importance = False
+        self.mode = mode
+        # get the sample edge index
+        edges = dataset.part_edge(rank, world_size, mode)
+        self.rels = g.edata['tid'][edges]
+        heads, tails = g.all_edges(order='eid')
+        self.heads = heads[edges]
+        self.tails = tails[edges]
+        self.num_of_nodes = len(g.nodes())
+        if mode is not 'train':
+            self.negs = th.arange(0, self.num_of_nodes)
+        if mode is 'train':
+            self.negs = self.create_neg_sample(batch_size, max_step)
+
+    def create_neg_sample(self, *args):
+        batch_size, max_step = args
+        n = self.num_of_nodes
+        neg = []
+        for i in range(max_step):
+            neg += [np.random.choice(n, batch_size, replace=False)]
+        neg = np.concatenate(neg, axis=None)
+        return th.from_numpy(neg)
+
+    def __getitem__(self, index):
+        if self.mode is 'train':
+            heads = self.heads[index % self.__len__()]
+            rels = self.rels[index % self.__len__()]
+            tails = self.tails[index % self.__len__()]
+            negs = self.negs[index]
+            if self.has_importance:
+                impts = self.impts[index % self.__len__()]
+            ret = {'head': heads,
+                   'tail': tails,
+                   'rel': rels,
+                   'neg': negs}
+        else:
+            heads = self.heads[index]
+            tails = self.tails[index]
+            rels = self.rels[index]
+            ret = {'head': heads,
+                   'tail': tails,
+                   'rel': rels,}
+        if self.has_importance:
+            ret['impts'] = impts
+        return ret
+
+    def __len__(self):
+        return len(self.heads)
+
+
+class SequentialRandomSampler(Sampler):
+    r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.
+    If with replacement, then user can specify :attr:`num_samples` to draw.
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+        replacement (bool): samples are drawn with replacement if ``True``, default=``False``
+        num_samples (int): number of samples to draw, default=`len(dataset)`. This argument
+            is supposed to be specified only when `replacement` is ``True``.
+    """
+
+    def __init__(self, data_source, num_iter, batch_size):
+        self.data_source = data_source
+        self.batch_size = batch_size
+        self.num_iter = num_iter
+        self._num_samples = self.batch_size * self.num_iter
+
+    @property
+    def num_samples(self):
+        # dataset size might change at runtime
+        if self._num_samples is None:
+            return len(self.data_source)
+        return self._num_samples
+
+    def __iter__(self):
+        n = len(self.data_source)
+        index_list = []
+        for i in range(self.num_iter):
+            index_list += [np.random.choice(n, self.batch_size, replace=False)]
+        index_list = np.concatenate(index_list, axis=None)
+        return iter(index_list)
+
+    def __len__(self):
+        return self.num_samples
+
+class SequentialTotalSampler(Sampler):
+    def __init__(self, batch_size, max_step):
+        self._num_samples = batch_size * max_step
+
+    @property
+    def num_samples(self):
+        # dataset size might change at runtime
+        if self._num_samples is None:
+            return len(self.data_source)
+        return self._num_samples
+
+    def __iter__(self):
+        return iter(np.arange(self._num_samples))
+
+    def __len__(self):
+        return self.num_samples
+
+
+

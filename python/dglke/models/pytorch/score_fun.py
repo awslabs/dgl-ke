@@ -21,7 +21,9 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as functional
 import torch.nn.init as INIT
+from dglke.util.math import hyp_distance_multi_c
 import numpy as np
+import os
 
 def batched_l2_dist(a, b):
     a_squared = a.norm(dim=-1).pow(2)
@@ -73,6 +75,13 @@ class TransEScore(nn.Module):
             return head, tail
         return fn
 
+    def predict(self, emb):
+        head = emb['head']
+        tail = emb['tail']
+        rel = emb['rel']
+        score = head + rel - tail
+        return self.gamma - th.norm(score, p=self.dist_ord, dim=-1)
+
     def forward(self, g):
         g.apply_edges(lambda edges: self.edge_func(edges))
 
@@ -83,7 +92,9 @@ class TransEScore(nn.Module):
         pass
 
     def save(self, path, name):
-        pass
+        state_dict = self.cpu().state_dict()
+        file_path = os.path.join(path, name)
+        th.save(state_dict, file_path)
 
     def load(self, path, name):
         pass
@@ -639,3 +650,4 @@ class SimplEScore(nn.Module):
                 score = th.clamp(tmp, -20, 20)
                 return score
             return fn
+

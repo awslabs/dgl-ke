@@ -19,15 +19,13 @@
 
 import os
 import stat
-import sys
 import subprocess
-import argparse
 import socket
 if os.name != 'nt':
     import fcntl
     import struct
 
-from .utils import CommonArgParser
+from util.misc import CommonArgParser
 
 SCRIPT_FILE = 'dglke_start_kvserver_kvclient.sh'
 
