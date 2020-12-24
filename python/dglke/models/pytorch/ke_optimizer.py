@@ -50,7 +50,7 @@ class Adagrad(Optimizer):
         if self.unique_indices:
             grad_indices, inv_indicies, cnt = th.unique(grad_indices, return_inverse=True, return_counts=True)
             grad_values = th.zeros(grad_indices.shape[0], grad.shape[1], device=device)
-            grad_values.index_add_(0, inv_indicies, grad)
+            grad_values.index_add_(0, inv_indicies, grad.to(device))
             grad_values = grad_values / cnt.unsqueeze(1)
         if self.mean_sum:
             grad_sq = th.mean(grad_values ** 2, 1, keepdim=True)

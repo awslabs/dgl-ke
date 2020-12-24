@@ -51,7 +51,7 @@ from .pytorch.tensor_models import extended_jaccard_dist
 from .pytorch.tensor_models import floor_divide
 from .pytorch.loss import LossGenerator
 from .pytorch.regularizer import Regularizer
-from dglke.util import thread_wrapped_func, Logger, get_compatible_batch_size, prepare_save_path, get_scalar, to_device
+from dglke.util import thread_wrapped_func, Logger, get_compatible_batch_size, prepare_save_path, get_scalar, to_device, get_device
 from dglke.dataloader import EvalDataset, TrainDataset, SequentialTotalSampler, PartitionChunkDataset
 from dglke.dataloader import get_dataset
 
@@ -1261,6 +1261,7 @@ class GEModel(ABC, BasicGEModel):
         args.strict_rel_part = args.mix_cpu_gpu and (train_dataset.cross_part is False)
         args.soft_rel_part = args.mix_cpu_gpu and args.rel_part and train_dataset.cross_part is True
 
+        self.prepare_device()
         self.initialize(dataset.n_entities, dataset.n_relations, args.init_strat)
         self.categorize_embedding()
 
@@ -1494,9 +1495,6 @@ class GEModel(ABC, BasicGEModel):
             dataset used for evaluation
         """
         # setup
-        if rank == 0:
-            profiler = Profiler()
-            profiler.start()
         args = self.args
         world_size = args.num_proc * args.num_node
         if len(args.gpu) > 0:
@@ -1542,7 +1540,7 @@ class GEModel(ABC, BasicGEModel):
             start1 = time.time()
             # get pos training data
             data = next(data_iter)
-            data = {k: v.view(-1) for k, v in data.items()}
+            self.prepare_data(data, gpu_id)
             sample_time += time.time() - start1
             loss, log = self.train_forward(data, neg_type, gpu_id)
             if rank == 0 and args.tqdm:
@@ -1567,6 +1565,7 @@ class GEModel(ABC, BasicGEModel):
 
             if (step + 1) % args.log_interval == 0:
                 for k in logs[0].keys():
+                    # use get_scalar here to reduce .item() overhead
                     v = sum(l[k] for l in logs) / len(logs)
                     print('[proc {}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), args.max_step, k, v))
                 logs = []
@@ -1602,14 +1601,8 @@ class GEModel(ABC, BasicGEModel):
         if args.strict_rel_part or args.soft_rel_part:
             self.writeback_relation(rank, rel_parts)
         self.cleanup()
-        if rank == 0:
-            profiler.stop()
-            print(profiler.output_text(unicode=False, color=False))
 
     def eval_proc(self, rank, eval_dataset, mode='valid', queue=None):
-        if rank == 0:
-            profiler = Profiler()
-            profiler.start()
         args = self.args
         if len(args.gpu) > 0:
             gpu_id = args.gpu[rank % len(args.gpu)] if args.num_proc > 1 else args.gpu[0]
@@ -1654,9 +1647,6 @@ class GEModel(ABC, BasicGEModel):
 
         if mode is not 'valid':
             self.cleanup()
-        if rank == 0:
-            profiler.stop()
-            print(profiler.output_text(unicode=False, color=False))
 
     def train_forward(self, data, neg_type, gpu_id):
         args = self.args
@@ -1701,8 +1691,8 @@ class GEModel(ABC, BasicGEModel):
         log += log_corr_head
         return log
 
-    def prepare_data(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
-        """ Prepare positive/negative embedding data for training/evaluation. This is the place to reshape tensor
+    def prepare_embedding(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
+        """ Prepare positive/negative embedding for training/evaluation. This is the place to reshape tensor
         to enable operation like bmm takes place.
 
         Parameters
@@ -1729,6 +1719,22 @@ class GEModel(ABC, BasicGEModel):
 
         """
         return pos_emb, neg_emb
+
+    def prepare_data(self, data, gpu_id):
+        for k, v in data.items():
+            data[k] = v.view(-1)
+        if self.entity_related_device != th.device('cpu'):
+            data['head'] = data['head'].to(gpu_id)
+            data['tail'] = data['tail'].to(gpu_id)
+            data['neg'] = data['neg'].to(gpu_id)
+        if self.relation_related_device != th.device('cpu'):
+            data['rel'] = data['rel'].to(gpu_id)
+
+    def prepare_device(self):
+        args = self.args
+        device = get_device(args)
+        self.entity_related_device = th.device('cpu') if args.mix_cpu_gpu else device
+        self.relation_related_device = th.device('cpu') if (args.mix_cpu_gpu or args.strict_rel_part or args.soft_rel_part) else device
 
     @thread_wrapped_func
     def train_mp(self, rank, train_dataset, eval_dataset, rel_parts=None, cross_rels=None, barrier=None):

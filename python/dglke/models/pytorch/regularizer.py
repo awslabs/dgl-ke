@@ -1,4 +1,4 @@
-import torch as th
+from dglke.util import get_scalar
 
 class Regularizer(object):
     def __init__(self, coef, norm):
@@ -12,7 +12,7 @@ class Regularizer(object):
             for param in params:
                 reg += param.norm(p=self.norm) ** self.norm
             reg *= self.coef
-            log['regularization'] = reg.detach().item()
+            log['regularization'] = get_scalar(reg)
             return reg, log
         else:
             log['regularization'] = 0

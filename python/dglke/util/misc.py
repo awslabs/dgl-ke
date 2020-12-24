@@ -28,7 +28,7 @@ import glob
 to_device = lambda x, gpu_id: x.to(th.device('cpu')) if gpu_id == -1 else x.to(th.device('cuda:%d' % gpu_id))
 none = lambda x: x
 norm = lambda x, p: x.norm(p=p) ** p
-get_scalar = lambda x: x.detach().item()
+get_scalar = lambda x: x.detach().item() if type(x) is th.Tensor else x
 reshape = lambda arr, x, y: arr.view(x, y)
 
 def get_device(args):
@@ -222,7 +222,7 @@ def set_seed(args):
     np.random.seed(args.seed)
     th.manual_seed(args.seed)
 
-def evaluate_best_result(model_name, dataset, save_path, threshold=3):
+def evaluate_best_result(model_name, dataset, save_path, threshold=5):
     file_pattern = '{}/{}_{}_*/result.txt'.format(save_path, model_name, dataset)
     files = glob.glob(file_pattern)
     best_result = None
@@ -247,8 +247,7 @@ def evaluate_best_result(model_name, dataset, save_path, threshold=3):
             if cnt >= threshold:
                 best_result = result
                 best_dir = dir
-    print(f'''{model_name} training on {dataset} best result is in folder {best_dir}\n'
-          best result:\n''')
+    print(f'''{model_name} training on {dataset} best result is in folder {best_dir}\nbest result:''')
     for k, v in best_result.items():
         print(f'{k}: {v}')
 

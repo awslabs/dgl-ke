@@ -16,13 +16,10 @@ class TransEModel(GEModel):
         args = self.args
         eps = EMB_INIT_EPS
         emb_init = (args.gamma + eps) / args.hidden_dim
-        device = get_device(args)
-        entity_related_device = th.device('cpu') if args.mix_cpu_gpu else device
-        relation_related_device = th.device('cpu') if (args.mix_cpu_gpu or args.strict_rel_part or args.soft_rel_part) else device
         self._entity_emb.init(emb_init=emb_init, lr=self.lr, async_threads=args.num_thread, num=n_entities, dim=self.hidden_dim,
-                              init_strat=init_strat, optimizer=args.optimizer, device=entity_related_device)
+                              init_strat=init_strat, optimizer=args.optimizer, device=self.entity_related_device)
         self._relation_emb.init(emb_init=emb_init, lr=self.lr, async_threads=args.num_thread, num=n_relations, dim=self.hidden_dim,
-                                init_strat=init_strat, optimizer=args.optimizer, device=relation_related_device)
+                                init_strat=init_strat, optimizer=args.optimizer, device=self.relation_related_device)
 
     def acquire_embedding(self, data, gpu_id=-1, pos=True, train=True, neg_type='head'):
         if pos and train:
@@ -48,7 +45,7 @@ class TransEModel(GEModel):
 
 
     def neg_forward(self, pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train=True):
-        pos_emb, neg_emb = self.prepare_data(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train)
+        pos_emb, neg_emb = self.prepare_embedding(pos_emb, neg_emb, neg_type, chunk_size, neg_sample_size, train)
         heads, relations, tails, neg = pos_emb['head'], pos_emb['rel'], pos_emb['tail'], neg_emb[neg_type]
         num_chunk = len(heads) // chunk_size
         if neg_type == 'head':
