@@ -651,3 +651,140 @@ class SimplEScore(nn.Module):
                 return score
             return fn
 
+class ConvEScore(nn.Module):
+    """ConvE score function
+    Paper link: https://arxiv.org/pdf/1707.01476.pdf
+    """
+    def __init__(self, hidden_dim, tensor_height, dropout_ratio: tuple = (0, 0, 0), batch_norm=False):
+        super(ConvEScore, self).__init__()
+        self._build_model(hidden_dim, tensor_height, dropout_ratio, batch_norm)
+
+
+    def _build_model(self, hidden_dim, tensor_height, dropout_ratio, batch_norm):
+        # get height of reshape tensor
+        assert hidden_dim % tensor_height == 0, 'input dimension %d must be divisible to tensor height %d' % (hidden_dim, tensor_height)
+        h = tensor_height
+        w = hidden_dim // h
+        conv = []
+        if batch_norm:
+            conv += [nn.BatchNorm2d(1)]
+        if dropout_ratio[0] != 0:
+            conv += [nn.Dropout(p=dropout_ratio[0])]
+        conv += [nn.Conv2d(1, 32, 3, 1, 0, bias=True)]
+        if batch_norm:
+            conv += [nn.BatchNorm2d(32)]
+        conv += [nn.ReLU()]
+        if dropout_ratio[1] != 0:
+            conv += [nn.Dropout2d(p=dropout_ratio[1])]
+        self.conv = nn.Sequential(*conv)
+        fc = []
+        linear_dim = 32 * (h* 2 - 2) * (w - 2)
+        fc += [nn.Linear(linear_dim, hidden_dim)]
+        if dropout_ratio[2] != 0:
+            fc += [nn.Dropout(p=dropout_ratio[2])]
+        if batch_norm:
+            fc += [nn.BatchNorm1d(hidden_dim)]
+        fc += [nn.ReLU()]
+        self.fc = nn.Sequential(*fc)
+
+    def edge_func(self, edges):
+        head = edges.src['emb']
+        tail = edges.dst['emb']
+        rel = edges.data['emb']
+        score = self.model(head, rel, tail)
+        return {'score': score}
+
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        pass
+
+    def prepare(self, g, gpu_id, trace=False):
+        pass
+
+    def create_neg_prepare(self, neg_head):
+        if neg_head:
+            def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+                return head, tail
+            return fn
+        else:
+            def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+                return head, tail
+            return fn
+
+    def forward(self, embs, mode='all', bmm=False):
+        """
+        Parameters
+        ----------
+        concat_emb : Tensor
+            embedding concatenated from head and tail and reshaped
+        tail_emb : Tensor
+            tail embedding
+        mode : str
+            choice = ['lhs', 'rhs', 'full']. Which part of score function to perform. This is used to accelerate test process.
+        """
+
+        if mode in ['all', 'lhs']:
+            concat_emb = embs[0]
+            # reshape tensor to fit in conv
+            if concat_emb.dim() == 3:
+                batch, height, width = concat_emb.shape
+                concat_emb = concat_emb.reshape(batch, 1, height, width)
+            x = self.conv(concat_emb)
+            x = x.view(x.shape[0], -1)
+            fc = self.fc(x)
+            if mode == 'lhs':
+                return fc
+        else:
+            fc = embs[0]
+
+        tail_emb, bias = embs[1:]
+
+        if not bmm:
+            assert fc.dim() == tail_emb.dim() == bias.dim(), 'batch operation only allow embedding with same dimension'
+            x = th.sum(fc * tail_emb, dim=-1, keepdim=True)
+        else:
+            if tail_emb.dim() == 3:
+                tail_emb = tail_emb.transpose(1, 2)
+                x = th.bmm(fc, tail_emb)
+                bias = bias.transpose(1, 2).expand_as(x)
+            else:
+                tail_emb = tail_emb.transpose(1, 0)
+                x = th.mm(fc, tail_emb)
+                bias = bias.transpose(1, 0).expand_as(x)
+        x = x + bias
+        return x
+
+    def reset_parameters(self):
+        # use default init tech of pytorch
+        pass
+
+    def update(self, gpu_id=-1):
+        pass
+
+    def save(self, path, name):
+        file_name = os.path.join(path, name)
+        # MARK - is .cpu() available if it's already in CPU ?
+        th.save(self.cpu().state_dict(), file_name)
+
+    def load(self, path, name):
+        file_name = os.path.join(path, name)
+        # TODO: lingfei - determine whether to map location here
+        self.load_state_dict(th.load(file_name))
+
+    def create_neg(self, neg_head):
+        pass
+
+
+class ATTHScore(nn.Module):
+    def __init__(self):
+        super(ATTHScore, self).__init__()
+
+    def forward(self, lhs_e, rhs_e, c, comp='batch'):
+        return - hyp_distance_multi_c(lhs_e, rhs_e, c, comp) ** 2
+
+
+
+
+
+
+

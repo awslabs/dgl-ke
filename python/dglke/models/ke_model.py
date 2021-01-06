@@ -1495,6 +1495,9 @@ class GEModel(ABC, BasicGEModel):
             dataset used for evaluation
         """
         # setup
+        if rank == 0:
+            profiler = Profiler()
+            profiler.start()
         args = self.args
         world_size = args.num_proc * args.num_node
         if len(args.gpu) > 0:
@@ -1601,6 +1604,9 @@ class GEModel(ABC, BasicGEModel):
         if args.strict_rel_part or args.soft_rel_part:
             self.writeback_relation(rank, rel_parts)
         self.cleanup()
+        if rank == 0:
+            profiler.stop()
+            print(profiler.output_text(unicode=False, color=False))
 
     def eval_proc(self, rank, eval_dataset, mode='valid', queue=None):
         args = self.args

@@ -27,7 +27,7 @@ class Optimizer(object):
 
 
 class Adagrad(Optimizer):
-    def __init__(self, emb, device=th.device('cpu'), lr=1e-3, epsilon=1e-10, unique_indices=False, mean_sum=True):
+    def __init__(self, emb, device=th.device('cpu'), lr=1e-3, epsilon=1e-10, unique_indices=True, mean_sum=False):
         defaults = dict(lr=lr, epsilon=epsilon)
         super(Adagrad, self).__init__(defaults)
         self.unique_indices = unique_indices

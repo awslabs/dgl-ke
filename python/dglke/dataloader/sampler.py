@@ -1132,6 +1132,17 @@ class PartitionBatchDataset(Dataset):
     def __len__(self):
         return len(self.heads)
 
+class LCWADataset(Dataset):
+    # Local Close World Assumption dataset
+    def __init__(self, dataset, rank, world_size, mode, *args):
+        pass
+
+    def __getitem__(self, index):
+        pass
+
+    def __len__(self):
+        pass
+
 
 class SequentialRandomSampler(Sampler):
     r"""Samples elements randomly. If without replacement, then sample from a shuffled dataset.

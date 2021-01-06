@@ -218,11 +218,11 @@ def prepare_save_path(args):
         os.makedirs(args.save_path)
 
 
-def set_seed(args):
-    np.random.seed(args.seed)
-    th.manual_seed(args.seed)
+def set_seed(seed):
+    np.random.seed(seed)
+    th.manual_seed(seed)
 
-def evaluate_best_result(model_name, dataset, save_path, threshold=5):
+def evaluate_best_result(model_name, dataset, save_path, threshold=2):
     file_pattern = '{}/{}_{}_*/result.txt'.format(save_path, model_name, dataset)
     files = glob.glob(file_pattern)
     best_result = None
