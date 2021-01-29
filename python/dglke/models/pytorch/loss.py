@@ -7,6 +7,7 @@ logsigmoid = functional.logsigmoid
 softplus = functional.softplus
 sigmoid = th.sigmoid
 
+
 class HingeLoss(BaseHingeLoss):
     def __init__(self, margin):
         super(HingeLoss, self).__init__(margin)

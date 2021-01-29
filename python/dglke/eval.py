@@ -132,7 +132,7 @@ def main():
         assert args.num_proc % len(args.gpu) == 0, \
                 'The number of processes needs to be divisible by the number of GPUs'
 
-    # Here we want to use the regualr negative sampler because we need to ensure that
+    # Here we want to use the regualr negative factory because we need to ensure that
     # all positive edges are excluded.
     eval_dataset = EvalDataset(dataset, args)
 

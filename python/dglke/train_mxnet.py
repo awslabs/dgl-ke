@@ -117,7 +117,7 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
         model.load_relation(mx.gpu(gpu_id))
 
     for sampler in test_samplers:
-        #print('Number of tests: ' + len(sampler))
+        #print('Number of tests: ' + len(factory))
         count = 0
         for pos_g, neg_g in sampler:
             model.forward_test(pos_g, neg_g, logs, gpu_id)

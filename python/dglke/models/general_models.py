@@ -515,7 +515,7 @@ class KEModel(object):
 
         neg_score = reshape(neg_score, -1, neg_g.neg_sample_size)
         # subsampling weight
-        # TODO: add subsampling to new sampler
+        # TODO: add subsampling to new factory
         #if self.args.non_uni_weight:
         #    subsampling_weight = pos_g.edata['weight']
         #    pos_score = (pos_score * subsampling_weight).sum() / subsampling_weight.sum()

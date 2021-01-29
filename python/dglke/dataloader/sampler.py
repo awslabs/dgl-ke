@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# sampler.py
+# dataloader_factory.py
 #
 # Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
@@ -363,7 +363,7 @@ class TrainDataset(object):
 
     def create_sampler(self, batch_size, neg_sample_size=2, neg_chunk_size=None, mode='head', num_workers=32,
                        shuffle=True, exclude_positive=False, rank=0):
-        """Create sampler for training
+        """Create factory for training
 
         Parameters
         ----------
@@ -376,7 +376,7 @@ class TrainDataset(object):
         mode : str
             Sampling mode.
         number_workers: int
-            Number of workers used in parallel for this sampler
+            Number of workers used in parallel for this factory
         shuffle : bool
             If True, shuffle the seed edges.
             If False, do not shuffle the seed edges.
@@ -391,7 +391,7 @@ class TrainDataset(object):
         Returns
         -------
         dgl.contrib.sampling.EdgeSampler
-            Edge sampler
+            Edge factory
         """
         EdgeSampler = getattr(dgl.contrib.sampling, 'EdgeSampler')
         assert batch_size % neg_sample_size == 0, 'batch_size should be divisible by B'
@@ -506,7 +506,7 @@ def create_neg_subgraph(pos_g, neg_g, chunk_size, neg_sample_size, is_chunked,
                                 neg_sample_size, neg_head)
 
 class EvalSampler(object):
-    """Sampler for validation and testing
+    """factory for validation and testing
 
     Parameters
     ----------
@@ -523,7 +523,7 @@ class EvalSampler(object):
     mode : str
         Sampling mode.
     number_workers: int
-        Number of workers used in parallel for this sampler
+        Number of workers used in parallel for this factory
     filter_false_neg : bool
         If True, exlucde true positive edges in sampled negative edges
         If False, return all sampled negative edges even there are positive edges
@@ -585,7 +585,7 @@ class EvalSampler(object):
         return pos_g, neg_g
 
     def reset(self):
-        """Reset the sampler
+        """Reset the factory
         """
         self.sampler_iter = iter(self.sampler)
         return self
@@ -667,7 +667,7 @@ class EvalDataset(object):
 
     def create_sampler(self, eval_type, batch_size, neg_sample_size, neg_chunk_size,
                        filter_false_neg, mode='head', num_workers=32, rank=0, ranks=1):
-        """Create sampler for validation or testing
+        """Create factory for validation or testing
 
         Parameters
         ----------
@@ -685,7 +685,7 @@ class EvalDataset(object):
         mode : str
             Sampling mode.
         number_workers: int
-            Number of workers used in parallel for this sampler
+            Number of workers used in parallel for this factory
         rank : int
             Which partition to sample.
         ranks : int
@@ -694,7 +694,7 @@ class EvalDataset(object):
         Returns
         -------
         dgl.contrib.sampling.EdgeSampler
-            Edge sampler
+            Edge factory
         """
         edges = self.get_edges(eval_type)
         beg = edges.shape[0] * rank // ranks
@@ -712,7 +712,7 @@ class EvalDataset(object):
         return edges
 
 class NewBidirectionalOneShotIterator:
-    """Grouped sampler iterator
+    """Grouped factory iterator
 
     Parameters
     ----------
