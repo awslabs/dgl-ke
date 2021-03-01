@@ -23,12 +23,8 @@ KG Sparse embedding
 import os
 import numpy as np
 import copy
-
 import torch as th
-import torch.nn.init as INIT
-
 from .ke_optimizer import *
-from dglke.util import thread_wrapped_func
 import torch.multiprocessing as mp
 from torch.multiprocessing import Queue
 
@@ -46,13 +42,12 @@ class KGEmbedding:
     device : th.device
         Device to store the embedding.
     """
-    def __init__(self, device):
+    def __init__(self):
         self.emb = None
         self.is_train = False
         self.async_q = None
-        self.device = device
 
-    def init(self, emb_init, lr, async_threads, num=-1, dim=-1, init_strat='uniform', optimizer='Adagrad', device=None):
+    def init(self, lr, num=-1, dim=-1, init_func=None, optimizer='Adagrad', device=None):
         """Initializing the embeddings for training.
 
         Parameters
@@ -60,9 +55,10 @@ class KGEmbedding:
         emb_init : float or tuple
             The intial embedding range should be [-emb_init, emb_init].
         """
-        self.async_threads = async_threads
         if device is not None:
             self.device = device
+        else:
+            self.device = th.device('cpu')
         if self.emb is None:
             self.emb = th.empty(num, dim, dtype=th.float32, device=self.device)
             self.num = self.emb.shape[0]
@@ -76,36 +72,14 @@ class KGEmbedding:
 
         self.trace = []
         self.has_cross_rel = False
+        init_func(self.emb)
 
-        if init_strat == 'uniform':
-            INIT.uniform_(self.emb, -emb_init, emb_init)
-        elif init_strat == 'normal':
-            if type(emb_init) is tuple or type(emb_init) is list:
-                if len(emb_init) == 0:
-                    mean = emb_init
-                    std = 1
-                else:
-                    mean, std = emb_init
-                INIT.normal_(self.emb.data, mean, std)
-            else:
-                init_size = emb_init
-                INIT.normal_(self.emb.data)
-                self.emb.data *= init_size
-        elif init_strat == 'random':
-            if type(emb_init) is tuple:
-                x, y = emb_init
-                self.emb.data = th.rand(num, dim, dtype=th.float32, device=self.device) * x + y
-        elif init_strat == 'xavier':
-            INIT.xavier_normal_(self.emb.data)
-        elif init_strat == 'constant':
-            INIT.constant_(self.emb.data, emb_init)
-
-    def clone(self, device):
-        clone_emb = copy.deepcopy(self)
-        clone_emb.device = device
-        clone_emb.emb = clone_emb.emb.to(device)
-        clone_emb.optim = clone_emb.optim.to(device)
-        return clone_emb
+    def to(self, device):
+        emb = copy.deepcopy(self)
+        emb.device = device
+        emb.emb = emb.emb.to(device)
+        emb.optim = emb.optim.to(device)
+        return emb
 
     def load(self, path, name):
         """Load embeddings.
@@ -171,7 +145,7 @@ class KGEmbedding:
         self.emb.share_memory_()
         self.optim.share_memory()
 
-    def __call__(self, idx, gpu_id=-1, trace=True):
+    def __call__(self, idx, gpu_id=-1, non_blocking=False):
         """ Return sliced tensor.
 
         Parameters
@@ -185,10 +159,6 @@ class KGEmbedding:
             If False, do not trace the computation.
             Default: True
         """
-        # for inference or evaluation
-        if self.is_train is False:
-            return self.emb[idx].cuda(gpu_id, non_blocking=True)
-
         if self.has_cross_rel:
             cpu_idx = idx.cpu()
             cpu_mask = self.cpu_bitmap[cpu_idx]
@@ -196,13 +166,13 @@ class KGEmbedding:
             cpu_idx = th.unique(cpu_idx)
             if cpu_idx.shape[0] != 0:
                 cpu_emb = self.global_emb.emb[cpu_idx]
-                self.emb[cpu_idx] = cpu_emb.cuda(gpu_id, non_blocking=True)
+                self.emb[cpu_idx] = cpu_emb.cuda(gpu_id, non_blocking=non_blocking)
         s = self.emb[idx]
         if gpu_id >= 0:
-            s = s.cuda(gpu_id, non_blocking=True)
+            s = s.cuda(gpu_id, non_blocking=non_blocking)
         # During the training, we need to trace the computation.
         # In this case, we need to record the computation path and compute the gradients.
-        if trace:
+        if self.is_train:
             data = s.clone().detach().requires_grad_(True)
             self.trace.append((idx, data))
         else:
@@ -239,11 +209,11 @@ class KGEmbedding:
                     self.optim.step(grad_indices, self.emb, grad_values, gpu_id)
         self.trace = []
 
-    def create_async_update(self):
+    def create_async_update(self, async_threads):
         """Set up the async update subprocess.
         """
         self.async_q = Queue(1)
-        self.async_p = mp.Process(target=self.async_update)
+        self.async_p = mp.Process(target=self.async_update, args=(async_threads))
         self.async_p.start()
 
     def finish_async_update(self):
@@ -252,8 +222,8 @@ class KGEmbedding:
         self.async_q.put((None, None, None))
         self.async_p.join()
 
-    def async_update(self):
-        th.set_num_threads(self.async_threads)
+    def async_update(self, async_threads):
+        th.set_num_threads(async_threads)
         while True:
             (grad_indices, grad_values, gpu_id) = self.async_q.get()
             if grad_indices is None:

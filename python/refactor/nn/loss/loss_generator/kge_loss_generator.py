@@ -1,5 +1,5 @@
 from .loss_generator import LossGenerator
-from nn.loss.loss_criterion import  BCELoss
+from refactor.nn.loss.loss_criterion import BCELoss
 import torch as th
 
 
@@ -49,7 +49,8 @@ class sLCWAKGELossGenerator(KGELossGenerator):
         super(sLCWAKGELossGenerator, self).set_criterion(loss_criterion)
 
     def get_total_loss(self, results):
-        pos_score, neg_score, edge_weight = results
+        pos_score, neg_score = results['pos_score'], results['neg_score']
+        edge_weight = results['edge_weight'] if 'edge_weight' in results.keys() else None
         if edge_weight is None:
             edge_weight = 1
         if self.pairwise:

@@ -3,8 +3,10 @@ import math
 import numpy as np
 import scipy as sp
 import dgl.backend as F
+from copy import deepcopy
 import dgl
 from torch.utils.data import Dataset
+from utils.misc import to_tensor
 import copy
 import tqdm
 import torch as th
@@ -338,58 +340,54 @@ class BaseDataset(object):
         raise NotImplementedError
 
 class TrainDataset(BaseDataset):
-    def __init__(self, dataset, args, ranks=1, has_importance=False, has_label=False):
+    def __init__(self, dataset, args):
+        ranks = args.num_proc
+        has_importance = args.has_edge_importance
+        self.has_importance = has_importance
+        self.sample_type = args.sample_type
+        self.batch_size = args.batch_size
+
         triples = dataset.train
         num_train = len(triples[0])
-        self.has_importance = has_importance
-        self.has_label = has_label
         print('|Train|:', num_train)
 
         if ranks > 1 and args.rel_part:
             self.edge_parts, self.rel_parts, self.cross_part, self.cross_rels = \
                 SoftRelationPartition(triples, ranks, has_importance=has_importance)
-            self.edge_parts = self.edge_parts
-            self.rel_parts = self.rel_parts
-            self.cross_rels = self.cross_rels
+            self.edge_parts = to_tensor(self.edge_parts)
+            self.rel_parts = to_tensor(self.rel_parts)
+            self.cross_rels = to_tensor(self.cross_rels)
         elif ranks > 1:
-            self.edge_parts = RandomPartition(triples, ranks, has_importance=has_importance)
+            self.edge_parts = to_tensor(RandomPartition(triples, ranks, has_importance=has_importance))
             self.cross_part = True
         else:
-            self.edge_parts = [np.arange(num_train)]
-            self.rel_parts = [np.arange(dataset.n_relations)]
+            self.edge_parts = [to_tensor(np.arange(num_train))]
+            self.rel_parts = [to_tensor(np.arange(dataset.n_relations))]
             self.cross_part = False
 
         self.g = ConstructGraph(triples, dataset.n_entities, args)
-        if self.has_label:
-            self.tail_label = self.create_label(triples, dataset.n_entities, args, 'train')
 
     def partition(self, rank, world_size) -> th.utils.data.Dataset:
         edges = self.edge_parts[rank]
         if edges is None:
             edges = th.arange(0, self.g.number_of_edges())
         heads, tails = self.g.all_edges(order='eid')
-        heads = heads[edges].clone()
-        rels = self.g.edata['tid'][edges].clone()
-        if self.has_label:
-            labels = self.label
-            tails = None
-        else:
-            tails = tails[edges].clone()
-            labels = None
+        heads = heads[edges]
+        rels = self.g.edata['tid'][edges]
         if self.has_importance:
-            impts = self.g.edata['impts'][edges].clone()
+            impts = self.g.edata['impts'][edges]
         else:
             impts = None
-        return PartitionDataset(heads, rels, tails, has_importance=self.has_importance, edge_impts=impts, label=labels)
+        dataset = PartitionChunkDataset(self.g.number_of_nodes(), heads, rels, tails, impts, self.batch_size)
+        return dataset
 
-
-
-class EvalDataset(BaseDataset):
-    def __init__(self, dataset, args, has_label=True):
+class ValidDataset(BaseDataset):
+    def __init__(self, dataset, args):
         src = [dataset.train[0]]
         etype_id = [dataset.train[1]]
         dst = [dataset.train[2]]
         self.num_train = len(dataset.train[0])
+        self.batch_size = args.batch_size_eval
         if dataset.valid is not None:
             src.append(dataset.valid[0])
             etype_id.append(dataset.valid[1])
@@ -408,16 +406,13 @@ class EvalDataset(BaseDataset):
         src = np.concatenate(src)
         etype_id = np.concatenate(etype_id)
         dst = np.concatenate(dst)
-        triples = (src, etype_id, dst)
+        # triples = (src, etype_id, dst)
 
         coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
                                    shape=[dataset.n_entities, dataset.n_entities])
         g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
         g.edata['tid'] = F.tensor(etype_id, F.int64)
         self.g = g
-        if has_label:
-            self.tail_label = self.create_label(triples, dataset.n_entities, args, 'eval', type='tail')
-            self.head_label = self.create_label(triples, dataset.n_entities, args, 'eval', type='head')
 
         if args.eval_percent < 1:
             self.valid = th.randint(low=0, high=self.num_valid, size=(int(self.num_valid * args.eval_percent),)) + self.num_train
@@ -432,18 +427,19 @@ class EvalDataset(BaseDataset):
         end = min(step_size * (rank + 1), edges.shape[0])
         edges = edges[beg: end]
         heads, tails = self.g.all_edges(order='eid')
-        heads = heads[edges].clone()
-        tails = tails[edges].clone()
-        rels = self.g.edata['tid'][edges].clone()
-        return PartitionDataset(heads, rels, tails)
+        heads = heads[edges]
+        tails = tails[edges]
+        rels = self.g.edata['tid'][edges]
+        return PartitionEvalDataset(heads, rels, tails)
 
 
 class TestDataset(BaseDataset):
-    def __init__(self, dataset, args, has_label=True):
+    def __init__(self, dataset, args):
         src = [dataset.train[0]]
         etype_id = [dataset.train[1]]
         dst = [dataset.train[2]]
         self.num_train = len(dataset.train[0])
+        self.batch_size = args.batch_size_eval
         if dataset.valid is not None:
             src.append(dataset.valid[0])
             etype_id.append(dataset.valid[1])
@@ -462,17 +458,12 @@ class TestDataset(BaseDataset):
         src = np.concatenate(src)
         etype_id = np.concatenate(etype_id)
         dst = np.concatenate(dst)
-        triples = (src, etype_id, dst)
 
         coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
                                    shape=[dataset.n_entities, dataset.n_entities])
         g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
         g.edata['tid'] = F.tensor(etype_id, F.int64)
         self.g = g
-        if has_label:
-            self.tail_label = self.create_label(triples, dataset.n_entities, args, 'eval', type='tail')
-            self.head_label = self.create_label(triples, dataset.n_entities, args, 'eval', type='head')
-
         if args.eval_percent < 1:
             self.test = th.randint(low=0, high=self.num_test, size=(int(self.num_test * args.eval_percent),))
             self.test += self.num_train + self.num_valid
@@ -487,63 +478,61 @@ class TestDataset(BaseDataset):
         end = min(step_size * (rank + 1), edges.shape[0])
         edges = edges[beg: end]
         heads, tails = self.g.all_edges(order='eid')
-        heads = heads[edges].clone()
-        tails = tails[edges].clone()
-        rels = self.g.edata['tid'][edges].clone()
-        return PartitionDataset(heads, rels, tails)
+        heads = heads[edges]
+        tails = tails[edges]
+        rels = self.g.edata['tid'][edges]
+        return PartitionEvalDataset(heads, rels, tails)
 
 
-class PartitionDataset(Dataset):
-    def __init__(self, heads, rels, tails=None, has_importance=False, edge_impts=None, label=None):
-        assert (tails is None and label is not None) or (tails is not None and label is None)
-        self.has_importance = has_importance
+class PartitionEvalDataset(th.utils.data.Dataset):
+    def __init__(self, heads, rels, tails):
+        super(PartitionEvalDataset, self).__init__()
         self.heads = heads
         self.rels = rels
         self.tails = tails
-        self.edge_impts = edge_impts
-        self.label = label
 
     def __getitem__(self, index):
-        head, rel = self.heads[index], self.rels[index]
-        ret = {'head': head,
-               'rel': rel}
-
-        if self.label is not None:
-            label = self.label[(head, rel)]
-            ret['label'] = label
-        else:
-            tail = self.tails[index]
-            ret['tail'] = tail
-
-        if self.has_importance:
-            impt = self.impts[index]
-            ret['impt'] = impt
-        return ret
+        return {'head': self.heads[index],
+                'rel': self.rels[index],
+                'tail': self.tails[index]}
 
     def __len__(self):
         return len(self.heads)
 
-class NegDataset(BaseDataset, Dataset):
-    def __init__(self, num_of_nodes, batch_size, max_step):
-        self.negs = self.create_neg_sample(num_of_nodes, batch_size, max_step)
+class PartitionChunkDataset(th.utils.data.IterableDataset):
+    def __init__(self, num_of_nodes, heads, rels, tails, edge_impts=None, batch_size=64, mode='train'):
+        super(PartitionChunkDataset, self).__init__()
+        self.heads = heads
+        self.rels = rels
+        self.tails = tails
+        self.edge_impts = edge_impts
+        self.batch_size = batch_size
+        self.num_of_nodes = num_of_nodes
+        self.mode = mode
 
-    def __getitem__(self, index):
-        neg = self.negs[index]
-        return {'negs': neg}
+    def __iter__(self):
+        worker_info = th.utils.data.get_worker_info()
+        if worker_info is None:
+            iter_start = 0
+            iter_end = len(self.heads)
+        else:
+            per_worker = int(math.ceil(len(self.heads) / float(worker_info.num_workers)))
+            worker_id = worker_info.id
+            iter_start = worker_id * per_worker
+            iter_end = min(iter_start + per_worker, len(self.heads))
+        index = iter_start
 
-    def __len__(self):
-        return len(self.negs)
-
-    def create_neg_sample(self, num_of_nodes, batch_size, max_step):
-        node_ids = np.arange(num_of_nodes)
-        neg = []
-        num_epoch = (max_step * batch_size + num_of_nodes - 1) // num_of_nodes
-        for _ in range(num_epoch):
-            neg += [np.random.permutation(node_ids)]
-        negs = np.concatenate(neg)[:max_step * batch_size]
-        return th.from_numpy(negs)
-
-    def partition(self, rank, world_size) -> th.utils.data.Dataset:
-        return copy.deepcopy(self)
+        def cat_data(data):
+            return th.cat([data[index:iter_end], data[iter_start:iter_start + (self.batch_size - iter_end + index)]], dim=-1) if data is not None else th.zeros(self.batch_size)
 
 
+        while True:
+            if index + self.batch_size > iter_end:
+                heads, rels, tails, edge_impts, negs, = cat_data(self.heads), cat_data(self.rels),  cat_data(self.tails), cat_data(self.edge_impts), th.from_numpy(np.random.choice(self.num_of_nodes, self.batch_size))
+                index = (index + self.batch_size) % (iter_end - iter_start) + iter_start
+                yield heads, rels, tails, edge_impts, negs
+            else:
+                start = index
+                end = index + self.batch_size
+                index = (index + self.batch_size) % (iter_end - iter_start) + iter_start
+                yield self.heads[start: end], self.rels[start: end], self.tails[start: end], (self.edge_impts[start: end] if self.edge_impts is not None else th.zeros(iter_end - iter_start)), th.from_numpy(np.random.choice(self.num_of_nodes, self.batch_size))

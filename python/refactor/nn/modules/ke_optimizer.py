@@ -5,9 +5,10 @@ import copy
 
 
 class Optimizer(object):
-    def __init__(self, defaults):
+    def __init__(self, defaults, device=th.device('cpu')):
         self.defaults = defaults
         self.state = defaultdict(dict)
+        self.device = device
         self.state['step'] = 0
 
     def step(self, idx, param, grad, gpu_id=-1):
@@ -19,17 +20,21 @@ class Optimizer(object):
                 s.share_memory_()
 
     def to(self, device: th.device):
-        for k, s in self.state.items():
-            if type(s) is th.Tensor:
-                self.state[k] = s.to(device)
-        return self
-
+        if device == self.device:
+            return self
+        else:
+            optim = copy.deepcopy(self)
+            for k, s in optim.state.items():
+                if type(s) is th.Tensor:
+                    optim.state[k] = s.to(device)
+            optim.device = device
+            return optim
 
 
 class Adagrad(Optimizer):
     def __init__(self, emb, device=th.device('cpu'), lr=1e-3, epsilon=1e-10, unique_indices=True, mean_sum=False):
         defaults = dict(lr=lr, epsilon=epsilon)
-        super(Adagrad, self).__init__(defaults)
+        super(Adagrad, self).__init__(defaults, device)
         self.unique_indices = unique_indices
         self.mean_sum = mean_sum
         if mean_sum:
@@ -39,34 +44,40 @@ class Adagrad(Optimizer):
 
     @th.no_grad()
     def step(self, idx, param, grad, gpu_id=-1):
+        self.state['step'] += 1
+        # hyper-parameters
         clr = self.defaults['lr']
         epsilon = self.defaults['epsilon']
-        device = self.state['sum'].device
-        self.state['step'] += 1
+
+        # device to save accumulated result and to calculate gradient
+        device_cal = th.device('cpu' if gpu_id == -1 else f'cuda:{gpu_id}')
+        device_sv = self.device
+
         grad_values = grad
-        grad_indices = idx
-        if grad_indices.device != device:
-            grad_indices = grad_indices.to(device)
+        grad_indices = idx.to(device_sv)
+
+        # average gradient if duplicate found
         if self.unique_indices:
             grad_indices, inv_indicies, cnt = th.unique(grad_indices, return_inverse=True, return_counts=True)
-            grad_values = th.zeros(grad_indices.shape[0], grad.shape[1], device=device)
-            grad_values.index_add_(0, inv_indicies, grad.to(device))
-            grad_values = grad_values / cnt.unsqueeze(1)
+            grad_avg = th.zeros(grad_indices.shape[0], grad.shape[1], device=device_sv)
+            grad_avg.index_add_(0, inv_indicies, grad.to(device_sv))
+            grad_avg = grad_avg / cnt.unsqueeze(1)
+            grad_values = grad_avg
+
         if self.mean_sum:
             grad_sq = th.mean(grad_values ** 2, 1, keepdim=True)
         else:
             grad_sq = grad_values ** 2
-        if grad_sq.device != device:
-            grad_sq = grad_sq.to(device)
-        self.state['sum'].index_add_(0, grad_indices, grad_sq)
-        std = self.state['sum'][grad_indices]
-        if gpu_id >= 0:
-            std = std.cuda(gpu_id)
+
+        # save it back to state before doing inplace operation
+        self.state['sum'].index_add_(0, grad_indices, grad_sq.to(device_sv))
+        std = self.state['sum'][grad_indices].to(device_cal)
+
         std_values = std.sqrt_().add_(epsilon)
-        update_val = (-clr * grad_values / std_values)
-        if update_val.device != device:
-            update_val = update_val.to(device)
-        param.index_add_(0, grad_indices, update_val)
+
+        update_val = (-clr * grad_values.to(device_cal) / std_values)
+
+        param.index_add_(0, grad_indices, update_val.to(device_sv))
 
 
 class Adam(Optimizer):

@@ -11,6 +11,9 @@ class TrainArgParser(CommonArgParser):
                                'This is usually used for training a large knowledge graph embeddings.')
         self.add_argument('--valid', action='store_true',
                           help='Evaluate the model on the validation set in the training.')
+        self.add_argument('--eval_interval', type=int, default=1,
+                          help='Print evaluation results on the validation dataset every x steps' \
+                               'if validation is turned on')
         self.add_argument('--rel_part', action='store_true',
                           help='Enable relation partitioning for multi-GPU training.')
         self.add_argument('--async_update', action='store_true',

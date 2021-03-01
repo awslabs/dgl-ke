@@ -34,6 +34,14 @@ reshape = lambda arr, x, y: arr.view(x, y)
 def get_device(args):
     return th.device('cpu') if args.gpu[0] < 0 else th.device('cuda:' + str(args.gpu[0]))
 
+def to_tensor(part):
+    if type(part) is list:
+        return [to_tensor(p) for p in part]
+    elif type(part) is np.ndarray:
+        return th.from_numpy(part)
+    else:
+        return part
+
 def get_compatible_batch_size(batch_size, neg_sample_size):
     if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
         old_batch_size = batch_size
@@ -205,17 +213,36 @@ def load_entity_data(file=None):
     entity = np.asarray(entity)
     return entity
 
+def prepare_args(args):
+    prepare_save_path(args)
+    if len(args.gpu) > 1:
+        args.num_test_proc = args.num_proc if args.num_proc < len(args.gpu) else len(args.gpu)
+    else:
+        args.num_test_proc = args.num_proc
+
 def prepare_save_path(args):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
 
-    folder = '{}_{}_'.format(args.model_name, args.dataset)
+    folder = '{}_{}_'.format(args.model, args.dataset)
     n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
     folder += str(n)
     args.save_path = os.path.join(args.save_path, folder)
 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
+
+    args.batch_size = get_compatible_batch_size(args.batch_size, args.neg_sample_size)
+    args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval, args.neg_sample_size_eval)
+    # We should turn on mix CPU-GPU training for multi-GPU training.
+    if len(args.gpu) > 1:
+        args.mix_cpu_gpu = True
+        if args.num_proc < len(args.gpu):
+            args.num_proc = len(args.gpu)
+    # We need to ensure that the number of processes should match the number of GPUs.
+    if len(args.gpu) > 1 and args.num_proc > 1:
+        assert args.num_proc % len(args.gpu) == 0, \
+            'The number of processes needs to be divisible by the number of GPUs'
 
 
 def set_seed(seed):

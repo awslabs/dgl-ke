@@ -2,18 +2,18 @@ import argparse
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(CommonArgParser, self).__init__()
-
+        # model initialization
         self.add_argument('--score_func', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
                                    'RESCAL', 'DistMult', 'ComplEx', 'RotatE',
                                    'SimplE', 'ConvE', 'AttH'],
                           help='The score function provided by DGL-KE.')
+        self.add_argument('--model', default='BaseModel',
+                          help='the name of model. Default is BaseModel.')
         self.add_argument('--encoder', default='KGE',
                           help='Which encoder is used to encode graph data.')
         self.add_argument('--decoder', type=str, default='KGE',
                           help='The decoders are used to decode graph data.')
-        self.add_argument('--LCWA', action='store_false', dest='sLCWA',
-                          help='enable Local Closed World Assumption on the graph. Default it is stochastic Local Closed World Assumption.')
         self.add_argument('--data_path', type=str, default='data',
                           help='The path of the directory where DGL-KE loads knowledge graph data.')
         self.add_argument('--dataset', type=str, default='FB15k',
@@ -35,8 +35,8 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Delimiter used in data files. Note all files should use the same delimiter.')
         self.add_argument('--save_path', type=str, default='ckpts',
                           help='the path of the directory where models and logs are saved.')
-        self.add_argument('--no_save_emb', action='store_true',
-                          help='Disable saving the embeddings under save_path.')
+        self.add_argument('--no_save_model', action='store_false', dest='save_model',
+                          help='Disable saving model parameters under save_path.')
         self.add_argument('--max_step', type=int, default=80000,
                           help='The maximal number of steps to train the model.' \
                                'A step trains the model with a batch of data.')
@@ -61,9 +61,6 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Disable filter triple like (head - relation - head) score for evaluation')
         self.add_argument('-log', '--log_interval', type=int, default=1000,
                           help='Print runtime of different components every x steps.')
-        self.add_argument('--eval_interval', type=int, default=1,
-                          help='Print evaluation results on the validation dataset every x steps' \
-                               'if validation is turned on')
         self.add_argument('--fit', action='store_true',
                           help='Train the model on the training set.')
         self.add_argument('--test', action='store_true',
@@ -130,12 +127,17 @@ class CommonArgParser(argparse.ArgumentParser):
         # dataloader
         self.add_argument('--batch_size', type=int, default=1024,
                           help='The batch size for training.')
-        self.add_argument('--num_workers', type=int, default=0,
-                          help='Number of process to fetch data for training/validation dataset.')
         self.add_argument('--pin_memory', type=bool, default=False,
                           help='If set true, we directly pin data into memory.')
-        self.add_argument('--self_neg', type=bool, default=False,
-                          help='Whether we create negative samples through mutual join of a batch')
+        self.add_argument('--num_workers', type=int, default=0,
+                          help='Number of process to fetch data for training/validation dataset.')
+        self.add_argument('--drop_last', action='store_true',
+                          help='whether to drop last batch of training data. This will not apply to test and eval data')
+        self.add_argument('--sample_type', type=str, default='chunk',
+                          choices=['chunk', 'batch'],
+                          help='How to sample data to train the model.')
+        self.add_argument('--shuffle_data', type=bool, default=False,
+                          help='Whether to shuffle data for training.')
 
         # hyper-parameter for hyperbolic embeddings
         self.add_argument('--init_scale', type=float, default=0.001,
@@ -147,7 +149,5 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='If specified, dglke will not save log and result file to save path.')
         self.add_argument('--tqdm', action='store_true', dest='tqdm',
                           help='Use tqdm to visualize training and evaluation process. Note this might drag speed of process 0 for multi-GPU training.')
-        self.add_argument('--factory', type=str, default='chunk',
-                          help='Which factory to use to sample data.')
-        self.add_argument('--sampler_args', type=str, default='')
-
+        self.add_argument('--profile', action='store_true', dest='profile',
+                          help='Profile the process to test training speed. Used for debug.')
