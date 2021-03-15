@@ -52,12 +52,13 @@ def generate_rand_graph(n, func_name):
     arr = (sp.sparse.random(n, n, density=0.1, format='coo') != 0).astype(np.int64)
     g = dgl.DGLGraph(arr, readonly=True)
     num_rels = 10
-    entity_emb = F.uniform((g.number_of_nodes(), 10), F.float32, F.cpu(), 0, 1)
+    dim = 16
+    entity_emb = F.uniform((g.number_of_nodes(), dim), F.float32, F.cpu(), 0, 1)
     if func_name == 'RotatE':
-        entity_emb = F.uniform((g.number_of_nodes(), 20), F.float32, F.cpu(), 0, 1)
-    rel_emb = F.uniform((num_rels, 10), F.float32, F.cpu(), -1, 1)
+        entity_emb = F.uniform((g.number_of_nodes(), 2 * dim), F.float32, F.cpu(), 0, 1)
+    rel_emb = F.uniform((num_rels, dim), F.float32, F.cpu(), -1, 1)
     if func_name == 'RESCAL':
-        rel_emb = F.uniform((num_rels, 10*10), F.float32, F.cpu(), 0, 1)
+        rel_emb = F.uniform((num_rels, dim * dim), F.float32, F.cpu(), 0, 1)
     g.ndata['id'] = F.arange(0, g.number_of_nodes())
     rel_ids = np.random.randint(0, num_rels, g.number_of_edges(), dtype=np.int64)
     g.edata['id'] = F.tensor(rel_ids, F.int64)
@@ -65,8 +66,8 @@ def generate_rand_graph(n, func_name):
     if (func_name == 'TransR'):
         args = {'gpu':-1, 'lr':0.1}
         args = dotdict(args)
-        projection_emb = ExternalEmbedding(args, 10, 10 * 10, F.cpu())
-        return g, entity_emb, rel_emb, (12.0, projection_emb, 10, 10)
+        projection_emb = ExternalEmbedding(args, dim, dim * dim, F.cpu())
+        return g, entity_emb, rel_emb, (12.0, projection_emb, dim, dim)
     elif (func_name == 'TransE'):
         return g, entity_emb, rel_emb, (12.0)
     elif (func_name == 'TransE_l1'):
@@ -74,7 +75,7 @@ def generate_rand_graph(n, func_name):
     elif (func_name == 'TransE_l2'):
         return g, entity_emb, rel_emb, (12.0, 'l2')
     elif (func_name == 'RESCAL'):
-        return g, entity_emb, rel_emb, (10, 10)
+        return g, entity_emb, rel_emb, (dim, dim)
     elif (func_name == 'RotatE'):
         return g, entity_emb, rel_emb, (12.0, 1.0)
     elif (func_name == 'SimplE'):
