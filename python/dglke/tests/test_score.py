@@ -79,6 +79,8 @@ def generate_rand_graph(n, func_name):
         return g, entity_emb, rel_emb, (12.0, 1.0)
     elif (func_name == 'SimplE'):
         return g, entity_emb, rel_emb, None
+    elif (func_name == 'QuatE'):
+        return g, entity_emb, rel_emb, None
     else:
         return g, entity_emb, rel_emb, None
 
@@ -90,7 +92,8 @@ ke_score_funcs = {'TransE': TransEScore,
                   'RESCAL': RESCALScore,
                   'TransR': TransRScore,
                   'RotatE': RotatEScore,
-                  'SimplE': SimplEScore}
+                  'SimplE': SimplEScore,
+                  'QuatE': QuatEScore}
 
 class BaseKEModel:
     def __init__(self, score_func, entity_emb, rel_emb):
@@ -204,6 +207,9 @@ def test_score_func_rotate():
 def test_score_func_simple():
     check_score_func('SimplE')
 
+def test_score_func_quate():
+    check_score_func('QuatE')
+
 if __name__ == '__main__':
     test_score_func_transe()
     test_score_func_distmult()
@@ -212,3 +218,4 @@ if __name__ == '__main__':
     test_score_func_transr()
     test_score_func_rotate()
     test_score_func_simple()
+    test_score_func_quate()

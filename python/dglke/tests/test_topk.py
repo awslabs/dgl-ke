@@ -30,7 +30,7 @@ import dgl
 from models import InferModel
 from models.infer import ScoreInfer, EmbSimInfer
 from models import TransEModel, TransE_l2Model, TransE_l1Model, TransRModel, RotatEModel
-from models import DistMultModel, ComplExModel, RESCALModel
+from models import DistMultModel, ComplExModel, RESCALModel, QuatEModel
 from models import GNNModel
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
@@ -109,7 +109,8 @@ def create_score_infer(model_name, entity_emb, rel_emb):
         model_name =='TransE_l1' or \
         model_name == 'TransE_l2' or \
         model_name == 'DistMult' or \
-        model_name == 'ComplEx':
+        model_name == 'ComplEx' or \
+        model_name == 'QuatE':
         model = InferModel('cpu', model_name, hidden_dim, batch_size=16)
     elif model_name == 'RESCAL':
         model = InferModel('cpu', model_name, hidden_dim)
@@ -380,6 +381,9 @@ def test_topk_rescal():
 
 def test_topk_rotate():
     check_topk_score('RotatE')
+
+def test_topk_quate():
+    check_topk_score('QuatE')
 
 def create_kge_emb_sim(emb, sfunc):
     sim_infer = EmbSimInfer(-1, None, sfunc, 32)
@@ -1012,6 +1016,12 @@ def test_rotate_model_topk(device='cpu'):
     check_topk_score2(model, exclude_mode='mask')
     check_topk_score2(model, exclude_mode='exclude')
 
+def test_quate_model_topk(device='cpu'):
+    model = QuatEModel(device)
+    check_topk_score2(model, exclude_mode=None)
+    check_topk_score2(model, exclude_mode='mask')
+    check_topk_score2(model, exclude_mode='exclude')
+
 def test_gnn_model_topk(device='cpu'):
     gamma = 12.0
     model = GNNModel(device, 'TransE', gamma)
@@ -1208,6 +1218,10 @@ def test_rotate_model_topk_emb(device='cpu'):
     model = RotatEModel(device, gamma)
     test_extended_jaccard_topk_emb2(model)
 
+def test_quate_model_topk_emb(device='cpu'):
+    model = QuatEModel(device)
+    test_l2_topk_emb2(model)
+
 def test_gnn_model_topk_emb(device='cpu'):
     gamma = 12.0
     model = GNNModel(device, 'TransE', gamma)
@@ -1253,6 +1267,7 @@ if __name__ == '__main__':
     test_rescal_model_topk(device=0)
     #test_transr_model_topk()
     test_rotate_model_topk(device=0)
+    test_quate_model_topk(device=0)
     test_gnn_model_topk(device=0)
 
     test_transe_model_topk_emb(device=0)
@@ -1261,4 +1276,5 @@ if __name__ == '__main__':
     test_rescal_model_topk_emb(device=0)
     #test_transr_model_topk_emb()
     test_rotate_model_topk_emb(device=0)
+    test_quate_model_topk_emb(device=0)
     test_gnn_model_topk_emb(device=0)
