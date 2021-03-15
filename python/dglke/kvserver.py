@@ -64,7 +64,7 @@ class ArgParser(argparse.ArgumentParser):
 
         self.add_argument('--model_name', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
-                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE'],
+                                   'RESCAL', 'DistMult', 'ComplEx', 'RotatE', 'QuatE'],
                           help='model to use')
         self.add_argument('--data_path', type=str, default='../data',
                           help='root path of all dataset')
