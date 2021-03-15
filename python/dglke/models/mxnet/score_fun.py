@@ -620,3 +620,108 @@ class SimplE(nn.Block):
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
                 pass
             return fn
+
+class QuatEScore(nn.Block):
+    """QuatE score function
+    Paper link: https://papers.nips.cc/paper/2019/hash/d961e9f236177d65d21100592edb0769-Abstract.html
+    """
+    def __init__(self):
+        super(QuatEScore, self).__init__()
+
+    def edge_func(self, edges):
+        head_r, head_i, head_j, head_k = nd.split(edges.src['emb'], num_outputs=4, axis=-1)
+        rel_r, rel_i, rel_j, rel_k = nd.split(edges.data['emb'], num_outputs=4, axis=-1)
+        tail_r, tail_i, tail_j, tail_k = nd.split(edges.dst['emb'], num_outputs=4, axis=-1)
+
+        rel_norm = nd.stack(rel_r, rel_i, rel_j, rel_k, axis=0).norm(ord=2, axis=0)
+
+        x_r = (head_r * rel_r - head_i * rel_i - head_j * rel_j - head_k * rel_k) / (rel_norm + 1e-15)
+        x_i = (head_r * rel_i + head_i * rel_r + head_j * rel_k - head_k * rel_j) / (rel_norm + 1e-15)
+        x_j = (head_r * rel_j - head_i * rel_k + head_j * rel_r + head_k * rel_i) / (rel_norm + 1e-15)
+        x_k = (head_r * rel_k + head_i * rel_j - head_j * rel_i + head_k * rel_r) / (rel_norm + 1e-15)
+
+        score = x_r * tail_r + x_i * tail_i + x_j * tail_j + x_k * tail_k
+        return {'score': nd.sum(score, -1)}
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        hidden_dim = head_emb.shape[1]
+        head_r, head_i, head_j, head_k = nd.split(head_emb.reshape(head_emb.shape[0], 1, 1, hidden_dim),
+                                                  num_outputs=4, axis=-1)
+        rel_r, rel_i, rel_j, rel_k = nd.split(rel_emb.reshape(1, rel_emb.shape[0], 1, hidden_dim),
+                                              num_outputs=4, axis=-1)
+        tail_r, tail_i, tail_j, tail_k = nd.split(tail_emb.reshape(1, 1, tail_emb.shape[0], hidden_dim),
+                                                  num_outputs=4, axis=-1)
+
+        rel_norm = nd.stack(rel_r, rel_i, rel_j, rel_k, axis=0).norm(ord=2, axis=0)
+
+        x_r = (head_r * rel_r - head_i * rel_i - head_j * rel_j - head_k * rel_k) / (rel_norm + 1e-15)
+        x_i = (head_r * rel_i + head_i * rel_r + head_j * rel_k - head_k * rel_j) / (rel_norm + 1e-15)
+        x_j = (head_r * rel_j - head_i * rel_k + head_j * rel_r + head_k * rel_i) / (rel_norm + 1e-15)
+        x_k = (head_r * rel_k + head_i * rel_j - head_j * rel_i + head_k * rel_r) / (rel_norm + 1e-15)
+
+        score = x_r * tail_r + x_i * tail_i + x_j * tail_j + x_k * tail_k
+        return nd.sum(score, -1)
+
+    def prepare(self, g, gpu_id, trace=False):
+        pass
+
+    def create_neg_prepare(self, neg_head):
+        def fn(rel_id, num_chunks, head, tail, gpu_id, trace=False):
+            return head, tail
+        return fn
+
+    def update(self, gpu_id=-1):
+        pass
+
+    def reset_parameters(self):
+        pass
+
+    def save(self, path, name):
+        pass
+
+    def load(self, path, name):
+        pass
+
+    def forward(self, g):
+        g.apply_edges(lambda edges: self.edge_func(edges))
+
+    def create_neg(self, neg_head):
+        if neg_head:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                hidden_dim = heads.shape[1]
+                emb_r, emb_i, emb_j, emb_k = nd.split(tails, num_outputs=4, axis=-1)
+                rel_r, rel_i, rel_j, rel_k = nd.split(relations, num_outputs=4, axis=-1)
+
+                rel_norm = nd.stack(rel_r, rel_i, rel_j, rel_k, axis=0).norm(ord=2, axis=0)
+                rel_i, rel_j, rel_k = -rel_i, -rel_j, -rel_k
+
+                x_r = (emb_r * rel_r - emb_i * rel_i - emb_j * rel_j - emb_k * rel_k) / (rel_norm + 1e-15)
+                x_i = (emb_r * rel_i + emb_i * rel_r + emb_j * rel_k - emb_k * rel_j) / (rel_norm + 1e-15)
+                x_j = (emb_r * rel_j - emb_i * rel_k + emb_j * rel_r + emb_k * rel_i) / (rel_norm + 1e-15)
+                x_k = (emb_r * rel_k + emb_i * rel_j - emb_j * rel_i + emb_k * rel_r) / (rel_norm + 1e-15)
+
+                emb_quaternion = nd.concat(x_r, x_i, x_j, x_k, dim=-1)
+                tmp = emb_quaternion.reshape(num_chunks, chunk_size, hidden_dim)
+                heads = heads.reshape(num_chunks, neg_sample_size, hidden_dim)
+                heads = nd.transpose(heads, axes=(0, 2, 1))
+                return nd.linalg_gemm2(tmp, heads)
+            return fn
+        else:
+            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
+                hidden_dim = heads.shape[1]
+                emb_r, emb_i, emb_j, emb_k = nd.split(heads, num_outputs=4, axis=-1)
+                rel_r, rel_i, rel_j, rel_k = nd.split(relations, num_outputs=4, axis=-1)
+
+                rel_norm = nd.stack(rel_r, rel_i, rel_j, rel_k, axis=0).norm(ord=2, axis=0)
+
+                x_r = (emb_r * rel_r - emb_i * rel_i - emb_j * rel_j - emb_k * rel_k) / (rel_norm + 1e-15)
+                x_i = (emb_r * rel_i + emb_i * rel_r + emb_j * rel_k - emb_k * rel_j) / (rel_norm + 1e-15)
+                x_j = (emb_r * rel_j - emb_i * rel_k + emb_j * rel_r + emb_k * rel_i) / (rel_norm + 1e-15)
+                x_k = (emb_r * rel_k + emb_i * rel_j - emb_j * rel_i + emb_k * rel_r) / (rel_norm + 1e-15)
+
+                emb_quaternion = nd.concat(x_r, x_i, x_j, x_k, dim=-1)
+                tmp = emb_quaternion.reshape(num_chunks, chunk_size, hidden_dim)
+                tails = tails.reshape(num_chunks, neg_sample_size, hidden_dim)
+                tails = nd.transpose(tails, axes=(0, 2, 1))
+                return nd.linalg_gemm2(tmp, heads)
+            return fn
