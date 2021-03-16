@@ -25,6 +25,7 @@ Knowledge Graph Embedding Model
 5. DistMult
 6. ComplEx
 7. RotatE
+8. QuatE
 """
 import os
 from abc import abstractmethod, ABCMeta
@@ -976,3 +977,11 @@ class GNNModel(BasicGEModel):
         relation_emb_file = 'relation.npy'
         self._entity_emb.load(model_path, entity_emb_file)
         self._relation_emb.load(model_path, relation_emb_file)
+
+class QuatEModel(KGEModel):
+    """ QuatE Model
+    """
+    def __init__(self, device):
+        model_name = 'QuatE'
+        score_func = QuatEScore()
+        super(QuatEModel, self).__init__(device, model_name, score_func)

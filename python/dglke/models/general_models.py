@@ -25,6 +25,7 @@ Graph Embedding Model
 5. ComplEx
 6. RotatE
 7. SimplE
+8. QuatE
 """
 import os
 import numpy as np
@@ -94,6 +95,8 @@ class InferModel(object):
             self.score_func = RotatEScore(gamma, emb_init)
         elif model_name == 'SimplE':
             self.score_func = SimplEScore()
+        elif model_name == 'QuatE':
+            self.score_func = QuatEScore()
 
     def load_emb(self, path, dataset):
         """Load the model.
@@ -189,7 +192,7 @@ class KEModel(object):
         Global configs.
     model_name : str
         Which KG model to use, including 'TransE_l1', 'TransE_l2', 'TransR',
-        'RESCAL', 'DistMult', 'ComplEx', 'RotatE', 'SimplE'
+        'RESCAL', 'DistMult', 'ComplEx', 'RotatE', 'SimplE', 'QuatE'
     n_entities : int
         Num of entities.
     n_relations : int
@@ -263,6 +266,8 @@ class KEModel(object):
             self.score_func = RotatEScore(gamma, self.emb_init)
         elif model_name == 'SimplE':
             self.score_func = SimplEScore()
+        elif model_name == 'QuatE':
+            self.score_func = QuatEScore()
 
         self.model_name = model_name
         self.head_neg_score = self.score_func.create_neg(True)

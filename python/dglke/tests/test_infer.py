@@ -92,7 +92,8 @@ ke_infer_funcs = {'TransE': TransEScore,
                   'RESCAL': RESCALScore,
                   'TransR': TransRScore,
                   'RotatE': RotatEScore,
-                  'SimplE': SimplEScore}
+                  'SimplE': SimplEScore,
+                  'QuatE': QuatEScore}
 
 class FakeEdge:
     def __init__(self, hemb, temb, remb):
@@ -267,6 +268,9 @@ def test_score_func_rotate():
 def test_score_func_simple():
     check_infer_score('SimplE')
 
+def test_score_func_quate():
+    check_infer_score('QuatE')
+
 if __name__ == '__main__':
     test_score_func_transe()
     test_score_func_distmult()
@@ -274,3 +278,4 @@ if __name__ == '__main__':
     test_score_func_rescal()
     test_score_func_rotate()
     test_score_func_simple()
+    test_score_func_quate()

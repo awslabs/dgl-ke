@@ -18,4 +18,4 @@
 #
 
 from .general_models import KEModel, InferModel
-from .ke_model import TransEModel, TransE_l2Model, TransE_l1Model, DistMultModel, TransRModel, ComplExModel, RESCALModel, RotatEModel, GNNModel
+from .ke_model import TransEModel, TransE_l2Model, TransE_l1Model, DistMultModel, TransRModel, ComplExModel, RESCALModel, RotatEModel, GNNModel, QuatEModel
