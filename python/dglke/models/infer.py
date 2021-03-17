@@ -84,8 +84,8 @@ class ScoreInfer(object):
         # for logsigmoid use original gamma to make the score closer to 0.
         gamma=config['gamma'] if self.sfunc == 'logsigmoid' else 0.0
         model = InferModel(device=self.device,
-                           model_name=config['model'],
-                           hidden_dim=config['emb_size'],
+                           model_name=config['model_name'],
+                           hidden_dim=config['hidden_dim'],
                            double_entity_emb=config['double_ent'],
                            double_relation_emb=config['double_rel'],
                            gamma=gamma)
