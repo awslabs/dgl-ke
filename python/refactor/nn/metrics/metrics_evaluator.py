@@ -13,7 +13,7 @@ class MetricsEvaluator:
         # of elements to evaluate performance
         pass
 
-class KGEMetricsEvaluator(MetricsEvaluator):
+class RankingMetricsEvaluator(MetricsEvaluator):
     def __init__(self, eval_filter=True):
         self.eval_filter = eval_filter
         super(MetricsEvaluator, self).__init__()

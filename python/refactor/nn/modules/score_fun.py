@@ -194,9 +194,6 @@ class TransRScore(nn.Module):
         self.global_projection_emb = self.projection_emb
         self.projection_emb = projection_emb
 
-    def prepare_cross_rels(self, cross_rels):
-        self.projection_emb.setup_cross_rels(cross_rels, self.global_projection_emb)
-
     def writeback_local_emb(self, idx):
         self.global_projection_emb.emb[idx] = self.projection_emb.emb.cpu()[idx]
 
@@ -204,9 +201,6 @@ class TransRScore(nn.Module):
         device = projection_emb.emb.device
         projection_emb.emb = self.projection_emb.emb.to(device)
         self.projection_emb = projection_emb
-
-    def share_memory(self):
-        self.projection_emb.share_memory()
 
     def create_neg(self, neg_head):
         gamma = self.gamma
@@ -770,18 +764,3 @@ class ConvEScore(nn.Module):
 
     def create_neg(self, neg_head):
         pass
-
-
-class ATTHScore(nn.Module):
-    def __init__(self):
-        super(ATTHScore, self).__init__()
-
-    def forward(self, lhs_e, rhs_e, c, comp='batch'):
-        return - hyp_distance_multi_c(lhs_e, rhs_e, c, comp) ** 2
-
-
-
-
-
-
-

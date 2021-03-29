@@ -127,12 +127,8 @@ class CommonArgParser(argparse.ArgumentParser):
         # dataloader
         self.add_argument('--batch_size', type=int, default=1024,
                           help='The batch size for training.')
-        self.add_argument('--pin_memory', type=bool, default=False,
-                          help='If set true, we directly pin data into memory.')
         self.add_argument('--num_workers', type=int, default=0,
                           help='Number of process to fetch data for training/validation dataset.')
-        self.add_argument('--drop_last', action='store_true',
-                          help='whether to drop last batch of training data. This will not apply to test and eval data')
         self.add_argument('--sample_type', type=str, default='chunk',
                           choices=['chunk', 'batch'],
                           help='How to sample data to train the model.')

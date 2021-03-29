@@ -244,11 +244,6 @@ def prepare_save_path(args):
         assert args.num_proc % len(args.gpu) == 0, \
             'The number of processes needs to be divisible by the number of GPUs'
 
-
-def set_seed(seed):
-    np.random.seed(seed)
-    th.manual_seed(seed)
-
 def evaluate_best_result(model_name, dataset, save_path, threshold=2):
     file_pattern = '{}/{}_{}_*/result.txt'.format(save_path, model_name, dataset)
     files = glob.glob(file_pattern)

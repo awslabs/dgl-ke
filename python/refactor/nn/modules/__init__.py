@@ -3,4 +3,4 @@ from .score_fun import TransEScore, TransRScore, SimplEScore, RotatEScore, RESCA
 
 from .encoder import *
 from .decoder import *
-from .model import Model, KGEModel
+from .model import Model

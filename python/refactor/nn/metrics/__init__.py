@@ -1,1 +1,1 @@
-from .metrics_evaluator import MetricsEvaluator, KGEMetricsEvaluator
+from .metrics_evaluator import MetricsEvaluator, RankingMetricsEvaluator
