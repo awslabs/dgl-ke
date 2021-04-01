@@ -212,15 +212,15 @@ class CommonArgParser(argparse.ArgumentParser):
                                   'graphs include FB15k, FB15k-237, wn18, wn18rr and Freebase. '\
                                   'DGL-KE automatically downloads the knowledge graph and keep it under data_path.')
         self.add_argument('--format', type=str, default='built_in',
-                          help='The format of the dataset. For builtin knowledge graphs,'\
-                                  'the foramt should be built_in. For users own knowledge graphs,'\
+                          help='The format of the dataset. For builtin knowledge graphs, '\
+                                  'the foramt should be built_in. For users own knowledge graphs, '\
                                   'it needs to be raw_udd_{htr} or udd_{htr}.')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
-                          help='A list of data file names. This is used if users want to train KGE'\
-                                  'on their own datasets. If the format is raw_udd_{htr},'\
-                                  'users need to provide train_file [valid_file] [test_file].'\
-                                  'If the format is udd_{htr}, users need to provide'\
-                                  'entity_file relation_file train_file [valid_file] [test_file].'\
+                          help='A list of data file names. This is used if users want to train KGE '\
+                                  'on their own datasets. If the format is raw_udd_{htr}, '\
+                                  'users need to provide train_file [valid_file] [test_file]. '\
+                                  'If the format is udd_{htr}, users need to provide '\
+                                  'entity_file relation_file train_file [valid_file] [test_file]. '\
                                   'In both cases, valid_file and test_file are optional.')
         self.add_argument('--delimiter', type=str, default='\t',
                           help='Delimiter used in data files. Note all files should use the same delimiter.')
@@ -229,7 +229,7 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('--no_save_emb', action='store_true',
                           help='Disable saving the embeddings under save_path.')
         self.add_argument('--max_step', type=int, default=80000,
-                          help='The maximal number of steps to train the model.'\
+                          help='The maximal number of steps to train the model. '\
                                   'A step trains the model with a batch of data.')
         self.add_argument('--batch_size', type=int, default=1024,
                           help='The batch size for training.')
@@ -238,9 +238,9 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('--neg_sample_size', type=int, default=256,
                           help='The number of negative samples we use for each positive sample in the training.')
         self.add_argument('--neg_deg_sample', action='store_true',
-                          help='Construct negative samples proportional to vertex degree in the training.'\
-                                  'When this option is turned on, the number of negative samples per positive edge'\
-                                  'will be doubled. Half of the negative samples are generated uniformly while'\
+                          help='Construct negative samples proportional to vertex degree in the training. '\
+                                  'When this option is turned on, the number of negative samples per positive edge '\
+                                  'will be doubled. Half of the negative samples are generated uniformly while '\
                                   'the other half are generated proportional to vertex degree.')
         self.add_argument('--neg_deg_sample_eval', action='store_true',
                           help='Construct negative samples proportional to vertex degree in the evaluation.')
@@ -253,20 +253,20 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('-log', '--log_interval', type=int, default=1000,
                           help='Print runtime of different components every x steps.')
         self.add_argument('--eval_interval', type=int, default=10000,
-                          help='Print evaluation results on the validation dataset every x steps'\
+                          help='Print evaluation results on the validation dataset every x steps '\
                                   'if validation is turned on')
         self.add_argument('--test', action='store_true',
                           help='Evaluate the model on the test set after the model is trained.')
         self.add_argument('--num_proc', type=int, default=1,
-                          help='The number of processes to train the model in parallel.'\
-                                  'In multi-GPU training, the number of processes by default is set to match the number of GPUs.'\
+                          help='The number of processes to train the model in parallel. '\
+                                  'In multi-GPU training, the number of processes by default is set to match the number of GPUs. '\
                                   'If set explicitly, the number of processes needs to be divisible by the number of GPUs.')
         self.add_argument('--num_thread', type=int, default=1,
-                          help='The number of CPU threads to train the model in each process.'\
+                          help='The number of CPU threads to train the model in each process. '\
                                   'This argument is used for multiprocessing training.')
         self.add_argument('--force_sync_interval', type=int, default=-1,
-                          help='We force a synchronization between processes every x steps for'\
-                                  'multiprocessing training. This potentially stablizes the training process'
+                          help='We force a synchronization between processes every x steps for '\
+                                  'multiprocessing training. This potentially stablizes the training process '
                                   'to get a better performance. For multiprocessing training, it is set to 1000 by default.')
         self.add_argument('--hidden_dim', type=int, default=400,
                           help='The embedding size of relation and entity')
@@ -279,7 +279,7 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('-dr', '--double_rel', action='store_true',
                           help='Double relation dim for complex number or canonical polyadic. It is used by RotatE and SimplE')
         self.add_argument('-adv', '--neg_adversarial_sampling', action='store_true',
-                          help='Indicate whether to use negative adversarial sampling.'\
+                          help='Indicate whether to use negative adversarial sampling. '\
                                   'It will weight negative samples with higher scores more.')
         self.add_argument('-a', '--adversarial_temperature', default=1.0, type=float,
                           help='The temperature used for negative adversarial sampling.')
