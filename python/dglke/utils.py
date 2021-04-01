@@ -216,7 +216,7 @@ class CommonArgParser(argparse.ArgumentParser):
                                   'the foramt should be built_in. For users own knowledge graphs,'\
                                   'it needs to be raw_udd_{htr} or udd_{htr}.')
         self.add_argument('--data_files', type=str, default=None, nargs='+',
-                          help='A list of data file names. This is used if users want to train KGE'\
+                          help='A list of data file names. This is used if users want to train KGE '\
                                   'on their own datasets. If the format is raw_udd_{htr},'\
                                   'users need to provide train_file [valid_file] [test_file].'\
                                   'If the format is udd_{htr}, users need to provide'\
