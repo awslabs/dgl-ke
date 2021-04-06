@@ -395,6 +395,78 @@ class KGDatasetFreebase(KGDataset):
     def rmap_fname(self):
         return 'relation2id.txt'
 
+class KGDatasetWikikg2(KGDataset):
+    '''Load a knowledge graph wikikg2
+
+    The wn18rr dataset has five files:
+    * entities.dict stores the mapping between entity Id and entity name.
+    * relations.dict stores the mapping between relation Id and relation name.
+    * train.txt stores the triples in the training set.
+    * valid.txt stores the triples in the validation set.
+    * test.txt stores the triples in the test set.
+
+    The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'.
+    '''
+    def __init__(self, path, name='wikikg2'):
+        self.name = name
+        url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
+
+        if not os.path.exists(os.path.join(path, name)):
+            print('File not found. Downloading from', url)
+            _download_and_extract(url, path, name + '.zip')
+        self.path = os.path.join(path, name)
+
+        super(KGDatasetWN18rr, self).__init__(os.path.join(self.path, 'entities.dict'),
+                                              os.path.join(self.path, 'relations.dict'),
+                                              os.path.join(self.path, 'train.txt'),
+                                              os.path.join(self.path, 'valid.txt'),
+                                              os.path.join(self.path, 'test.txt'))
+
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
+
+class KGDatasetBiokg(KGDataset):
+    '''Load a knowledge graph biokg
+
+    The wn18rr dataset has five files:
+    * entities.dict stores the mapping between entity Id and entity name.
+    * relations.dict stores the mapping between relation Id and relation name.
+    * train.txt stores the triples in the training set.
+    * valid.txt stores the triples in the validation set.
+    * test.txt stores the triples in the test set.
+
+    The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'.
+    '''
+    def __init__(self, path, name='biokg'):
+        self.name = name
+        url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
+
+        if not os.path.exists(os.path.join(path, name)):
+            print('File not found. Downloading from', url)
+            _download_and_extract(url, path, name + '.zip')
+        self.path = os.path.join(path, name)
+
+        super(KGDatasetWN18rr, self).__init__(os.path.join(self.path, 'entities.dict'),
+                                              os.path.join(self.path, 'relations.dict'),
+                                              os.path.join(self.path, 'train.txt'),
+                                              os.path.join(self.path, 'valid.txt'),
+                                              os.path.join(self.path, 'test.txt'))
+
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
+
 class KGDatasetUDDRaw(KGDataset):
     '''Load a knowledge graph user defined dataset
 
