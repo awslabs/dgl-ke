@@ -19,6 +19,7 @@
 
 import os, sys
 import numpy as np
+from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
 
 def _download_and_extract(url, path, filename):
     import shutil, zipfile
@@ -467,6 +468,44 @@ class KGDatasetBiokg(KGDataset):
     def rmap_fname(self):
         return 'relations.dict'
 
+class KGDatasetWiki90M(KGDataset):
+    '''Load a knowledge graph FB15k
+
+    The FB15k dataset has five files:
+    * entities.dict stores the mapping between entity Id and entity name.
+    * relations.dict stores the mapping between relation Id and relation name.
+    * train.txt stores the triples in the training set.
+    * valid.txt stores the triples in the validation set.
+    * test.txt stores the triples in the test set.
+
+    The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'.
+    '''
+    def __init__(self, path, name='wikikg90m'):
+        self.name = name
+        self.dataset = WikiKG90MDataset(path)
+        self.train = self.dataset.train_hrt.T
+        self.n_entities = self.dataset.num_entities
+        self.n_relations = self.dataset.num_relations
+        self.valid = None
+        self.test = None
+        self.valid_dict = self.dataset.valid_dict
+        self.test_dict = self.dataset.test_dict
+        self.entity_feat = self.dataset.entity_feat
+        self.relation_feat = self.dataset.relation_feat
+        if 't,r->h' in self.valid_dict:
+            del self.valid_dict['t,r->h']
+        if 't,r->h' in self.test_dict:
+            del self.valid_dict['t,r->h']
+        
+    @property
+    def emap_fname(self):
+        return None
+
+    @property
+    def rmap_fname(self):
+        return None
+
 class KGDatasetUDDRaw(KGDataset):
     '''Load a knowledge graph user defined dataset
 
@@ -712,6 +751,10 @@ def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, ha
             dataset = KGDatasetWN18(data_path)
         elif data_name == 'wn18rr':
             dataset = KGDatasetWN18rr(data_path)
+        elif data_name == 'wikikg2':
+            dataset = KGDatasetWikikg2(data_path)
+        elif data_name == 'biokg':
+            dataset = KGDatasetBiokg(data_path)
         else:
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):
