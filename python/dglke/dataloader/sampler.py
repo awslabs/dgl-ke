@@ -649,8 +649,8 @@ class EvalDataset(object):
             self.num_test = 0
 
         if args.dataset == "wikikg90M":
-            print('|valid|:', num_valid)
-            print('|test|:', num_test)
+            print('|valid|:', self.num_valid)
+            print('|test|:', self.num_test)
             return
 
         assert len(src) > 1, "we need to have at least validation set or test set."
