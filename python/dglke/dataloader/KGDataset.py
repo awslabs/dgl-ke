@@ -469,34 +469,23 @@ class KGDatasetBiokg(KGDataset):
         return 'relations.dict'
 
 class KGDatasetWiki90M(KGDataset):
-    '''Load a knowledge graph FB15k
+    '''Load a knowledge graph wikikg90M
 
-    The FB15k dataset has five files:
-    * entities.dict stores the mapping between entity Id and entity name.
-    * relations.dict stores the mapping between relation Id and relation name.
-    * train.txt stores the triples in the training set.
-    * valid.txt stores the triples in the validation set.
-    * test.txt stores the triples in the test set.
-
-    The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
-    The triples are stored as 'head_nid\trelation_id\ttail_nid'.
     '''
-    def __init__(self, path, name='wikikg90m'):
+    def __init__(self, path, name='wikikg90M'):
         self.name = name
         self.dataset = WikiKG90MDataset(path)
         self.train = self.dataset.train_hrt.T
         self.n_entities = self.dataset.num_entities
         self.n_relations = self.dataset.num_relations
-        self.valid = None
-        self.test = None
-        self.valid_dict = self.dataset.valid_dict
-        self.test_dict = self.dataset.test_dict
+        self.valid = self.dataset.valid_dict
+        self.test = self.dataset.test_dict
         self.entity_feat = self.dataset.entity_feat
         self.relation_feat = self.dataset.relation_feat
-        if 't,r->h' in self.valid_dict:
-            del self.valid_dict['t,r->h']
+        if 't,r->h' in self.valid:
+            del self.valid['t,r->h']
         if 't,r->h' in self.test_dict:
-            del self.valid_dict['t,r->h']
+            del self.valid['t,r->h']
         
     @property
     def emap_fname(self):

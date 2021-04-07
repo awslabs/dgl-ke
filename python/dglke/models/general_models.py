@@ -481,6 +481,47 @@ class KEModel(object):
                 'HITS@10': 1.0 if ranking <= 10 else 0.0
             })
 
+    def forward_test_wikikg(self, query, ans, candidate, mode, logs, gpu_id=-1):
+        """Do the forward and generate ranking results.
+
+        Parameters
+        ----------
+        query : Tensor
+            input head and relation for test or valid
+        ans : Tenseor
+            the correct tail entity index
+        cadidate : Tensor
+            negative sampled tail entity
+        """
+        scores = self.predict_score_wikikg(query, candidate, mode, to_device=cuda, gpu_id=gpu_id, trace=False)
+        if mode == "Valid":
+            batch_size = query.shape[0]
+            neg_scores = reshape(scores, batch_size, -1)
+            for i in range(batch_size):
+                ranking = F.asnumpy(F.sum(neg_scores[i] >= ans[i], dim=0) + 1)
+                logs.append({
+                    'MRR': 1.0 / ranking,
+                    'MR': float(ranking),
+                    'HITS@1': 1.0 if ranking <= 1 else 0.0,
+                    'HITS@3': 1.0 if ranking <= 3 else 0.0,
+                    'HITS@10': 1.0 if ranking <= 10 else 0.0
+                })
+        else:
+            argsort = F.argsort(scores, dim=1, descending=True)
+            logs.append(argsort[:,:10])
+
+    def predict_score_wikikg(self, query, candidate, mode, to_device=None, gpu_id=-1, trace=False):
+        num_chunks = len(query)
+        chunk_size = 1
+        neg_sample_size = candidate.shape[1]
+        neg_tail = self.entity_emb(candidate.view(-1), gpu_id, False)
+        head = self.entity_emb(query[:,0], gpu_id, False)
+        rel = self.relation_emb(query[:,1], gpu_id, False)
+        neg_score = self.tail_neg_score(head, rel, neg_tail,
+                                        num_chunks, chunk_size, neg_sample_size)
+        return neg_score.squeeze()
+
+
     # @profile
     def forward(self, pos_g, neg_g, gpu_id=-1):
         """Do the forward.

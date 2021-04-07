@@ -205,23 +205,53 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
     if args.strict_rel_part or args.soft_rel_part:
         model.load_relation(th.device('cuda:' + str(gpu_id)))
 
-    with th.no_grad():
-        logs = []
-        for sampler in test_samplers:
-            for pos_g, neg_g in sampler:
-                model.forward_test(pos_g, neg_g, logs, gpu_id)
+    if args.dataset == "wikikg90M":
+        with th.no_grad():
+            logs = []
+            answers = []
+            for sampler in test_samplers:
+                print(sampler.num_edges, sampler.batch_size)
+                for query, ans, candidate in tqdm(sampler, disable=not args.print_on_screen, total=ceil(sampler.num_edges/sampler.batch_size)):
+                    model.forward_test_wikikg(query, ans, candidate, mode, logs, gpu_id)
+                    answers.append(ans)
+            print("[{}] finished {} forward".format(rank, mode))
 
-        metrics = {}
-        if len(logs) > 0:
-            for metric in logs[0].keys():
-                metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
-        if queue is not None:
-            queue.put(logs)
-        else:
-            for k, v in metrics.items():
-                print('[{}]{} average {}: {}'.format(rank, mode, k, v))
-    test_samplers[0] = test_samplers[0].reset()
-    test_samplers[1] = test_samplers[1].reset()
+            for i in range(len(test_samplers)):
+                test_samplers[i] = test_samplers[i].reset()
+
+            if mode = "Valid":
+                metrics = {}
+                if len(logs) > 0:
+                    for metric in logs[0].keys():
+                        metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+                if queue is not None:
+                    queue.put(logs)
+                else:
+                    for k, v in metrics.items():
+                        print('[{}]{} average {}: {}'.format(rank, mode, k, v))
+            else:
+                input_dict = {}
+                input_dict['h,r->t'] = {'t_correct_index': th.cat(answers, 0), 't_pred_top10': th.cat(logs, 0)}
+                th.save(test_input_dict, os.path.join(args.save_path, "test_{}.pkl".format(rank)))
+    else:
+        with th.no_grad():
+            logs = []
+
+            for sampler in test_samplers:
+                for pos_g, neg_g in sampler:
+                    model.forward_test(pos_g, neg_g, logs, gpu_id)
+
+            metrics = {}
+            if len(logs) > 0:
+                for metric in logs[0].keys():
+                    metrics[metric] = sum([log[metric] for log in logs]) / len(logs)
+            if queue is not None:
+                queue.put(logs)
+            else:
+                for k, v in metrics.items():
+                    print('[{}]{} average {}: {}'.format(rank, mode, k, v))
+        test_samplers[0] = test_samplers[0].reset()
+        test_samplers[1] = test_samplers[1].reset()
 
 @thread_wrapped_func
 def train_mp(args, model, train_sampler, valid_samplers=None, rank=0, rel_parts=None, cross_rels=None, barrier=None):
