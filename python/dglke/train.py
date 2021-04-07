@@ -180,11 +180,7 @@ def main():
             if args.dataset == "wikikg90M":
             	for i in range(args.num_proc):
 	                valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('valid', args.batch_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.eval_filter,
 	                                                                  mode='tail',
-	                                                                  num_workers=args.num_workers,
 	                                                                  rank=i, ranks=args.num_proc)
 	                valid_sampler_tails.append(valid_sampler_tail)
             else:
@@ -208,11 +204,7 @@ def main():
         else: # This is used for debug
             if args.dataset == "wikikg90M":
                 valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('valid', args.batch_size_eval,
-                                                             args.neg_sample_size_eval,
-                                                             1,
-                                                             args.eval_filter,
                                                              mode='tail',
-                                                             num_workers=args.num_workers,
                                                              rank=0, ranks=1)
             else:
                 valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
@@ -236,11 +228,7 @@ def main():
             if args.dataset == "wikikg90M":
             	for i in range(args.num_proc):
 	                valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('test', args.batch_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.eval_filter,
 	                                                                  mode='tail',
-	                                                                  num_workers=args.num_workers,
 	                                                                  rank=i, ranks=args.num_proc)
 	                valid_sampler_tails.append(valid_sampler_tail)
             else:
@@ -264,11 +252,7 @@ def main():
         else:
         	if args.dataset == "wikikg90M":
         		test_sampler_tail = eval_dataset.create_sampler_wikikg90M('test', args.batch_size_eval,
-                                                            args.neg_sample_size_eval,
-                                                            1,
-                                                            args.eval_filter,
                                                             mode='tail',
-                                                            num_workers=args.num_workers,
                                                             rank=0, ranks=1)
         	else:
 	            test_sampler_head = eval_dataset.create_sampler('test', args.batch_size_eval,
