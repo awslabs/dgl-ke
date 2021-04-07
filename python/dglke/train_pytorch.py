@@ -219,7 +219,7 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
             for i in range(len(test_samplers)):
                 test_samplers[i] = test_samplers[i].reset()
 
-            if mode = "Valid":
+            if mode == "Valid":
                 metrics = {}
                 if len(logs) > 0:
                     for metric in logs[0].keys():

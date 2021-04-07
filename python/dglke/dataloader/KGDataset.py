@@ -418,7 +418,7 @@ class KGDatasetWikikg2(KGDataset):
             _download_and_extract(url, path, name + '.zip')
         self.path = os.path.join(path, name)
 
-        super(KGDatasetWN18rr, self).__init__(os.path.join(self.path, 'entities.dict'),
+        super(KGDatasetWikikg2, self).__init__(os.path.join(self.path, 'entities.dict'),
                                               os.path.join(self.path, 'relations.dict'),
                                               os.path.join(self.path, 'train.txt'),
                                               os.path.join(self.path, 'valid.txt'),
@@ -454,7 +454,7 @@ class KGDatasetBiokg(KGDataset):
             _download_and_extract(url, path, name + '.zip')
         self.path = os.path.join(path, name)
 
-        super(KGDatasetWN18rr, self).__init__(os.path.join(self.path, 'entities.dict'),
+        super(KGDatasetBiokg, self).__init__(os.path.join(self.path, 'entities.dict'),
                                               os.path.join(self.path, 'relations.dict'),
                                               os.path.join(self.path, 'train.txt'),
                                               os.path.join(self.path, 'valid.txt'),
@@ -744,6 +744,8 @@ def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, ha
             dataset = KGDatasetWikikg2(data_path)
         elif data_name == 'biokg':
             dataset = KGDatasetBiokg(data_path)
+        elif data_name == 'wikikg90M':
+            dataset = KGDatasetWiki90M(data_path)
         else:
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):
