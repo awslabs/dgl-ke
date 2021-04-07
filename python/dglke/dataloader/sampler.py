@@ -647,10 +647,13 @@ class EvalDataset(object):
             self.num_test = len(dataset.test[0])
         else:
             self.num_test = 0
-        assert len(src) > 1, "we need to have at least validation set or test set."
 
         if args.dataset == "wikikg90M":
+            print('|valid|:', len(self.valid_dict))
+            print('|test|:', len(self.test_dict))
             return
+
+        assert len(src) > 1, "we need to have at least validation set or test set."
 
         src = np.concatenate(src)
         etype_id = np.concatenate(etype_id)
