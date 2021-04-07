@@ -484,8 +484,8 @@ class KGDatasetWiki90M(KGDataset):
         self.relation_feat = self.dataset.relation_feat
         if 't,r->h' in self.valid:
             del self.valid['t,r->h']
-        if 't,r->h' in self.test_dict:
-            del self.valid['t,r->h']
+        if 't,r->h' in self.test:
+            del self.test['t,r->h']
         
     @property
     def emap_fname(self):
