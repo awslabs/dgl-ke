@@ -344,7 +344,7 @@ def main():
                 proc.start()
 
             if args.dataset == "wikikg90M":
-                print('The predict results have saved to {}'.format(args.save_path))
+                print('The predict results have saved to {}'.format(args.save_path + "/pkls"))
             else:
                 total_metrics = {}
                 metrics = {}
@@ -367,6 +367,8 @@ def main():
                 test(args, model, [test_sampler_tail])
             else:
                 test(args, model, [test_sampler_head, test_sampler_tail])
+            if args.dataset == "wikikg90M":
+                print('The predict results have saved to {}'.format(args.save_path + "/pkls"))
         print('testing takes {:.3f} seconds'.format(time.time() - start))
 
 if __name__ == '__main__':
