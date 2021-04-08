@@ -291,7 +291,10 @@ def main():
         procs = []
         barrier = mp.Barrier(args.num_proc)
         for i in range(args.num_proc):
-            valid_sampler = [valid_sampler_heads[i], valid_sampler_tails[i]] if args.valid else None
+            if args.dataset == "wikikg90M":
+                valid_sampler = [valid_sampler_tails[i]] if args.valid else None
+            else:
+                valid_sampler = [valid_sampler_heads[i], valid_sampler_tails[i]] if args.valid else None
             proc = mp.Process(target=train_mp, args=(args,
                                                      model,
                                                      train_samplers[i],
@@ -305,7 +308,10 @@ def main():
         for proc in procs:
             proc.join()
     else:
-        valid_samplers = [valid_sampler_head, valid_sampler_tail] if args.valid else None
+        if args.dataset == "wikikg90M":
+            valid_samplers = [valid_sampler_tail] if args.valid else None
+        else:
+            valid_samplers = [valid_sampler_head, valid_sampler_tail] if args.valid else None
         train(args, model, train_sampler, valid_samplers, rel_parts=rel_parts)
 
     print('training takes {} seconds'.format(time.time() - start))
@@ -320,12 +326,20 @@ def main():
             queue = mp.Queue(args.num_test_proc)
             procs = []
             for i in range(args.num_test_proc):
-                proc = mp.Process(target=test_mp, args=(args,
-                                                        model,
-                                                        [test_sampler_heads[i], test_sampler_tails[i]],
-                                                        i,
-                                                        'Test',
-                                                        queue))
+                if args.dataset == "wikikg90M":
+                    proc = mp.Process(target=test_mp, args=(args,
+                                                            model,
+                                                            [test_sampler_tails[i]],
+                                                            i,
+                                                            'Test',
+                                                            queue))
+                else:
+                    proc = mp.Process(target=test_mp, args=(args,
+                                                            model,
+                                                            [test_sampler_heads[i], test_sampler_tails[i]],
+                                                            i,
+                                                            'Test',
+                                                            queue))
                 procs.append(proc)
                 proc.start()
 
@@ -349,7 +363,10 @@ def main():
             for proc in procs:
                 proc.join()
         else:
-            test(args, model, [test_sampler_head, test_sampler_tail])
+            if args.dataset == "wikikg90M":
+                test(args, model, [test_sampler_tail])
+            else:
+                test(args, model, [test_sampler_head, test_sampler_tail])
         print('testing takes {:.3f} seconds'.format(time.time() - start))
 
 if __name__ == '__main__':
