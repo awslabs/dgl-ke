@@ -210,7 +210,6 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
             logs = []
             answers = []
             for sampler in test_samplers:
-                print(sampler.num_edges, sampler.batch_size)
                 for query, ans, candidate in sampler:
                     model.forward_test_wikikg(query, ans, candidate, mode, logs, gpu_id)
                     answers.append(ans)
@@ -232,7 +231,7 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
             else:
                 input_dict = {}
                 input_dict['h,r->t'] = {'t_correct_index': th.cat(answers, 0), 't_pred_top10': th.cat(logs, 0)}
-                th.save(test_input_dict, os.path.join(args.save_path, "test_{}.pkl".format(rank)))
+                th.save(input_dict, os.path.join(args.save_path, "test_{}.pkl".format(rank)))
     else:
         with th.no_grad():
             logs = []
