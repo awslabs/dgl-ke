@@ -1,6 +1,0 @@
-dglke_train --model_name TransE_l2 --dataset wikikg90M --batch_size 512 \
---hidden_dim 100 --gamma 10 --lr 0.1 --regularization_coef 1e-9 \
---valid --test -adv --num_proc 2 --num_thread 1 \
---async_update --force_sync_interval 10000 --no_save_emb \
---data_path ~/my_task/wikikg90m \
---eval_interval 1000 --max_step 4000 --log_interval 100
