@@ -1,4 +1,6 @@
-DGLBACKEND=pytorch dglke_train --model_name TransE_l2 --dataset wikikg90M --batch_size 1000 \
---neg_sample_size 200 --hidden_dim 400 --gamma 19.9 --lr 0.25 --max_step 20 --log_interval 10 \
---batch_size_eval 16 -adv --regularization_coef 1.00E-09 --test --num_thread 32 --num_proc 2 --data_path ~/my_task/wikikg90m \
---valid --eval_interval 10
+dglke_train --model_name TransE_l2 --dataset wikikg90M --batch_size 512 \
+--hidden_dim 100 --gamma 10 --lr 0.1 --regularization_coef 1e-9 \
+--valid --test -adv --num_proc 2 --num_thread 1 \
+--async_update --force_sync_interval 10000 --no_save_emb \
+--data_path ~/my_task/wikikg90m \
+--eval_interval 1000 --max_step 4000 --log_interval 100

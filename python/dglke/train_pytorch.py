@@ -231,7 +231,7 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
             else:
                 input_dict = {}
                 input_dict['h,r->t'] = {'t_correct_index': th.cat(answers, 0), 't_pred_top10': th.cat(logs, 0)}
-                th.save(input_dict, os.path.join(args.save_path, "pkls/test_{}.pkl".format(rank)))
+                th.save(input_dict, os.path.join(args.save_path, "test_{}.pkl".format(rank)))
     else:
         with th.no_grad():
             logs = []
