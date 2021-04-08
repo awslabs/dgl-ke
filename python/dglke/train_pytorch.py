@@ -211,7 +211,7 @@ def test(args, model, test_samplers, rank=0, mode='Test', queue=None):
             answers = []
             for sampler in test_samplers:
                 print(sampler.num_edges, sampler.batch_size)
-                for query, ans, candidate in tqdm(sampler, disable=not args.print_on_screen, total=ceil(sampler.num_edges/sampler.batch_size)):
+                for query, ans, candidate in sampler:
                     model.forward_test_wikikg(query, ans, candidate, mode, logs, gpu_id)
                     answers.append(ans)
             print("[{}] finished {} forward".format(rank, mode))
