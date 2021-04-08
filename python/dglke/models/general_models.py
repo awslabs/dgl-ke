@@ -498,7 +498,7 @@ class KEModel(object):
             batch_size = query.shape[0]
             neg_scores = reshape(scores, batch_size, -1)
             for i in range(batch_size):
-                ranking = F.asnumpy(F.sum(neg_scores[i] >= neg_scores[ans[i]], dim=0) + 1)
+                ranking = F.asnumpy(F.sum(neg_scores[i] >= neg_scores[i][ans[i]], dim=0) + 1)
                 logs.append({
                     'MRR': 1.0 / ranking,
                     'MR': float(ranking),
