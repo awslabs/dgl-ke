@@ -399,7 +399,7 @@ class KGDatasetFreebase(KGDataset):
 class KGDatasetWikikg2(KGDataset):
     '''Load a knowledge graph wikikg2
 
-    The wn18rr dataset has five files:
+    The wikikg2 dataset has five files:
     * entities.dict stores the mapping between entity Id and entity name.
     * relations.dict stores the mapping between relation Id and relation name.
     * train.txt stores the triples in the training set.
@@ -435,7 +435,7 @@ class KGDatasetWikikg2(KGDataset):
 class KGDatasetBiokg(KGDataset):
     '''Load a knowledge graph biokg
 
-    The wn18rr dataset has five files:
+    The biokg dataset has five files:
     * entities.dict stores the mapping between entity Id and entity name.
     * relations.dict stores the mapping between relation Id and relation name.
     * train.txt stores the triples in the training set.
@@ -470,7 +470,18 @@ class KGDatasetBiokg(KGDataset):
 
 class KGDatasetWiki90M(KGDataset):
     '''Load a knowledge graph wikikg90M
+    
+    The wikikg90M dataset has eight files:
+    * entitiy_feat.npy stores the entity features
+    * relation_feat.npy stores the relation features
+    * train_hrt.npy stores the triples in the training set
+    * val_hr.npy stores the head and relation pair for valid
+    * val_t_candidate.npy stores the candidates for the tail entities for valid
+    * val_t_correct_index.npy stores the index of true tail entity in val_t_candidate.npy
+    * test_hr.npy stores the head and relation pair for valid
+    * test_t_candidate.npy stores the candidates for the tail entities for valid
 
+    For the detail data format see https://ogb.stanford.edu/kddcup2021/wikikg90m/
     '''
     def __init__(self, path, name='wikikg90M'):
         self.name = name

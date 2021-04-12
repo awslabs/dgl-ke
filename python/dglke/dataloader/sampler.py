@@ -594,7 +594,12 @@ class WikiEvalSampler(object):
 
         Returns
         -------
-        edges and candidates of batch size
+        tensor of size (batch_size, 2)
+            sampled head and relation pair
+        tensor of size (batchsize, 1)
+            the index of the true tail entity
+        tensor of size (bath_size, 1001)
+            candidates for the tail entities (1001 candidates in total, out of which one is a positive entity)
         """
         if self.cnt == self.num_edges:
             raise StopIteration
@@ -759,7 +764,7 @@ class EvalDataset(object):
                            mode, num_workers, filter_false_neg)
 
     def create_sampler_wikikg90M(self, eval_type, batch_size, mode='head', rank=0, ranks=1):
-        """Create sampler for validation or testing
+        """Create sampler for validation and testing of wikikg90M dataset.
 
         Parameters
         ----------
@@ -784,6 +789,10 @@ class EvalDataset(object):
 
         assert 'tail' in mode
 
+        """
+        This function will split the edges into total number of partitions parts. And then calculate the 
+        corresponding begin and end index for each part to create evaluate sampler.
+        """
         beg = edges['h,r->t']['hr'].shape[0] * rank // ranks
         end = min(edges['h,r->t']['hr'].shape[0] * (rank + 1) // ranks, edges['h,r->t']['hr'].shape[0])
         new_edges['h,r->t'] = {'hr': edges['h,r->t']['hr'][beg:end],
