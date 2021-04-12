@@ -1,5 +1,5 @@
 from .loss_generator import LossGenerator
-from refactor.nn.loss.loss_criterion import BCELoss
+from dglke.nn.loss.loss_criterion import BCELoss
 import torch as th
 
 

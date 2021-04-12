@@ -1,5 +1,5 @@
 import torch as th
-from refactor.utils import get_scalar
+from dglke.utils import get_scalar
 
 # we hide the implementation of evaluator from KGEModel
 # as one class should do one thing and fit() in KGEModel should not take responsibility

@@ -2,11 +2,10 @@ import argparse
 class CommonArgParser(argparse.ArgumentParser):
     def __init__(self):
         super(CommonArgParser, self).__init__()
-        # model initialization
         self.add_argument('--score_func', default='TransE',
                           choices=['TransE', 'TransE_l1', 'TransE_l2', 'TransR',
                                    'RESCAL', 'DistMult', 'ComplEx', 'RotatE',
-                                   'SimplE', 'ConvE', 'AttH'],
+                                   'SimplE', 'AttH'],
                           help='The score function provided by DGL-KE.')
         self.add_argument('--model', default='BaseModel',
                           help='the name of model. Default is BaseModel.')
@@ -72,10 +71,6 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('--num_thread', type=int, default=1,
                           help='The number of CPU threads to train the model in each process.' \
                                'This argument is used for multiprocessing training.')
-        self.add_argument('--force_sync_interval', type=int, default=-1,
-                          help='We force a synchronization between processes every x steps for' \
-                               'multiprocessing training. This potentially stablizes the training process'
-                               'to get a better performance. For multiprocessing training, it is set to 1000 by default.')
         self.add_argument('--hidden_dim', type=int, default=400,
                           help='The embedding size of relation and entity')
         self.add_argument('--lr', type=float, default=0.01,
@@ -83,7 +78,7 @@ class CommonArgParser(argparse.ArgumentParser):
         self.add_argument('-g', '--gamma', type=float, default=12.0,
                           help='The margin value in the score function. It is used by TransX and RotatE.')
         self.add_argument('-de', '--double_ent', action='store_true',
-                          help='Double entitiy dim for complex number or canonical polyadic. It is used by RotatE and SimplE.')
+                          help='Double entity dim for complex number or canonical polyadic. It is used by RotatE and SimplE.')
         self.add_argument('-dr', '--double_rel', action='store_true',
                           help='Double relation dim for complex number or canonical polyadic. It is used by RotatE and SimplE')
         self.add_argument('-adv', '--neg_adversarial_sampling', action='store_true',
@@ -103,24 +98,12 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='The loss function used to train KGEM.')
         self.add_argument('-m', '--margin', type=float, default=1.0,
                           help='hyper-parameter for hinge loss.')
-        # args for ConvE
-        self.add_argument('--tensor_height', type=int, default=10,
-                          help='Tensor height for ConvE. Note hidden_dim must be divisible by it')
-        self.add_argument('--dropout_ratio', type=float, nargs='+', default=0,
-                          help='Dropout ratio for input, conv, linear respectively. If 0 is specified, ConvE will not use dropout for that layer')
-        self.add_argument('--batch_norm', '-bn', type=bool, default=True,
-                          help='Whether use batch normalization in ConvE or not')
         self.add_argument('--label_smooth', type=float, default=.0,
                           help='use label smoothing for training.')
-        # args for reproducibility
-        self.add_argument('--seed', type=int, default=0,
-                          help='Random seed for reproducibility')
         self.add_argument('--num_node', type=int, default=1,
                           help='Number of node used for distributed training')
-        # this is used for distributed training. not implemented yet
         self.add_argument('--node_rank', type=int, default=0,
                           help='The rank of node, ranged from [0, num_node - 1]')
-        # TODO: lingfei - use function to substitute brute force sampling
         self.add_argument('--init', type=str, default='uniform',
                           choices=['uniform', 'xavier', 'constant'],
                           help='Initial strategy for embeddings.')
@@ -129,12 +112,8 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='The batch size for training.')
         self.add_argument('--num_workers', type=int, default=0,
                           help='Number of process to fetch data for training/validation dataset.')
-        self.add_argument('--sample_type', type=str, default='chunk',
-                          choices=['chunk', 'batch'],
-                          help='How to sample data to train the model.')
         self.add_argument('--shuffle_data', type=bool, default=False,
                           help='Whether to shuffle data for training.')
-
         # hyper-parameter for hyperbolic embeddings
         self.add_argument('--init_scale', type=float, default=0.001,
                           help='Initialization scale for entity embedding, relation embedding, curvature, attention in hyperbolic embeddings')

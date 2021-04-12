@@ -16,9 +16,6 @@ class TrainArgParser(CommonArgParser):
                                'if validation is turned on')
         self.add_argument('--rel_part', action='store_true',
                           help='Enable relation partitioning for multi-GPU training.')
-        self.add_argument('--async_update', action='store_true',
-                          help='Allow asynchronous update on node embedding for multi-GPU training.' \
-                               'This overlaps CPU and GPU computation to speed up.')
         self.add_argument('--has_edge_importance', action='store_true',
                           help='Allow providing edge importance score for each edge during training.' \
                                'The positive score will be adjusted ' \

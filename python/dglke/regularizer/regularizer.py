@@ -1,4 +1,4 @@
-from refactor.utils import norm
+from dglke.utils import norm
 class Regularizer:
     def __init__(self, coef=1e-07, norm=3):
         self.coef = coef

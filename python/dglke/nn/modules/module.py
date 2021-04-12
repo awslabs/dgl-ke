@@ -1,5 +1,5 @@
-from refactor.nn.loss.loss_generator import LossGenerator
-from refactor.nn.metrics import MetricsEvaluator
+from dglke.nn.loss.loss_generator import LossGenerator
+from dglke.nn.metrics import MetricsEvaluator
 from collections import OrderedDict
 from torch import nn
 
