@@ -147,6 +147,7 @@ class TrainDataLoader:
     def __next__(self):
         self.data['neg_type'] = 'head' if ('neg_type' not in self.data or self.data['neg_type'] == 'tail') else 'tail'
         head, rel, tail, edge_impt, neg = next(self.iter_data)
+        head, rel, tail, edge_impt, neg = head.view(-1), rel.view(-1), tail.view(-1), edge_impt.view(-1), neg.view(-1)
         self.data.update({'head': head,
                           'rel': rel,
                           'tail': tail,

@@ -85,11 +85,11 @@ class KGDataset:
     '''
     def __init__(self, entity_path, relation_path, train_path,
                  valid_path=None, test_path=None, format=[0,1,2],
-                 delimiter='\t', skip_first_line=False):
+                 delimiter='\t', skip_first_line=False, inverse_rel=False):
         self.delimiter = delimiter
         self.entity2id, self.n_entities = self.read_entity(entity_path)
         self.relation2id, self.n_relations = self.read_relation(relation_path)
-        self.train = self.read_triple(train_path, "train", skip_first_line, format)
+        self.train = self.read_triple(train_path, "train", skip_first_line, format, inverse_rel)
         if valid_path is not None:
             self.valid = self.read_triple(valid_path, "valid", skip_first_line, format)
         else:
@@ -117,7 +117,7 @@ class KGDataset:
 
         return relation2id, len(relation2id)
 
-    def read_triple(self, path, mode, skip_first_line=False, format=[0,1,2]):
+    def read_triple(self, path, mode, skip_first_line=False, format=[0,1,2], inverse_rel=False):
         # mode: train/valid/test
         if path is None:
             return None
@@ -139,6 +139,16 @@ class KGDataset:
         heads = np.array(heads, dtype=np.int64)
         tails = np.array(tails, dtype=np.int64)
         rels = np.array(rels, dtype=np.int64)
+        if mode == 'train' and inverse_rel:
+            tmp_heads = np.copy(heads)
+            tmp_tails = np.copy(tails)
+            tmp_rels = np.copy(rels)
+            tmp_rels += self.n_relations
+            self.n_relations *= 2
+            heads = np.concatenate((heads, tmp_heads))
+            tails = np.concatenate((tails, tmp_tails))
+            rels = np.concatenate((rels, tmp_rels))
+
         print('Finished. Read {} {} triples.'.format(len(heads), mode))
 
         return (heads, rels, tails)
@@ -195,7 +205,7 @@ class KGDatasetFB15k(KGDataset):
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
     The triples are stored as 'head_nid\trelation_id\ttail_nid'.
     '''
-    def __init__(self, path, name='FB15k'):
+    def __init__(self, path, name='FB15k', inverse_rel=False):
         self.name = name
         url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
 
@@ -208,7 +218,8 @@ class KGDatasetFB15k(KGDataset):
                                              os.path.join(self.path, 'relations.dict'),
                                              os.path.join(self.path, 'train.txt'),
                                              os.path.join(self.path, 'valid.txt'),
-                                             os.path.join(self.path, 'test.txt'))
+                                             os.path.join(self.path, 'test.txt'),
+                                             inverse_rel=inverse_rel)
 
     @property
     def emap_fname(self):
@@ -232,7 +243,7 @@ class KGDatasetFB15k237(KGDataset):
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
     The triples are stored as 'head_nid\trelation_id\ttail_nid'.
     '''
-    def __init__(self, path, name='FB15k-237'):
+    def __init__(self, path, name='FB15k-237', inverse_rel=False):
         self.name = name
         url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
 
@@ -245,7 +256,8 @@ class KGDatasetFB15k237(KGDataset):
                                                 os.path.join(self.path, 'relations.dict'),
                                                 os.path.join(self.path, 'train.txt'),
                                                 os.path.join(self.path, 'valid.txt'),
-                                                os.path.join(self.path, 'test.txt'))
+                                                os.path.join(self.path, 'test.txt'),
+                                                inverse_rel=inverse_rel)
 
     @property
     def emap_fname(self):
@@ -269,7 +281,7 @@ class KGDatasetWN18(KGDataset):
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
     The triples are stored as 'head_nid\trelation_id\ttail_nid'.
     '''
-    def __init__(self, path, name='wn18'):
+    def __init__(self, path, name='wn18', inverse_rel=False):
         self.name = name
         url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
 
@@ -282,7 +294,8 @@ class KGDatasetWN18(KGDataset):
                                             os.path.join(self.path, 'relations.dict'),
                                             os.path.join(self.path, 'train.txt'),
                                             os.path.join(self.path, 'valid.txt'),
-                                            os.path.join(self.path, 'test.txt'))
+                                            os.path.join(self.path, 'test.txt'),
+                                            inverse_rel=inverse_rel)
 
     @property
     def emap_fname(self):
@@ -306,7 +319,7 @@ class KGDatasetWN18rr(KGDataset):
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
     The triples are stored as 'head_nid\trelation_id\ttail_nid'.
     '''
-    def __init__(self, path, name='wn18rr'):
+    def __init__(self, path, name='wn18rr', inverse_rel=False):
         self.name = name
         url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
 
@@ -319,7 +332,8 @@ class KGDatasetWN18rr(KGDataset):
                                               os.path.join(self.path, 'relations.dict'),
                                               os.path.join(self.path, 'train.txt'),
                                               os.path.join(self.path, 'valid.txt'),
-                                              os.path.join(self.path, 'test.txt'))
+                                              os.path.join(self.path, 'test.txt'),
+                                              inverse_rel=inverse_rel)
 
     @property
     def emap_fname(self):
@@ -342,7 +356,7 @@ class KGDatasetFreebase(KGDataset):
     The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
     The triples are stored as 'head_nid\trelation_id\ttail_nid'.
     '''
-    def __init__(self, path, name='Freebase'):
+    def __init__(self, path, name='Freebase', inverse_rel=False):
         self.name = name
         url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
 
@@ -355,7 +369,8 @@ class KGDatasetFreebase(KGDataset):
                                                 os.path.join(self.path, 'relation2id.txt'),
                                                 os.path.join(self.path, 'train.txt'),
                                                 os.path.join(self.path, 'valid.txt'),
-                                                os.path.join(self.path, 'test.txt'))
+                                                os.path.join(self.path, 'test.txt'),
+                                                inverse_rel=inverse_rel)
 
     def read_entity(self, entity_path):
         with open(entity_path) as f_ent:
@@ -409,7 +424,7 @@ class KGDatasetUDDRaw(KGDataset):
     The triples are stored as 'head_nid\trelation_id\ttail_nid'. Users can also use other delimiters
     other than \t.
     '''
-    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False):
+    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False, inverse_rel=False):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
@@ -433,7 +448,8 @@ class KGDatasetUDDRaw(KGDataset):
                                                   "relation.tsv",
                                                   os.path.join(path, files[0]),
                                                   format=format,
-                                                  delimiter=delimiter)
+                                                  delimiter=delimiter,
+                                                  inverse_rel=inverse_rel)
         # Train, validation and test set are provided
         elif len(files) == 3:
             super(KGDatasetUDDRaw, self).__init__("entities.tsv",
@@ -442,7 +458,8 @@ class KGDatasetUDDRaw(KGDataset):
                                                   os.path.join(path, files[1]),
                                                   os.path.join(path, files[2]),
                                                   format=format,
-                                                  delimiter=delimiter)
+                                                  delimiter=delimiter,
+                                                  inverse_rel=inverse_rel)
 
     def read_triple(self, path, mode, skip_first_line=False, format=[0,1,2]):
         # mode: train/valid/test
@@ -530,7 +547,7 @@ class KGDatasetUDD(KGDataset):
     The triples are stored as 'head_nid\trelation_id\ttail_nid'. Users can also use other delimiters
     other than \t.
     '''
-    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False):
+    def __init__(self, path, name, delimiter, files, format, has_edge_importance=False, inverse_rel=False):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
@@ -551,7 +568,8 @@ class KGDatasetUDD(KGDataset):
                                                os.path.join(path, files[2]),
                                                None, None,
                                                format=format,
-                                               delimiter=delimiter)
+                                               delimiter=delimiter,
+                                               inverse_rel=inverse_rel)
         elif len(files) == 5:
             super(KGDatasetUDD, self).__init__(os.path.join(path, files[0]),
                                                os.path.join(path, files[1]),
@@ -559,7 +577,8 @@ class KGDatasetUDD(KGDataset):
                                                os.path.join(path, files[3]),
                                                os.path.join(path, files[4]),
                                                format=format,
-                                               delimiter=delimiter)
+                                               delimiter=delimiter,
+                                               inverse_rel=inverse_rel)
         self.emap_file = files[0]
         self.rmap_file = files[1]
 
@@ -628,30 +647,30 @@ class KGDatasetUDD(KGDataset):
     def rmap_fname(self):
         return self.rmap_file
 
-def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, has_edge_importance=False):
+def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, has_edge_importance=False, inverse_rel=False):
     if format_str == 'built_in':
         if data_name == 'Freebase':
-            dataset = KGDatasetFreebase(data_path)
+            dataset = KGDatasetFreebase(data_path, inverse_rel=inverse_rel)
         elif data_name == 'FB15k':
-            dataset = KGDatasetFB15k(data_path)
+            dataset = KGDatasetFB15k(data_path, inverse_rel=inverse_rel)
         elif data_name == 'FB15k-237':
-            dataset = KGDatasetFB15k237(data_path)
+            dataset = KGDatasetFB15k237(data_path, inverse_rel=inverse_rel)
         elif data_name == 'wn18':
-            dataset = KGDatasetWN18(data_path)
+            dataset = KGDatasetWN18(data_path, inverse_rel=inverse_rel)
         elif data_name == 'wn18rr':
-            dataset = KGDatasetWN18rr(data_path)
+            dataset = KGDatasetWN18rr(data_path, inverse_rel=inverse_rel)
         else:
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):
         # user defined dataset
         assert data_name != 'FB15k', 'You should provide the dataset name for raw_udd format.'
         format = format_str[8:]
-        dataset = KGDatasetUDDRaw(data_path, data_name, delimiter, files, format, has_edge_importance)
+        dataset = KGDatasetUDDRaw(data_path, data_name, delimiter, files, format, has_edge_importance, inverse_rel)
     elif format_str.startswith('udd'):
         # user defined dataset
         assert data_name != 'FB15k', 'You should provide the dataset name for udd format.'
         format = format_str[4:]
-        dataset = KGDatasetUDD(data_path, data_name, delimiter, files, format, has_edge_importance)
+        dataset = KGDatasetUDD(data_path, data_name, delimiter, files, format, has_edge_importance, inverse_rel)
     else:
         assert False, "Unknown format {}".format(format_str)
 

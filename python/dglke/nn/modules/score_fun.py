@@ -19,11 +19,11 @@
 
 import torch as th
 import torch.nn as nn
-import torch.nn.functional as functional
-import torch.nn.init as INIT
-from dglke.util.math import hyp_distance_multi_c
+from utils.math import expmap0, project, mobius_add, tanh, artanh
 import numpy as np
 import os
+
+MIN_NORM = 1e-15
 
 def batched_l2_dist(a, b):
     a_squared = a.norm(dim=-1).pow(2)
@@ -75,6 +75,8 @@ class TransEScore(nn.Module):
             return head, tail
         return fn
 
+    # ! NFD -> put dict here or upper level? put dict here is beneficial for extension but
+    # wrong dict key will cause trouble
     def predict(self, head, rel, tail):
         score = head + rel - tail
         return self.gamma - th.norm(score, p=self.dist_ord, dim=-1)
@@ -764,3 +766,160 @@ class ConvEScore(nn.Module):
 
     def create_neg(self, neg_head):
         pass
+
+class ATTHScore(nn.Module):
+    def __init__(self):
+        super(ATTHScore, self).__init__()
+
+    def predict(self, head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias):
+        hidden_dim = head.shape[-1]
+        curvature = th.nn.functional.softplus(curvature)
+        rot_mat, ref_mat = th.chunk(rel_diag, 2, dim=1)
+        rot_q = givens_rotations(rot_mat, head,).view((-1, 1, hidden_dim))
+        ref_q = givens_reflection(ref_mat, head).view((-1, 1, hidden_dim))
+        cands = th.cat([ref_q, rot_q], dim=1)
+        context = context.view(-1, 1, hidden_dim)
+        att_weights = th.sum(context * cands * scale, dim=-1, keepdim=True)
+        att_weights = th.nn.functional.softmax(att_weights, dim=1)
+        att_q = th.sum(att_weights * cands, dim=1)
+        lhs = expmap0(att_q, curvature)
+        rel = expmap0(rel, curvature)
+        res = project(mobius_add(lhs, rel, curvature), curvature)
+        score = - hyp_distance_multi_c(res, tail, curvature) ** 2 + head_bias + tail_bias
+        return score.squeeze(-1)
+
+    def create_neg(self, neg_heads):
+        if neg_heads:
+            def fn(head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias, chunk_size, neg_sample_size):
+                num_chunk = head.shape[0] // neg_sample_size
+                head = head.view(num_chunk, neg_sample_size, -1)
+                head_bias = head_bias.view(num_chunk, neg_sample_size, -1).unsqueeze(1)
+                rel = rel.view(num_chunk, chunk_size, -1)
+                rel_diag = rel_diag.view(num_chunk, chunk_size, -1)
+                curvature = curvature.view(num_chunk, chunk_size, -1)
+                context = context.view(num_chunk, chunk_size, -1)
+                tail = tail.view(num_chunk, chunk_size, -1).unsqueeze(2)
+                tail_bias = tail_bias.view(num_chunk, chunk_size, -1).unsqueeze(2)
+
+                c = th.nn.functional.softplus(curvature)
+                rot_mat, ref_mat = th.chunk(rel_diag, 2, dim=-1)
+                rot_q = givens_rotations_bmm(rot_mat, head).unsqueeze(-2)
+                ref_q = givens_reflection_bmm(ref_mat, head).unsqueeze(-2)
+                cands = th.cat([ref_q, rot_q], dim=-2)
+                context_vec = context.unsqueeze(2).unsqueeze(3)
+                attn_weights = th.sum(context_vec * cands * scale, dim=-1, keepdim=True)
+                attn_weights = th.nn.functional.softmax(attn_weights, dim=-2)
+                att_q = th.sum(attn_weights * cands, dim=-2)
+                expand_c = c.unsqueeze(2)
+                lhs = expmap0(att_q, expand_c)
+                rel = expmap0(rel, c).unsqueeze(2)
+                res = project(mobius_add(lhs, rel, expand_c), expand_c)
+                score = - hyp_distance_multi_c(res, tail, expand_c) ** 2 + head_bias + tail_bias
+                return score.squeeze(-1)
+
+        else:
+            def fn(head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias, chunk_size, neg_sample_size):
+                num_chunk = head.shape[0] // neg_sample_size
+                hidden_dim = head.shape[-1]
+                tail = tail.view(num_chunk, neg_sample_size, -1)
+                tail_bias = tail_bias.view(num_chunk, neg_sample_size, -1)
+                head_bias = head_bias.view(num_chunk, chunk_size, -1)
+
+                c = th.nn.functional.softplus(curvature)
+                rot_mat, ref_mat = th.chunk(rel_diag, 2, dim=-1)
+                rot_q = givens_rotations(rot_mat, head).view(-1, 1, hidden_dim)
+                ref_q = givens_reflection(ref_mat, head).view(-1, 1, hidden_dim)
+                cands = th.cat([ref_q, rot_q], dim=1)
+                context_vec = context.view(-1, 1, hidden_dim)
+                att_weights = th.sum(context_vec * cands * scale, dim=-1, keepdim=True)
+                att_weights = th.nn.functional.softmax(att_weights, dim=1)
+                att_q = th.sum(att_weights * cands, dim=1)
+                lhs = expmap0(att_q, c)
+                rel = expmap0(rel, c)
+                res = project(mobius_add(lhs, rel, c), c)
+                c = c.view(c.shape[0] // chunk_size, chunk_size, -1)
+                score = - hyp_distance_multi_c_bmm(res.view(res.shape[0] // chunk_size, chunk_size, -1), tail, c) ** 2
+                score = score.unsqueeze(-1) + head_bias.unsqueeze(2) + tail_bias.unsqueeze(1)
+                return score.squeeze(-1)
+        return fn
+
+
+def hyp_distance_multi_c(x, v, c):
+    sqrt_c = c ** 0.5
+    vnorm = th.norm(v, p=2, dim=-1, keepdim=True)
+    xv = th.sum(x * v / vnorm, dim=-1, keepdim=True)
+    gamma = tanh(sqrt_c * vnorm) / sqrt_c
+    x2 = th.sum(x * x, dim=-1, keepdim=True)
+    c1 = 1 - 2 * c * gamma * xv + c * gamma ** 2
+    c2 = 1 - c * x2
+    num = th.sqrt((c1 ** 2) * x2 + (c2 ** 2) * (gamma ** 2) - (2 * c1 * c2) * gamma * xv)
+    denom = 1 - 2 * c * gamma * xv + (c ** 2) * (gamma ** 2) * x2
+    pairwise_norm = num / denom.clamp_min(MIN_NORM)
+    dist = artanh(sqrt_c * pairwise_norm)
+    return 2 * dist / sqrt_c
+
+def hyp_distance_multi_c_bmm(x, v, c):
+    sqrt_c = c ** 0.5
+    vnorm = th.norm(v, p=2, dim=-1, keepdim=True).transpose(1, 2)
+    xv = th.bmm(x, v.transpose(1, 2)) / vnorm
+    gamma = tanh(th.bmm(sqrt_c, vnorm)) / sqrt_c
+    x2 = th.sum(x * x, dim=-1, keepdim=True)
+    c1 = 1 - 2 * c * gamma * xv + c * gamma ** 2
+    c2 = 1 - c * x2
+    num = th.sqrt((c1 ** 2) * x2 + (c2 ** 2) * (gamma ** 2) - (2 * c1 * c2) * gamma * xv)
+    denom = 1 - 2 * c * gamma * xv + (c ** 2) * (gamma ** 2) * x2
+    pairwise_norm = num / denom.clamp_min(MIN_NORM)
+    dist = artanh(sqrt_c * pairwise_norm)
+    return 2 * dist / sqrt_c
+
+
+def givens_rotations(r, x):
+    """Givens rotations.
+    Args:
+        r: torch.Tensor of shape (N x d), rotation parameters
+        x: torch.Tensor of shape (N x d), points to rotate
+    Returns:
+        torch.Tensor os shape (N x d) representing rotation of x by r
+    """
+    givens = r.view((r.shape[0], -1, 2))
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(1e-15)
+    x = x.view((r.shape[0], -1, 2))
+    x_rot = givens[:, :, 0:1] * x + givens[:, :, 1:] * th.cat((-x[:, :, 1:], x[:, :, 0:1]), dim=-1)
+    return x_rot.view((r.shape[0], -1))
+
+def givens_rotations_bmm(r, x):
+    givens = r.view((r.shape[0], r.shape[1], -1, 2))
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True)
+    x = x.view((x.shape[0], x.shape[1], -1, 2))
+    x_rot_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2), x)
+    x_rot_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2),
+                        th.cat((-x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
+    x_rot = x_rot_a + x_rot_b
+    return x_rot.view((r.shape[0], r.shape[1], x.shape[1], -1))
+
+def givens_reflection(r, x):
+    """Givens reflections.
+    Args:
+        r: torch.Tensor of shape (N x d), rotation parameters
+        x: torch.Tensor of shape (N x d), points to reflect
+    Returns:
+        torch.Tensor os shape (N x d) representing reflection of x by r
+    """
+    givens = r.view((r.shape[0], -1, 2))
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(1e-15)
+    x = x.view((r.shape[0], -1, 2))
+    x_ref = givens[:, :, 0:1] * th.cat((x[:, :, 0:1], -x[:, :, 1:]), dim=-1) + givens[:, :, 1:] * th.cat(
+        (x[:, :, 1:], x[:, :, 0:1]), dim=-1)
+    return x_ref.view((r.shape[0], -1))
+
+def givens_reflection_bmm(r, x):
+    givens = r.view((r.shape[0], r.shape[1], -1, 2))
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True)
+    x = x.view((x.shape[0], x.shape[1], -1, 2))
+    x_ref_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2),
+                        th.cat((x[:, :, :, 0:1], -x[:, :, :, 1:]), dim=-1))
+    x_ref_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2), th.cat((x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
+    x_ref = x_ref_a + x_ref_b
+    return x_ref.view((r.shape[0], r.shape[1], x.shape[1], -1))
+
+

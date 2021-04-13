@@ -1,7 +1,7 @@
 from .module import Module
 import torch as th
 from torch import nn
-import itertools
+import numpy as np
 
 class KGEEncoder(Module):
     def __init__(self,
@@ -37,3 +37,58 @@ class KGEEncoder(Module):
 
     def evaluate(self, results: list, data, graph):
         pass
+
+class AttHEncoder(Module):
+    def __init__(self,
+                 hidden_dim,
+                 n_entity,
+                 n_relation,
+                 encoder_name='AttHEncoder'):
+        super(AttHEncoder, self).__init__(encoder_name)
+        init_size = 0.001
+        dtype = th.double
+        self.scale = th.tensor([1. / np.sqrt(hidden_dim)], dtype=dtype)
+        self.entity_emb = nn.Embedding(n_entity, hidden_dim, sparse=True)
+        self.entity_emb.weight.data = init_size * th.randn(n_entity, hidden_dim, dtype=dtype)
+        self.relation_emb = nn.Embedding(n_relation, hidden_dim, sparse=True)
+        self.relation_emb.weight.data = init_size * th.randn(n_relation, hidden_dim, dtype=dtype)
+        self.relation_diag = nn.Embedding(n_relation, hidden_dim * 2, sparse=True)
+        self.relation_diag.weight.data = init_size * th.rand(n_relation, hidden_dim * 2, dtype=dtype) - 1.0
+        self.curvature = th.nn.Parameter(th.ones((n_relation, 1), dtype=dtype), requires_grad=True)
+        self.context = nn.Embedding(n_relation, hidden_dim, sparse=True)
+        self.context.weight.data = init_size * th.randn((n_relation, hidden_dim), dtype=dtype)
+        self.head_bias = nn.Embedding(n_entity, 1, sparse=True)
+        self.head_bias.weight.data = th.zeros((n_entity, 1), dtype=dtype)
+        self.tail_bias = nn.Embedding(n_entity, 1, sparse=True)
+        self.tail_bias.weight.data = th.zeros((n_entity, 1), dtype=dtype)
+
+    def set_training_params(self, args):
+        pass
+
+    def set_test_params(self, args):
+        pass
+
+    def forward(self, data, gpu_id):
+        fwd_data = {k: v.to(f'cuda:{gpu_id}') if type(v) == th.Tensor else v for k, v in data.items()} if gpu_id != -1 else data
+        neg_type = data['neg_type']
+        encoded_data = {}
+        encoded_data['scale'] = self.scale.to(f'cuda:{gpu_id}' if gpu_id != -1 else 'cpu')
+        encoded_data['head'] = self.entity_emb(fwd_data['head'])
+        encoded_data['tail'] = self.entity_emb(fwd_data['tail'])
+        encoded_data['rel'] = self.relation_emb(fwd_data['rel'])
+        encoded_data['neg'] = self.entity_emb(fwd_data['neg'])
+        encoded_data['curvature'] = self.curvature[fwd_data['rel']]
+        encoded_data['rel_diag'] = self.relation_diag(fwd_data['rel'])
+        encoded_data['context'] = self.context(fwd_data['rel'])
+        encoded_data['head_bias'] = self.head_bias(fwd_data['head'])
+        encoded_data['tail_bias'] = self.tail_bias(fwd_data['tail'])
+        if neg_type == 'head':
+            encoded_data['neg_head_bias'] = self.head_bias(fwd_data['neg'])
+        elif neg_type == 'tail':
+            encoded_data['neg_tail_bias'] = self.tail_bias(fwd_data['neg'])
+        elif neg_type == 'both':
+            encoded_data['neg_head_bias'] = self.head_bias(fwd_data['neg'])
+            encoded_data['neg_tail_bias'] = self.tail_bias(fwd_data['neg'])
+        else:
+            raise ValueError(f"{data['neg_type']} is not supported, choose from head, tail, both.")
+        return encoded_data

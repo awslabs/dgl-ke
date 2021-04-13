@@ -1,5 +1,5 @@
 from .score_fun import TransEScore, TransRScore, SimplEScore, RotatEScore, RESCALScore, ConvEScore, ComplExScore, \
-    DistMultScore
+    DistMultScore, ATTHScore
 
 from .encoder import *
 from .decoder import *

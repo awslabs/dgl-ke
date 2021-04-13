@@ -126,3 +126,5 @@ class CommonArgParser(argparse.ArgumentParser):
                           help='Use tqdm to visualize training and evaluation process. Note this might drag speed of process 0 for multi-GPU training.')
         self.add_argument('--profile', action='store_true', dest='profile',
                           help='Profile the process to test training speed. Used for debug.')
+        self.add_argument('--inverse_rel', action='store_true', dest='inverse_rel',
+                          help='If specified, create a->inv_rel->b  based on b->rel->a.')
