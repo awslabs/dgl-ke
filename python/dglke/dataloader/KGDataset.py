@@ -19,6 +19,7 @@
 
 import os, sys
 import numpy as np
+from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
 
 def _download_and_extract(url, path, filename):
     import shutil, zipfile
@@ -395,6 +396,112 @@ class KGDatasetFreebase(KGDataset):
     def rmap_fname(self):
         return 'relation2id.txt'
 
+class KGDatasetWikikg2(KGDataset):
+    '''Load a knowledge graph wikikg2
+
+    The wikikg2 dataset has five files:
+    * entities.dict stores the mapping between entity Id and entity name.
+    * relations.dict stores the mapping between relation Id and relation name.
+    * train.txt stores the triples in the training set.
+    * valid.txt stores the triples in the validation set.
+    * test.txt stores the triples in the test set.
+
+    The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'.
+    '''
+    def __init__(self, path, name='wikikg2'):
+        self.name = name
+        url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
+
+        if not os.path.exists(os.path.join(path, name)):
+            print('File not found. Downloading from', url)
+            _download_and_extract(url, path, name + '.zip')
+        self.path = os.path.join(path, name)
+
+        super(KGDatasetWikikg2, self).__init__(os.path.join(self.path, 'entities.dict'),
+                                              os.path.join(self.path, 'relations.dict'),
+                                              os.path.join(self.path, 'train.txt'),
+                                              os.path.join(self.path, 'valid.txt'),
+                                              os.path.join(self.path, 'test.txt'))
+
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
+
+class KGDatasetBiokg(KGDataset):
+    '''Load a knowledge graph biokg
+
+    The biokg dataset has five files:
+    * entities.dict stores the mapping between entity Id and entity name.
+    * relations.dict stores the mapping between relation Id and relation name.
+    * train.txt stores the triples in the training set.
+    * valid.txt stores the triples in the validation set.
+    * test.txt stores the triples in the test set.
+
+    The mapping between entity (relation) name and entity (relation) Id is stored as 'name\tid'.
+    The triples are stored as 'head_nid\trelation_id\ttail_nid'.
+    '''
+    def __init__(self, path, name='biokg'):
+        self.name = name
+        url = 'https://data.dgl.ai/dataset/{}.zip'.format(name)
+
+        if not os.path.exists(os.path.join(path, name)):
+            print('File not found. Downloading from', url)
+            _download_and_extract(url, path, name + '.zip')
+        self.path = os.path.join(path, name)
+
+        super(KGDatasetBiokg, self).__init__(os.path.join(self.path, 'entities.dict'),
+                                              os.path.join(self.path, 'relations.dict'),
+                                              os.path.join(self.path, 'train.txt'),
+                                              os.path.join(self.path, 'valid.txt'),
+                                              os.path.join(self.path, 'test.txt'))
+
+    @property
+    def emap_fname(self):
+        return 'entities.dict'
+
+    @property
+    def rmap_fname(self):
+        return 'relations.dict'
+
+class KGDatasetWiki90M(KGDataset):
+    '''Load a knowledge graph wikikg90M
+    
+    The wikikg90M dataset has eight files:
+    * entitiy_feat.npy stores the entity features
+    * relation_feat.npy stores the relation features
+    * train_hrt.npy stores the triples in the training set
+    * val_hr.npy stores the head and relation pair for valid
+    * val_t_candidate.npy stores the candidates for the tail entities for valid
+    * val_t_correct_index.npy stores the index of true tail entity in val_t_candidate.npy
+    * test_hr.npy stores the head and relation pair for valid
+    * test_t_candidate.npy stores the candidates for the tail entities for valid
+
+    For the detail data format see https://ogb.stanford.edu/kddcup2021/wikikg90m/
+    '''
+    def __init__(self, path, name='wikikg90M'):
+        self.name = name
+        self.dataset = WikiKG90MDataset(path)
+        self.train = self.dataset.train_hrt.T
+        self.n_entities = self.dataset.num_entities
+        self.n_relations = self.dataset.num_relations
+        self.valid = self.dataset.valid_dict
+        self.test = self.dataset.test_dict
+        self.entity_feat = self.dataset.entity_feat
+        self.relation_feat = self.dataset.relation_feat
+        
+    @property
+    def emap_fname(self):
+        return None
+
+    @property
+    def rmap_fname(self):
+        return None
+
 class KGDatasetUDDRaw(KGDataset):
     '''Load a knowledge graph user defined dataset
 
@@ -640,6 +747,12 @@ def get_dataset(data_path, data_name, format_str, delimiter='\t', files=None, ha
             dataset = KGDatasetWN18(data_path)
         elif data_name == 'wn18rr':
             dataset = KGDatasetWN18rr(data_path)
+        elif data_name == 'wikikg2':
+            dataset = KGDatasetWikikg2(data_path)
+        elif data_name == 'biokg':
+            dataset = KGDatasetBiokg(data_path)
+        elif data_name == 'wikikg90M':
+            dataset = KGDatasetWiki90M(data_path)
         else:
             assert False, "Unknown dataset {}".format(data_name)
     elif format_str.startswith('raw_udd'):

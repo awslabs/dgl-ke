@@ -565,6 +565,58 @@ class EvalSampler(object):
         self.sampler_iter = iter(self.sampler)
         return self
 
+class WikiEvalSampler(object):
+    """Sampler for validation and testing for wikikg90M dataset
+
+    Parameters
+    ----------
+    edges : tensor
+        sampled test data
+    batch_size : int
+        Batch size of each mini batch.
+    mode : str
+        Sampling mode.
+    """
+    def __init__(self, edges, batch_size, mode):
+        self.edges = edges
+        self.batch_size = batch_size
+        self.mode = mode
+        self.neg_head = 'head' in mode
+        self.cnt = 0
+        self.mode = 'h,r->t'
+        self.num_edges = len(self.edges['h,r->t']['hr'])
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        """Get next batch
+
+        Returns
+        -------
+        tensor of size (batch_size, 2)
+            sampled head and relation pair
+        tensor of size (batchsize, 1)
+            the index of the true tail entity
+        tensor of size (bath_size, 1001)
+            candidates for the tail entities (1001 candidates in total, out of which one is a positive entity)
+        """
+        if self.cnt == self.num_edges:
+            raise StopIteration
+        beg = self.cnt
+        if self.cnt + self.batch_size > self.num_edges:
+            self.cnt = self.num_edges
+        else:
+            self.cnt += self.batch_size
+        return F.tensor(self.edges['h,r->t']['hr'][beg:self.cnt], F.int64), F.tensor(self.edges['h,r->t']['t_correct_index'][beg:self.cnt], F.int64), F.tensor(self.edges['h,r->t']['t_candidate'][beg:self.cnt], F.int64)
+
+    def reset(self):
+        """Reset the sampler
+        """
+        self.cnt = 0
+        return self
+
+
 class EvalDataset(object):
     """Dataset for validation or testing
 
@@ -580,21 +632,34 @@ class EvalDataset(object):
         etype_id = [dataset.train[1]]
         dst = [dataset.train[2]]
         self.num_train = len(dataset.train[0])
-        if dataset.valid is not None:
+        if args.dataset == "wikikg90M":
+            self.valid_dict = dataset.valid
+            self.num_valid = len(self.valid_dict['h,r->t']['hr'])
+        elif dataset.valid is not None:
             src.append(dataset.valid[0])
             etype_id.append(dataset.valid[1])
             dst.append(dataset.valid[2])
             self.num_valid = len(dataset.valid[0])
         else:
             self.num_valid = 0
-        if dataset.test is not None:
+        if args.dataset == "wikikg90M":
+            self.test_dict = dataset.test
+            self.num_test = len(self.test_dict['h,r->t']['hr'])
+        elif dataset.test is not None:
             src.append(dataset.test[0])
             etype_id.append(dataset.test[1])
             dst.append(dataset.test[2])
             self.num_test = len(dataset.test[0])
         else:
             self.num_test = 0
+
+        if args.dataset == "wikikg90M":
+            print('|valid|:', self.num_valid)
+            print('|test|:', self.num_test)
+            return
+
         assert len(src) > 1, "we need to have at least validation set or test set."
+
         src = np.concatenate(src)
         etype_id = np.concatenate(etype_id)
         dst = np.concatenate(dst)
@@ -640,6 +705,26 @@ class EvalDataset(object):
         else:
             raise Exception('get invalid type: ' + eval_type)
 
+    def get_dicts(self, eval_type):
+        """ Get all edges dict in this dataset
+
+        Parameters
+        ----------
+        eval_type : str
+            Sampling type, 'valid' for validation and 'test' for testing
+
+        Returns
+        -------
+        dict
+            all edges
+        """
+        if eval_type == 'valid':
+            return self.valid_dict
+        elif eval_type == 'test':
+            return self.test_dict
+        else:
+            raise Exception('get invalid type: ' + eval_type)
+
     def create_sampler(self, eval_type, batch_size, neg_sample_size, neg_chunk_size,
                        filter_false_neg, mode='head', num_workers=32, rank=0, ranks=1):
         """Create sampler for validation or testing
@@ -677,6 +762,50 @@ class EvalDataset(object):
         edges = edges[beg: end]
         return EvalSampler(self.g, edges, batch_size, neg_sample_size, neg_chunk_size,
                            mode, num_workers, filter_false_neg)
+
+    def create_sampler_wikikg90M(self, eval_type, batch_size, mode='head', rank=0, ranks=1):
+        """Create sampler for validation and testing of wikikg90M dataset.
+
+        Parameters
+        ----------
+        eval_type : str
+            Sampling type, 'valid' for validation and 'test' for testing
+        batch_size : int
+            Batch size of each mini batch.
+        mode : str
+            Sampling mode.
+        rank : int
+            Which partition to sample.
+        ranks : int
+            Total number of partitions.
+
+        Returns
+        -------
+        dgl.contrib.sampling.EdgeSampler
+            Edge sampler
+        """
+        edges = self.get_dicts(eval_type)
+        new_edges = {}
+
+        assert 'tail' in mode
+
+        """
+        This function will split the edges into total number of partitions parts. And then calculate the 
+        corresponding begin and end index for each part to create evaluate sampler.
+        """
+        beg = edges['h,r->t']['hr'].shape[0] * rank // ranks
+        end = min(edges['h,r->t']['hr'].shape[0] * (rank + 1) // ranks, edges['h,r->t']['hr'].shape[0])
+        new_edges['h,r->t'] = {'hr': edges['h,r->t']['hr'][beg:end],
+                                't_candidate': edges['h,r->t']['t_candidate'][beg:end],
+                            #    't_correct_index': edges['h,r->t']['t_correct_index'][beg:end]
+                                }
+        if 't_correct_index' in edges['h,r->t']:
+            new_edges['h,r->t']['t_correct_index'] = edges['h,r->t']['t_correct_index'][beg:end]
+        else:
+            new_edges['h,r->t']['t_correct_index'] = np.zeros(end-beg, dtype=np.short)
+
+        return WikiEvalSampler(new_edges, batch_size, mode)
+
 
 class NewBidirectionalOneShotIterator:
     """Grouped sampler iterator
