@@ -57,12 +57,22 @@ def local_ip4_addr_list():
     for ix in socket.if_nameindex():
         name = ix[1]
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ip = socket.inet_ntoa(fcntl.ioctl(
-            s.fileno(),
-            0x8915,  # SIOCGIFADDR
-            struct.pack('256s', name[:15].encode("UTF-8")))[20:24])
-        nic.add(ip)
+        try:
+            ip = socket.inet_ntoa(fcntl.ioctl(
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', name[:15].encode("UTF-8")))[20:24])
+        except OSError as e:
+            if e.errno == 99: # EADDRNOTAVAIL
+                print("Warning!",
+                      "Interface: {}".format(name),
+                      "IP address not available for interface.",
+                      sep='\n')
+                continue
+            else:
+                raise e
 
+        nic.add(ip)
     return nic
 
 def is_local(ip_addr):
