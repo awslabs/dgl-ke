@@ -12,6 +12,18 @@ DGL-KE provides five built-in knowledge graphs:
 
 Users can specify one of the datasets with `--dataset` option in their tasks.
 
+### Built-in OGB Datasets
+
+DGL-KE also provides two built-in knowledge graphs form [OGB](https://ogb.stanford.edu):
+
+| Dataset                                            | #nodes    | #edges     | #relations |
+| -------------------------------------------------- | --------- | ---------- | ---------- |
+| [wikikg2](https://data.dgl.ai/dataset/wikikg2.zip) | 2,500,604 | 17,137,181 | 535        |
+| [biokg](https://data.dgl.ai/dataset/biokg.zip)     | 93,773    | 5,088,434  | 51         |
+
+Users can also specify one of the datasets with `--dataset` option in their tasks.
+
+
 ## Benchmark result
 
 DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`. Users can go to the corresponded folder to check out the scripts and results. All the benchmark results are done by AWS EC2. For multi-cpu and distributed training, the target instance is `r5dn.24xlarge`, which has 48 CPU cores and 768 GB memory. Also, `r5dn.xlarge` has 100Gbit network throughput, which is powerful for distributed training. For GPU training, our target instance is `p3.16xlarge`, which has 64 CPU cores and 8 Nvidia v100 GPUs. For users, you can choose your own instance by your demand and tune the hyper-parameters for the best performance.
@@ -153,4 +165,17 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | RotatE    | Logistic   | False    | 39.24  | 0.719 | 0.629  | 0.785  | 0.867   | 132  |
 | RotatE    | Logistic   | True     | 63.72  | 0.586 | 0.466  | 0.666  | 0.789   | 128  |
 | RotatE    | Logsigmoid | False    | 39.42  | 0.720 | 0.631  | 0.786  | 0.865   | 127  |
+
+## OGB Dataset Benchmark Result
+
+### wikikg2
+
+#### 8-GPU training
+
+| Models    | MR     | MRR   | HITS@1 | HITS@3 | HITS@10 | TIME |
+| --------- | ------ | ----- | ------ | ------ | ------- | ---- |
+| TransE_l2 | 102.26 | 0.430 | 0.402  | 0.435  | 0.471   | 829  |
+| DistMult  | 49.12  | 0.457 | 0.393  | 0.473  | 0.582   | 757  |
+| RotatE    | 19.12  | 0.595 | 0.525  | 0.618  | 0.743   | 918  |
+| ComplEx   |        |       |        |        |         | 806  |
 
