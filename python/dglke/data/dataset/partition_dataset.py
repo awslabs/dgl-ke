@@ -499,6 +499,12 @@ class PartitionEvalDataset(th.utils.data.Dataset):
         return len(self.heads)
 
 class PartitionChunkDataset(th.utils.data.IterableDataset):
+    """ Chunk dataset that sequentially sample head, relation, tails from graph and randomly sample negative samples from entities.
+
+    Chunk dataset is a subclass of IterableDataset that supports multi-process.
+    Assume we have m workers, n triples, k entities. The ith worker will sample triples ranged [i * (n / m), (i + 1) * (n / m)]
+    and randomly sample batch_size of negative samples from k with repetition.
+    """
     def __init__(self, num_of_nodes, heads, rels, tails, edge_impts=None, batch_size=64, mode='train'):
         super(PartitionChunkDataset, self).__init__()
         self.heads = heads

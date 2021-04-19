@@ -19,8 +19,6 @@ class RankingMetricsEvaluator(MetricsEvaluator):
         super(MetricsEvaluator, self).__init__()
 
     def evaluate(self, results, data, graph):
-        # MARK - do we need lock here to prevent multi-thread from changing self.result
-        # or we use subresult to store local result then sum them up for final aggregation?
         # pos_score: batch x 1 neg_score: batch x nodes mask: batch x nodes
         logs = []
         pos_score, neg_score_head, neg_score_tail = results['pos_score'], results['neg_score_head'], results['neg_score_tail']
@@ -29,6 +27,29 @@ class RankingMetricsEvaluator(MetricsEvaluator):
         return logs
 
     def evaluate_ranking(self, pos_score, neg_score, data, graph, mode):
+        """ compute ranking for each triple
+
+        This function firstly count all the negative samples that has larger scores than the positive samples. Then it
+        filters out all the false negative sample containing in the count (including positive triple).
+
+        Parameters
+        ----------
+        pos_score: torch.Tensor
+            scores of positive sample, shape (B x 1)
+        neg_score: torch.Tensor
+            scores of negative sample, shape (B x num_entity)
+        data: torch.Tensor
+            training data indicies and metadata
+        graph: DGLGraph
+            graph that containing all the triples
+        mode: str
+            choices ['tail', 'head'], which type of negative score is
+
+        Returns
+        -------
+        dcit
+            log dict containing MRR, MR, HITS@1, HITS@3, HITS10
+        """
         head, rel, tail, neg = data['head'], data['rel'], data['tail'], data['neg']
         b_size = data['head'].shape[0]
         pos_score = pos_score.view(b_size, -1)

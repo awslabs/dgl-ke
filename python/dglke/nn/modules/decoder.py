@@ -34,6 +34,11 @@ class BaseDecoder(Module):
 
 
 class KGEDecoder(BaseDecoder):
+    """ General KGE Decoder
+
+    The KGE Decoder supports different type of embedding methods including TransE_l1, TransE_l2, TransR, RESCAL,
+    DistMult, ComplEx, RotatE, SimplE. By subsituting score_func, user can define their own embedding method.
+    """
     def __init__(self,
                  decoder_name,
                  score_func=None,
@@ -52,6 +57,22 @@ class KGEDecoder(BaseDecoder):
         pass
 
     def forward(self, encoded_data, data, gpu_id):
+        """ calculate positive scores and/or negative scores for KGE
+
+        Parameters
+        ----------
+        encoded_data: dict
+            dict of embeddings sliced by sample indicies of training data
+        data: dict
+            dict of training data containing head, rel, tail, neg indicies and metadata
+        gpu_id: int
+            which gpu to perform this calculation
+
+        Returns
+        -------
+        dict of tensors
+            positive_score,  (neg_score/neg_score_head, neg_score_tail)
+        """
         if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
             raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
         head, rel, tail = encoded_data['head'], encoded_data['rel'], encoded_data['tail']
@@ -89,6 +110,10 @@ class KGEDecoder(BaseDecoder):
         return self.metrics_evaluator.evaluate(results, data, graph)
 
 class AttHDecoder(BaseDecoder):
+    """ Low-Dimensional Hyperbolic Knowledge Graph Embeddings decoder
+
+    paper: https://arxiv.org/pdf/2005.00545.pdf
+    """
     def __init__(self,
                  decoder_name='AttH',
                  metrics_evaluator=MetricsEvaluator(),
@@ -99,6 +124,22 @@ class AttHDecoder(BaseDecoder):
         self._score_func = ATTHScore()
 
     def forward(self, encoded_data, data, gpu_id):
+        """ calculate positive scores and/or negative scores for hyperbolic embedding
+
+        Parameters
+        ----------
+        encoded_data: dict
+            dict of embeddings sliced by sample indicies of training data
+        data: dict
+            dict of training data containing head, rel, tail, neg indicies and metadata
+        gpu_id: int
+            which gpu to perform this calculation
+
+        Returns
+        -------
+        dict of tensors
+            positive_score,  (neg_score/neg_score_head, neg_score_tail)
+        """
         head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias = encoded_data['head'], encoded_data['head_bias'], encoded_data['rel'], encoded_data['rel_diag'], encoded_data['curvature'], encoded_data['context'], encoded_data['scale'], encoded_data['tail'], encoded_data['tail_bias']
         pos_score = self._score_func.predict(head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias)
         if 'neg_type' not in data.keys():
@@ -118,7 +159,7 @@ class AttHDecoder(BaseDecoder):
                 neg_score = neg_func(head, head_bias, rel, rel_diag, curvature, context, scale, neg, neg_tail_bias, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score': neg_score}
-            elif data['neg_type'] == 'head_tail' :
+            elif data['neg_type'] == 'head_tail':
                 neg_head_bias, neg_tail_bias = encoded_data['neg_head_bias'], encoded_data['neg_tail_bias']
                 neg_func_head = self._score_func.create_neg(True)
                 neg_score_head = neg_func_head(neg, neg_head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias, chunk_size, neg_sample_size)

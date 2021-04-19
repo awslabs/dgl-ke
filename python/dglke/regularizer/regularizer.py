@@ -6,6 +6,18 @@ class Regularizer:
         self.norm = norm
 
     def compute_regularization(self, params):
+        """ compute sparse regularization
+
+        Parameters
+        ----------
+        params: torch.nn.module.parameter()
+            iterable parameters that should be regularized
+
+        Returns
+        -------
+        torch.Tensor
+            regularization
+        """
         reg = 0
         if type(params) == dict:
             for k, v in params.items():
