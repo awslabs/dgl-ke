@@ -2,7 +2,6 @@ import copy
 import torch as th
 from torch.utils.data.dataloader import DataLoader
 
-
 class CustomizeDataLoaderGenerator:
     """ dataloader generator base class that generates dataloader on the fly during fit&test.
 
