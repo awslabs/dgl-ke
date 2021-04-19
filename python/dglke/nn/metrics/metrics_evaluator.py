@@ -19,8 +19,6 @@ class RankingMetricsEvaluator(MetricsEvaluator):
         super(MetricsEvaluator, self).__init__()
 
     def evaluate(self, results, data, graph):
-        # MARK - do we need lock here to prevent multi-thread from changing self.result
-        # or we use subresult to store local result then sum them up for final aggregation?
         # pos_score: batch x 1 neg_score: batch x nodes mask: batch x nodes
         logs = []
         pos_score, neg_score_head, neg_score_tail = results['pos_score'], results['neg_score_head'], results['neg_score_tail']

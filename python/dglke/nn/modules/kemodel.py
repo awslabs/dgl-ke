@@ -6,17 +6,17 @@ from tqdm import trange, tqdm
 from utils import get_scalar
 import time
 
-class Model(nn.Module):
+class KEModel(nn.Module):
     r"""Generic module for all encoders & decoders.
 
-    Model is a subclass of nn.Module that contains one encoder and one/multiple decoder(s).
+    KEModel is a subclass of nn.Module that contains one encoder and one/multiple decoder(s).
 
-    Encoder and decoder are subclass of nn.Module just as Model that might contains parameters of embeddings.
+    Encoder and decoder are subclass of nn.Module just as KEModel that might contains parameters of embeddings.
 
     Encoder uses indices(data) provided by dataloader to slice embeddings. Decoder uses both indices(data) and
     embeddings from encoder to generate errors of downstream task for self-supervised signals/supervised training.
 
-    The encoder, decoder are defined once the Model is initialized. By attaching graph, dataset and dataloader, the
+    The encoder, decoder are defined once the KEModel is initialized. By attaching graph, dataset and dataloader, the
     model can perform different downstream tasks.
     """
     def __init__(self,
@@ -24,7 +24,7 @@ class Model(nn.Module):
                  encoder=None,
                  decoder=None,
                  model_name='BaseModel',):
-        super(Model, self).__init__()
+        super(KEModel, self).__init__()
         self._name = model_name
         self.encoder = encoder
         self.decoder = decoder
@@ -125,7 +125,7 @@ class Model(nn.Module):
         else:
             gpu_id = -1
         logs = []
-        train_start = time.time()
+        train_start = start =  time.time()
         sample_time = 0
         update_time = 0
         forward_time = 0
@@ -133,11 +133,11 @@ class Model(nn.Module):
 
         iter_range = trange(0, max_step, desc='train') if (rank == 0 and use_tqdm) else range(0, max_step)
         for step in iter_range:
-            start = time.time()
+            start1 = time.time()
             loss = {}
             data = next(iter_data)
-            sample_time += time.time() - start
-            start = time.time()
+            sample_time += time.time() - start1
+            start1 = time.time()
             encode_results = self.encoder.forward(data, gpu_id)
             decode_results = self.decoder.forward(encode_results, data, gpu_id)
             loss['decode'] = self.decoder.get_loss(decode_results)
@@ -147,22 +147,21 @@ class Model(nn.Module):
             for k, v in loss.items():
                 total_loss += v
             logs.append({k: get_scalar(v) for k, v in loss.items()})
-            forward_time += time.time() - start
+            forward_time += time.time() - start1
             if rank == 0 and use_tqdm:
                 iter_range.set_postfix(loss=f'{total_loss.item(): .4f}')
-            start = time.time()
+            start1 = time.time()
             if optimizer is not None:
                 optimizer.zero_grad()
             total_loss.backward()
-            backward_time += time.time() - start
-            start = time.time()
+            backward_time += time.time() - start1
+            start1 = time.time()
             if optimizer is not None:
                 optimizer.step()
-            update_time += time.time() - start
+            update_time += time.time() - start1
 
             if (step + 1) % log_interval == 0:
                 for k in logs[0].keys():
-                    # use get_scalar here to reduce .item() overhead
                     v = sum(l[k] for l in logs) / len(logs)
                     logger.print_log('[proc {}][Train]({}/{}) average {}: {}'.format(rank, (step + 1), max_step, k, v))
                 logs = []
@@ -207,9 +206,6 @@ class Model(nn.Module):
             iter_data = tqdm(iter_data, desc='evaluation') if (rank == 0 and use_tqdm) else iter_data
             for data in iter_data:
                 encode_results = self.encoder.forward(data, gpu_id)
-                log = self.encoder.evaluate(encode_results, data, self.g)
-                if log is not None:
-                    logs += log
                 results = self.decoder.forward(encode_results, data, gpu_id)
                 logs += self.decoder.evaluate(results, data, self.g)
             metrics = {}

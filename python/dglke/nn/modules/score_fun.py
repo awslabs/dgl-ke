@@ -19,11 +19,10 @@
 
 import torch as th
 import torch.nn as nn
-from utils.math import expmap0, project, mobius_add, tanh, artanh
+from utils.math import expmap0, project, mobius_add, tanh, artanh, MIN_NORM
 import numpy as np
 import os
 
-MIN_NORM = 1e-15
 
 def batched_l2_dist(a, b):
     a_squared = a.norm(dim=-1).pow(2)
@@ -791,9 +790,10 @@ class ATTHScore(nn.Module):
     def create_neg(self, neg_heads):
         if neg_heads:
             def fn(head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias, chunk_size, neg_sample_size):
-                num_chunk = head.shape[0] // neg_sample_size
-                head = head.view(num_chunk, neg_sample_size, -1)
-                head_bias = head_bias.view(num_chunk, neg_sample_size, -1).unsqueeze(1)
+                num_neg_chunk = head.shape[0] // neg_sample_size
+                num_chunk = rel.shape[0] // chunk_size
+                head = head.view(num_neg_chunk, neg_sample_size, -1)
+                head_bias = head_bias.view(num_neg_chunk, neg_sample_size, -1).unsqueeze(1)
                 rel = rel.view(num_chunk, chunk_size, -1)
                 rel_diag = rel_diag.view(num_chunk, chunk_size, -1)
                 curvature = curvature.view(num_chunk, chunk_size, -1)
@@ -819,10 +819,11 @@ class ATTHScore(nn.Module):
 
         else:
             def fn(head, head_bias, rel, rel_diag, curvature, context, scale, tail, tail_bias, chunk_size, neg_sample_size):
-                num_chunk = head.shape[0] // neg_sample_size
+                num_chunk = head.shape[0] // chunk_size
+                num_neg_chunk = tail.shape[0] // neg_sample_size
                 hidden_dim = head.shape[-1]
-                tail = tail.view(num_chunk, neg_sample_size, -1)
-                tail_bias = tail_bias.view(num_chunk, neg_sample_size, -1)
+                tail = tail.view(num_neg_chunk, neg_sample_size, -1)
+                tail_bias = tail_bias.view(num_neg_chunk, neg_sample_size, -1)
                 head_bias = head_bias.view(num_chunk, chunk_size, -1)
 
                 c = th.nn.functional.softplus(curvature)
@@ -860,8 +861,8 @@ def hyp_distance_multi_c(x, v, c):
 
 def hyp_distance_multi_c_bmm(x, v, c):
     sqrt_c = c ** 0.5
-    vnorm = th.norm(v, p=2, dim=-1, keepdim=True).transpose(1, 2)
-    xv = th.bmm(x, v.transpose(1, 2)) / vnorm
+    vnorm = th.norm(v, p=2, dim=-1, keepdim=True).transpose(1, 2).expand(x.shape[0], -1, -1)
+    xv = th.bmm(x, v.transpose(1, 2).expand(x.shape[0], -1, -1)) / vnorm
     gamma = tanh(th.bmm(sqrt_c, vnorm)) / sqrt_c
     x2 = th.sum(x * x, dim=-1, keepdim=True)
     c1 = 1 - 2 * c * gamma * xv + c * gamma ** 2
@@ -882,18 +883,18 @@ def givens_rotations(r, x):
         torch.Tensor os shape (N x d) representing rotation of x by r
     """
     givens = r.view((r.shape[0], -1, 2))
-    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(1e-15)
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(MIN_NORM)
     x = x.view((r.shape[0], -1, 2))
     x_rot = givens[:, :, 0:1] * x + givens[:, :, 1:] * th.cat((-x[:, :, 1:], x[:, :, 0:1]), dim=-1)
     return x_rot.view((r.shape[0], -1))
 
 def givens_rotations_bmm(r, x):
     givens = r.view((r.shape[0], r.shape[1], -1, 2))
-    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True)
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(MIN_NORM)
     x = x.view((x.shape[0], x.shape[1], -1, 2))
-    x_rot_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2), x)
+    x_rot_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2), x.expand(givens.shape[0], -1, -1, -1))
     x_rot_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2),
-                        th.cat((-x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
+                        th.cat((-x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1).expand(givens.shape[0], -1, -1, -1))
     x_rot = x_rot_a + x_rot_b
     return x_rot.view((r.shape[0], r.shape[1], x.shape[1], -1))
 
@@ -906,7 +907,7 @@ def givens_reflection(r, x):
         torch.Tensor os shape (N x d) representing reflection of x by r
     """
     givens = r.view((r.shape[0], -1, 2))
-    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(1e-15)
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(MIN_NORM)
     x = x.view((r.shape[0], -1, 2))
     x_ref = givens[:, :, 0:1] * th.cat((x[:, :, 0:1], -x[:, :, 1:]), dim=-1) + givens[:, :, 1:] * th.cat(
         (x[:, :, 1:], x[:, :, 0:1]), dim=-1)
@@ -914,11 +915,11 @@ def givens_reflection(r, x):
 
 def givens_reflection_bmm(r, x):
     givens = r.view((r.shape[0], r.shape[1], -1, 2))
-    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True)
+    givens = givens / th.norm(givens, p=2, dim=-1, keepdim=True).clamp_min(MIN_NORM)
     x = x.view((x.shape[0], x.shape[1], -1, 2))
     x_ref_a = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 0:1].expand(-1, -1, -1, 2),
-                        th.cat((x[:, :, :, 0:1], -x[:, :, :, 1:]), dim=-1))
-    x_ref_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2), th.cat((x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1))
+                        th.cat((x[:, :, :, 0:1], -x[:, :, :, 1:]), dim=-1).expand(givens.shape[0], -1, -1, -1))
+    x_ref_b = th.einsum('bcde,bnde->bcnde', givens[:, :, :, 1:].expand(-1, -1, -1, 2), th.cat((x[:, :, :, 1:], x[:, :, :, 0:1]), dim=-1).expand(givens.shape[0], -1, -1, -1))
     x_ref = x_ref_a + x_ref_b
     return x_ref.view((r.shape[0], r.shape[1], x.shape[1], -1))
 

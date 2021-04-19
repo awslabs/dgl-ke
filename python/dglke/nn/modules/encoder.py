@@ -53,7 +53,7 @@ class AttHEncoder(Module):
         self.relation_emb = nn.Embedding(n_relation, hidden_dim, sparse=True)
         self.relation_emb.weight.data = init_size * th.randn(n_relation, hidden_dim, dtype=dtype)
         self.relation_diag = nn.Embedding(n_relation, hidden_dim * 2, sparse=True)
-        self.relation_diag.weight.data = init_size * th.rand(n_relation, hidden_dim * 2, dtype=dtype) - 1.0
+        self.relation_diag.weight.data = 2 * th.rand(n_relation, hidden_dim * 2, dtype=dtype) - 1.0
         self.curvature = th.nn.Parameter(th.ones((n_relation, 1), dtype=dtype), requires_grad=True)
         self.context = nn.Embedding(n_relation, hidden_dim, sparse=True)
         self.context.weight.data = init_size * th.randn((n_relation, hidden_dim), dtype=dtype)
@@ -86,7 +86,7 @@ class AttHEncoder(Module):
             encoded_data['neg_head_bias'] = self.head_bias(fwd_data['neg'])
         elif neg_type == 'tail':
             encoded_data['neg_tail_bias'] = self.tail_bias(fwd_data['neg'])
-        elif neg_type == 'both':
+        elif neg_type == 'head_tail':
             encoded_data['neg_head_bias'] = self.head_bias(fwd_data['neg'])
             encoded_data['neg_tail_bias'] = self.tail_bias(fwd_data['neg'])
         else:

@@ -13,7 +13,7 @@ from .nn.metrics import RankingMetricsEvaluator
 from functools import partial
 import torch as th
 import time
-from .nn.modules import Model
+from .nn.modules import KEModel
 
 def create_dataset_graph(args):
     g = None
@@ -185,7 +185,7 @@ def main():
     # create decoders
     decoder = create_decoder(args)
 
-    model = Model(args.gpu, encoder, decoder, args.model)
+    model = KEModel(args.gpu, encoder, decoder, args.model)
 
     # attach graph, dataset, dataloader_generator
     model.attach_graph(g)

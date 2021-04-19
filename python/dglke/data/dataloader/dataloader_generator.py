@@ -1,7 +1,15 @@
+import copy
 import torch as th
 from torch.utils.data.dataloader import DataLoader
 
+
 class CustomizeDataLoaderGenerator:
+    """ dataloader generator base class that generates dataloader on the fly during fit&test.
+
+    This dataloader generator wraps all the necessary args for dataloader. As we might have multi-process
+    training/evaluation, the CustomizeDataLoaderGenerator automatically handle this situation and generate
+    partition dataloader for each subprocess.
+    """
     def __init__(self,
                  batch_size=1,
                  shuffle=False,
@@ -81,7 +89,7 @@ class KGETrainDataLoaderGenerator(CustomizeDataLoaderGenerator):
                                 prefetch_factor=self.prefetch_factor,
                                 persistent_workers=self.persistent_workers,
                                 num_workers=self.num_workers)
-        return TrainDataLoader(dataloader, self.metadata)
+        return KGETrainDataLoader(dataloader, self.metadata)
 
 class KGEEvalDataLoaderGenerator(CustomizeDataLoaderGenerator):
     def __init__(self,
@@ -130,18 +138,24 @@ class KGEEvalDataLoaderGenerator(CustomizeDataLoaderGenerator):
                                 prefetch_factor=self.prefetch_factor,
                                 persistent_workers=self.persistent_workers,
                                 num_workers=self.num_workers)
-        return EvalDataLoader(dataloader, self.metadata)
+        return KGEEvalDataLoader(dataloader, self.metadata)
 
-# wrapper for dataloader to pass metadata into arguments
-class TrainDataLoader:
+class KGETrainDataLoader:
+    """ Train Dataloader that wraps torch.utils.data.dataloader and metadata
+
+    TrainDataloader is an iterable that outputs samples just as torch.utils.data.dataloader. Besides,
+    it provide additional metadata of the training dataset like neg_type, chunk_size, etc.
+    """
     def __init__(self,
                  dataloader,
                  train_args=dict()):
         self.dataloader = dataloader
-        self.data = train_args
+        self.args = train_args
 
     def __iter__(self):
         self.iter_data = iter(self.dataloader)
+        self.data = dict()
+        self.data.update(self.args)
         return self
 
     def __next__(self):
@@ -155,14 +169,20 @@ class TrainDataLoader:
                           'edge_impt': edge_impt})
         return self.data
 
-class EvalDataLoader:
+class KGEEvalDataLoader:
+    """ Eval Dataloader that wraps torch.utils.data.dataloader and metadata
+
+    """
     def __init__(self, dataloader, eval_args):
-        self.data = eval_args
-        self.data['neg'] = th.arange(eval_args['num_nodes'])
+        self.args = eval_args
+        self.neg = th.arange(eval_args['num_nodes'])
         self.dataloader = dataloader
 
     def __iter__(self):
         self.iter_data = iter(self.dataloader)
+        self.data = dict()
+        self.data.update(self.args)
+        self.data['neg'] = self.neg
         return self
 
     def __next__(self):
