@@ -12,6 +12,18 @@ DGL-KE provides five built-in knowledge graphs:
 
 Users can specify one of the datasets with `--dataset` option in their tasks.
 
+### Built-in OGB Datasets
+
+DGL-KE also provides two built-in knowledge graphs form [OGB](https://ogb.stanford.edu):
+
+| Dataset                                            | #nodes    | #edges     | #relations |
+| -------------------------------------------------- | --------- | ---------- | ---------- |
+| [wikikg2](https://data.dgl.ai/dataset/wikikg2.zip) | 2,500,604 | 17,137,181 | 535        |
+| [biokg](https://data.dgl.ai/dataset/biokg.zip)     | 93,773    | 5,088,434  | 51         |
+
+Users can also specify one of the datasets with `--dataset` option in their tasks.
+
+
 ## Benchmark result
 
 DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`. Users can go to the corresponded folder to check out the scripts and results. All the benchmark results are done by AWS EC2. For multi-cpu and distributed training, the target instance is `r5dn.24xlarge`, which has 48 CPU cores and 768 GB memory. Also, `r5dn.xlarge` has 100Gbit network throughput, which is powerful for distributed training. For GPU training, our target instance is `p3.16xlarge`, which has 64 CPU cores and 8 Nvidia v100 GPUs. For users, you can choose your own instance by your demand and tune the hyper-parameters for the best performance.
@@ -153,4 +165,32 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 | RotatE    | Logistic   | False    | 39.24  | 0.719 | 0.629  | 0.785  | 0.867   | 132  |
 | RotatE    | Logistic   | True     | 63.72  | 0.586 | 0.466  | 0.666  | 0.789   | 128  |
 | RotatE    | Logsigmoid | False    | 39.42  | 0.720 | 0.631  | 0.786  | 0.865   | 127  |
+
+## OGB Dataset Benchmark Result
+
+The OGB dataset benchmark result is evaluated by DGL-KE's own evaluation script. So the result will be different with the OGB leaderboards result.
+
+### wikikg2
+
+#### 8-GPU training
+
+| Models    | MR    | MRR   | HITS@1 | HITS@3 | HITS@10 | TIME |
+| --------- | ----- | ----- | ------ | ------ | ------- | ---- |
+| TransE_l2 | 83.01 | 0.424 | 0.380  | 0.437  | 0.500   | 64   |
+| DistMult  | 64.65 | 0.362 | 0.282  | 0.393  | 0.507   | 184  |
+| RotatE    | 58.77 | 0.446 | 0.392  | 0.460  | 0.549   | 179  |
+| ComplEx   | 50.72 | 0.449 | 0.378  | 0.472  | 0.585   | 188  |
+
+### biokg
+
+The entities in biokg has different types, but dglke v0.1 doesn't support sampling using entity types. So the result is lower than OGB leaderboards result.
+
+#### 8-GPU training
+
+| Models    | MR    | MRR   | HITS@1 | HITS@3 | HITS@10 | TIME |
+| --------- | ----- | ----- | ------ | ------ | ------- | ---- |
+| TransE_l2 | 27.16 | 0.384 | 0.248  | 0.464  | 0.626   | 1793 |
+| DistMult  | 7.19  | 0.635 | 0.485  | 0.758  | 0.878   | 1865 |
+| RotatE    | 7.16  | 0.630 | 0.474  | 0.758  | 0.879   | 3053 |
+| ComplEx   | 7.51  | 0.627 | 0.473  | 0.752  | 0.874   | 1908 |
 
