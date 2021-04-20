@@ -168,14 +168,29 @@ DGL-KE also provides benchmark results on `FB15k`, `wn18`, as well as `Freebase`
 
 ## OGB Dataset Benchmark Result
 
+The OGB dataset benchmark result is evaluated by DGL-KE's own evaluation script. So the result will be different with the OGB leaderboards result.
+
 ### wikikg2
 
 #### 8-GPU training
 
-| Models    | MR     | MRR   | HITS@1 | HITS@3 | HITS@10 | TIME |
-| --------- | ------ | ----- | ------ | ------ | ------- | ---- |
-| TransE_l2 | 102.26 | 0.430 | 0.402  | 0.435  | 0.471   | 829  |
-| DistMult  | 49.12  | 0.457 | 0.393  | 0.473  | 0.582   | 757  |
-| RotatE    | 19.12  | 0.595 | 0.525  | 0.618  | 0.743   | 918  |
-| ComplEx   |        |       |        |        |         | 806  |
+| Models    | MR    | MRR   | HITS@1 | HITS@3 | HITS@10 | TIME |
+| --------- | ----- | ----- | ------ | ------ | ------- | ---- |
+| TransE_l2 | 83.01 | 0.424 | 0.380  | 0.437  | 0.500   | 64   |
+| DistMult  | 64.65 | 0.362 | 0.282  | 0.393  | 0.507   | 184  |
+| RotatE    | 58.77 | 0.446 | 0.392  | 0.460  | 0.549   | 179  |
+| ComplEx   | 50.72 | 0.449 | 0.378  | 0.472  | 0.585   | 188  |
+
+### biokg
+
+The entities in biokg has different types, but dglke v0.1 doesn't support sampling using entity types. So the result is lower than OGB leaderboards result.
+
+#### 8-GPU training
+
+| Models    | MR    | MRR   | HITS@1 | HITS@3 | HITS@10 | TIME |
+| --------- | ----- | ----- | ------ | ------ | ------- | ---- |
+| TransE_l2 | 27.16 | 0.384 | 0.248  | 0.464  | 0.626   | 1793 |
+| DistMult  | 7.19  | 0.635 | 0.485  | 0.758  | 0.878   | 1865 |
+| RotatE    | 7.16  | 0.630 | 0.474  | 0.758  | 0.879   | 3053 |
+| ComplEx   | 7.51  | 0.627 | 0.473  | 0.752  | 0.874   | 1908 |
 
