@@ -428,7 +428,7 @@ class KGDatasetUDDRaw(KGDataset):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
-                'File {} now exist in {}'.format(f, path)
+                'File {} not exist in {}'.format(f, path)
 
         assert len(format) == 3
         format = _parse_srd_format(format)
@@ -551,7 +551,7 @@ class KGDatasetUDD(KGDataset):
         self.name = name
         for f in files:
             assert os.path.exists(os.path.join(path, f)), \
-                'File {} now exist in {}'.format(f, path)
+                'File {} not exist in {}'.format(f, path)
 
         format = _parse_srd_format(format)
         assert len(files) == 3 or len(files) == 5, 'udd_{htr} format requires 3 or 5 input files. '\
