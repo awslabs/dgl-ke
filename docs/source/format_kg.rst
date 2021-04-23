@@ -83,7 +83,7 @@ Following gives an example of Raw User Defined Knowledge Graph files:
 train.txt::
 
     "Beijing","is_capital_of","China"
-    "Pairs","is_capital_of","France"
+    "Paris","is_capital_of","France"
     "London","is_capital_of","UK"
     "UK","located_at","Europe"
     "China","located_at","Asia"
@@ -104,7 +104,7 @@ Following gives an example of Raw User Defined Knowledge Graph with edge importa
 train.txt::
 
     "Beijing","is_capital_of","China",2.0
-    "Pairs","is_capital_of","France",1.0
+    "Paris","is_capital_of","France",1.0
 
 
 Format of User Defined Knowledge Graph
@@ -146,7 +146,7 @@ entities.dict::
 
     0,"Beijing"
     1,"China"
-    2,"Pairs"
+    2,"Paris"
     3,"France"
     4,"London"
     5,"UK"
@@ -201,7 +201,7 @@ entities.dict::
 
     0,"Beijing"
     1,"China"
-    2,"Pairs"
+    2,"Paris"
     3,"France"
     4,"London"
     5,"UK"
