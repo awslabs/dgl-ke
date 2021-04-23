@@ -152,7 +152,5 @@ cscope.*
 *.params
 
 # local test file
-ke_test.py
 python/**/*.sh
-python/dglke/scripts/
 python/**/best_result.py
