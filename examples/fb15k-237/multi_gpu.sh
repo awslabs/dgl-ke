@@ -1,0 +1,2 @@
+# AttH
+--model_name TransE --dataset FB15k --batch_size 1000 --log_interval 1000 --neg_sample_size 200 --regularization_coef 1e-07 --hidden_dim 400 --gamma 16.0 --lr 0.01 --batch_size_eval 16 --test -adv --gpu 0 --max_step 24000
