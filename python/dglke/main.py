@@ -79,7 +79,10 @@ def create_encoder(args):
         encoder = KGEEncoder(hidden_dim=args.hidden_dim,
                              n_entity=args.n_entities,
                              n_relation=args.n_relations,
-                             init_func=init_func)
+                             init_func=init_func,
+                             double_ent=args.double_ent,
+                             double_rel=args.double_rel,
+                             score_func=args.score_func)
         return encoder
     elif args.encoder == 'AttH':
         from .nn.modules import AttHEncoder
