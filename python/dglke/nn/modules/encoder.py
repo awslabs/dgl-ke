@@ -9,10 +9,17 @@ class KGEEncoder(Module):
                  n_entity,
                  n_relation,
                  init_func,
-                 encoder_name='KGEEncoder',):
+                 encoder_name='KGEEncoder',
+                 double_ent=False,
+                 double_rel=False,
+                 score_func='TransE'):
         super(KGEEncoder, self).__init__(encoder_name)
-        self.entity_emb = nn.Embedding(n_entity, hidden_dim, sparse=True)
-        self.relation_emb = nn.Embedding(n_relation, hidden_dim, sparse=True)
+        self.score_func = score_func
+        self.entity_emb = nn.Embedding(n_entity, 2 * hidden_dim if double_ent else hidden_dim, sparse=True)
+        if score_func == "RESCAL":
+            self.relation_emb = nn.Embedding(n_relation, hidden_dim * hidden_dim, sparse=True)
+        else:
+            self.relation_emb = nn.Embedding(n_relation, 2 * hidden_dim if double_rel else hidden_dim, sparse=True)
         # use init func to initialize parameters
         init_func[0](self.entity_emb.weight.data)
         init_func[1](self.relation_emb.weight.data)

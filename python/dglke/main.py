@@ -8,7 +8,7 @@ from .nn.modules import KGEDecoder, AttHDecoder
 from .nn.loss import sLCWAKGELossGenerator
 from .nn.loss import BCELoss, HingeLoss, LogisticLoss, LogsigmoidLoss
 from .regularizer import Regularizer
-from .nn.modules import TransEScore
+from .nn.modules import TransEScore, DistMultScore, ComplExScore, RESCALScore, RotatEScore, SimplEScore
 from .nn.metrics import RankingMetricsEvaluator
 from functools import partial
 import torch as th
@@ -93,9 +93,24 @@ def create_encoder(args):
 def create_decoder(args):
     if args.decoder == 'KGE':
         # add score function
+
+        entity_dim = 2 * args.hidden_dim if args.double_ent else args.hidden_dim
+        relation_dim = 2 * args.hidden_dim if args.double_rel else args.hidden_dim
+        emb_init = (args.gamma + 2.0) / args.hidden_dim
+
         if 'TransE' in args.score_func:
             dist = args.score_func.split('_')[-1]
             score_func = TransEScore(args.gamma, dist_func=dist if dist != '' else 'l1')
+        elif args.score_func == 'DistMult':
+            score_func = DistMultScore()
+        elif args.score_func == 'ComplEx':
+            score_func = ComplExScore()
+        elif args.score_func == 'RESCAL':
+            score_func = RESCALScore(relation_dim, entity_dim)
+        elif args.score_func == 'RotatE':
+            score_func = RotatEScore(args.gamma, emb_init)
+        elif args.score_func == 'SimplE':
+            score_func = SimplEScore()
         else:
             raise NotImplementedError(f'score func {args.score_func} is not implemented yet.')
 
