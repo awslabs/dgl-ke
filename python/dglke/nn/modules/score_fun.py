@@ -19,7 +19,7 @@
 
 import torch as th
 import torch.nn as nn
-from utils.math import expmap0, project, mobius_add, tanh, artanh, MIN_NORM
+from dglke.utils.math import expmap0, project, mobius_add, tanh, artanh, MIN_NORM
 import numpy as np
 import os
 
@@ -137,6 +137,15 @@ class TransRScore(nn.Module):
     def infer(self, head_emb, rel_emb, tail_emb):
         pass
 
+    def predict(self, head, rel, tail, rel_id):
+        projection = self.projection_emb(rel_id)
+        projection = projection.reshape(-1, self.entity_dim, self.relation_dim)
+        head = th.einsum('ab,abc->ac', head, projection)
+        tail = th.einsum('ab,abc->ac', tail, projection)
+        score  = head + rel - tail
+        return self.gamma - th.norm(score, p=1, dim=-1)
+
+
     def prepare(self, g, gpu_id, trace=False):
         head_ids, tail_ids = g.all_edges(order='eid')
         projection = self.projection_emb(g.edata['id'], gpu_id, trace)
@@ -206,18 +215,34 @@ class TransRScore(nn.Module):
     def create_neg(self, neg_head):
         gamma = self.gamma
         if neg_head:
-            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
-                relations = relations.reshape(num_chunks, -1, self.relation_dim)
+            def fn(heads, relations, tails, rel_ids, chunk_size, neg_sample_size):
+                projection = self.projection_emb(rel_ids)
+                projection = projection.reshape(1, -1, self.entity_dim, self.relation_dim)
+                tails = tails.reshape(1, -1, 1, self.entity_dim)
+                tails = th.matmul(tails, projection)
+                tails = tails.reshape(1, -1, self.relation_dim)
+                heads = heads.reshape(1, 1, -1, self.entity_dim)
+                heads = th.matmul(heads, projection)
+
+                relations = relations.reshape(1, -1, self.relation_dim)
                 tails = tails - relations
-                tails = tails.reshape(num_chunks, -1, 1, self.relation_dim)
+                tails = tails.reshape(1, -1, 1, self.relation_dim)
                 score = heads - tails
                 return gamma - th.norm(score, p=1, dim=-1)
             return fn
         else:
-            def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
-                relations = relations.reshape(num_chunks, -1, self.relation_dim)
-                heads = heads - relations
-                heads = heads.reshape(num_chunks, -1, 1, self.relation_dim)
+            def fn(heads, relations, tails, rel_ids, chunk_size, neg_sample_size):
+                projection = self.projection_emb(rel_ids)
+                projection = projection.reshape(1, -1, self.entity_dim, self.relation_dim)
+                heads = heads.reshape(1, -1, 1, self.entity_dim)
+                heads = th.matmul(heads, projection)
+                heads = heads.reshape(1, -1, self.relation_dim)
+                tails = tails.reshape(1, 1, -1, self.entity_dim)
+                tails = th.matmul(tails, projection)
+
+                relations = relations.reshape(1, -1, self.relation_dim)
+                heads = heads + relations
+                heads = heads.reshape(1, -1, 1, self.relation_dim)
                 score = heads - tails
                 return gamma - th.norm(score, p=1, dim=-1)
             return fn

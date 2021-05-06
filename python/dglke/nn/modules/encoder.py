@@ -6,12 +6,12 @@ import numpy as np
 class KGEEncoder(Module):
     def __init__(self,
                  hidden_dim,
+                 double_ent,
+                 double_rel,
                  n_entity,
                  n_relation,
                  init_func,
                  encoder_name='KGEEncoder',
-                 double_ent=False,
-                 double_rel=False,
                  score_func='TransE'):
         super(KGEEncoder, self).__init__(encoder_name)
         self.score_func = score_func
@@ -30,6 +30,14 @@ class KGEEncoder(Module):
         tail = self.entity_emb(fwd_data['tail'])
         rel = self.relation_emb(fwd_data['rel'])
         neg = self.entity_emb(fwd_data['neg'])
+
+        if self.score_func == 'TransR':
+            rel_id = fwd_data['rel']
+            return {'head': head,
+                    'rel': rel,
+                    'tail': tail,
+                    'neg': neg,
+                    'rel_id': rel_id}
 
         return {'head': head,
                 'rel': rel,

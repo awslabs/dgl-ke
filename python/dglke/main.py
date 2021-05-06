@@ -1,14 +1,15 @@
 from .utils.argparser import TrainArgParser
 from .utils.misc import prepare_args
 from .utils.logging import Logger
-from data import get_dataset, TrainDataset, TestDataset, ValidDataset
-from data.dataloader import KGETrainDataLoaderGenerator, KGEEvalDataLoaderGenerator
+from .data import get_dataset, TrainDataset, TestDataset, ValidDataset
+from .data.dataloader import KGETrainDataLoaderGenerator, KGEEvalDataLoaderGenerator
 from .utils import EMB_INIT_EPS
 from .nn.modules import KGEDecoder, AttHDecoder
 from .nn.loss import sLCWAKGELossGenerator
 from .nn.loss import BCELoss, HingeLoss, LogisticLoss, LogsigmoidLoss
 from .regularizer import Regularizer
-from .nn.modules import TransEScore, DistMultScore, ComplExScore, RESCALScore, RotatEScore, SimplEScore
+from .nn.modules import TransEScore, TransRScore, DistMultScore, ComplExScore, RESCALScore, RotatEScore, SimplEScore
+from .nn.modules import ExternalEmbedding
 from .nn.metrics import RankingMetricsEvaluator
 from functools import partial
 import torch as th
@@ -59,7 +60,7 @@ def create_dataloader_generator(args):
                                           drop_last=True,
                                           metadata=train_metadata)
     eval_metadata = {'num_nodes': args.n_entities,
-                     'chunk_size': 1,
+                     'chunk_size': args.batch_size_eval,
                      'neg_sample_size': args.n_entities,
                      'chunk': True}
     eval_dataloader = KGEEvalDataLoaderGenerator(batch_size=args.batch_size_eval,
@@ -77,11 +78,11 @@ def create_encoder(args):
         else:
             raise NotImplementedError(f'init {args.init} is not implemented yet.')
         encoder = KGEEncoder(hidden_dim=args.hidden_dim,
+                             double_ent=args.double_ent,
+                             double_rel=args.double_rel,
                              n_entity=args.n_entities,
                              n_relation=args.n_relations,
                              init_func=init_func,
-                             double_ent=args.double_ent,
-                             double_rel=args.double_rel,
                              score_func=args.score_func)
         return encoder
     elif args.encoder == 'AttH':
@@ -104,6 +105,13 @@ def create_decoder(args):
         if 'TransE' in args.score_func:
             dist = args.score_func.split('_')[-1]
             score_func = TransEScore(args.gamma, dist_func=dist if dist != '' else 'l1')
+        elif args.score_func == 'TransR':
+            projection_emb = ExternalEmbedding(args,
+                                               args.n_relations,
+                                               entity_dim * relation_dim,
+                                               'cpu')
+
+            score_func = TransRScore(args.gamma, projection_emb, relation_dim, entity_dim)
         elif args.score_func == 'DistMult':
             score_func = DistMultScore()
         elif args.score_func == 'ComplEx':

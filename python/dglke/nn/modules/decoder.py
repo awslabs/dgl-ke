@@ -4,6 +4,7 @@ from .score_fun import ATTHScore
 import torch.nn as nn
 from dglke.nn.loss.loss_generator import LossGenerator
 from dglke.nn.metrics import MetricsEvaluator
+from dglke.nn.modules import TransEScore, TransRScore, DistMultScore, ComplExScore, RESCALScore, RotatEScore, SimplEScore
 
 class BaseDecoder(Module):
     def __init__(self,
@@ -76,7 +77,14 @@ class KGEDecoder(BaseDecoder):
         if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
             raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
         head, rel, tail = encoded_data['head'], encoded_data['rel'], encoded_data['tail']
-        pos_score = self._score_func.predict(head, rel, tail)
+        if isinstance(self._score_func, TransRScore):
+            rel_id = encoded_data['rel_id']
+
+        if isinstance(self._score_func, TransRScore):
+            pos_score = self._score_func.predict(head, rel, tail, rel_id)
+        else:    
+            pos_score = self._score_func.predict(head, rel, tail)
+
         if 'neg_type' not in data.keys():
             return {'pos_score': pos_score}
         else:
@@ -84,19 +92,31 @@ class KGEDecoder(BaseDecoder):
             neg = encoded_data['neg']
             if data['neg_type'] == 'head':
                 neg_func = self._score_func.create_neg(True)
-                neg_score = neg_func(neg, rel, tail, chunk_size, neg_sample_size)
+                if isinstance(self._score_func, TransRScore):
+                    neg_score = neg_func(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
+                else:
+                    neg_score = neg_func(neg, rel, tail, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score': neg_score}
             elif data['neg_type'] == 'tail':
                 neg_func = self._score_func.create_neg(False)
-                neg_score = neg_func(head, rel, neg, chunk_size, neg_sample_size)
+                if isinstance(self._score_func, TransRScore):
+                    neg_score = neg_func(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
+                else:
+                    neg_score = neg_func(head, rel, neg, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score': neg_score}
             elif data['neg_type'] == 'head_tail' :
                 neg_func_head = self._score_func.create_neg(True)
-                neg_score_head = neg_func_head(neg, rel, tail, chunk_size, neg_sample_size)
+                if isinstance(self._score_func, TransRScore):
+                    neg_score_head = neg_func_head(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
+                else:
+                    neg_score_head = neg_func_head(neg, rel, tail, chunk_size, neg_sample_size)
                 neg_func_tail = self._score_func.create_neg(False)
-                neg_score_tail = neg_func_tail(head, rel, neg, chunk_size, neg_sample_size)
+                if isinstance(self._score_func, TransRScore):
+                    neg_score_tail = neg_func_tail(head, rel, neg, rel_id, chunk_size, neg_sample_size)
+                else:
+                    neg_score_tail = neg_func_tail(head, rel, neg, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score_head': neg_score_head,
                         'neg_score_tail': neg_score_tail}
