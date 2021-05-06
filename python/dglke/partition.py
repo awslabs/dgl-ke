@@ -33,7 +33,7 @@ def write_txt_graph(path, file_name, part_dict, total_nodes, total_relations):
         # Get (h,r,t) triples
         partition_path = path + str(part_id)
         if not os.path.exists(partition_path):
-            os.mkdir(partition_path)
+            os.makedirs(partition_path)
         triple_file = os.path.join(partition_path, file_name)
         f = open(triple_file, 'w')
         graph = part_dict[part_id]
