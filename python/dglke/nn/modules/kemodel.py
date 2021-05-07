@@ -142,10 +142,6 @@ class KEModel(nn.Module):
             decode_results = self.decoder.forward(encode_results, data, gpu_id)
             loss['decode'] = self.decoder.get_loss(decode_results)
             if regularizer is not None:
-                if self.encoder.score_func == 'TransR':
-                    encode_results = {'head' : encode_results['head'],
-                                      'rel' : encode_results['rel'],
-                                      'tail' : encode_results['tail']}
                 loss['reg'] = regularizer.compute_regularization(encode_results)
             total_loss = 0
             for k, v in loss.items():

@@ -4,7 +4,7 @@ from .utils.logging import Logger
 from .data import get_dataset, TrainDataset, TestDataset, ValidDataset
 from .data.dataloader import KGETrainDataLoaderGenerator, KGEEvalDataLoaderGenerator
 from .utils import EMB_INIT_EPS
-from .nn.modules import KGEDecoder, AttHDecoder
+from .nn.modules import KGEDecoder, AttHDecoder, TransRDecoder
 from .nn.loss import sLCWAKGELossGenerator
 from .nn.loss import BCELoss, HingeLoss, LogisticLoss, LogsigmoidLoss
 from .regularizer import Regularizer
@@ -78,12 +78,22 @@ def create_encoder(args):
         else:
             raise NotImplementedError(f'init {args.init} is not implemented yet.')
         encoder = KGEEncoder(hidden_dim=args.hidden_dim,
-                             double_ent=args.double_ent,
-                             double_rel=args.double_rel,
                              n_entity=args.n_entities,
                              n_relation=args.n_relations,
                              init_func=init_func,
                              score_func=args.score_func)
+        return encoder
+    elif args.encoder == 'TransR':
+        from .nn.modules import TransREncoder
+        if args.init == 'uniform':
+            emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
+            init_func = [partial(th.nn.init.uniform_, a=-emb_init, b=emb_init), partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)]
+        else:
+            raise NotImplementedError(f'init {args.init} is not implemented yet.')
+        encoder = TransREncoder(hidden_dim=args.hidden_dim,
+                             n_entity=args.n_entities,
+                             n_relation=args.n_relations,
+                             init_func=init_func)
         return encoder
     elif args.encoder == 'AttH':
         from .nn.modules import AttHEncoder
@@ -98,26 +108,17 @@ def create_decoder(args):
     if args.decoder == 'KGE':
         # add score function
 
-        entity_dim = 2 * args.hidden_dim if args.double_ent else args.hidden_dim
-        relation_dim = 2 * args.hidden_dim if args.double_rel else args.hidden_dim
         emb_init = (args.gamma + 2.0) / args.hidden_dim
 
         if 'TransE' in args.score_func:
             dist = args.score_func.split('_')[-1]
             score_func = TransEScore(args.gamma, dist_func=dist if dist != '' else 'l1')
-        elif args.score_func == 'TransR':
-            projection_emb = ExternalEmbedding(args,
-                                               args.n_relations,
-                                               entity_dim * relation_dim,
-                                               'cpu')
-
-            score_func = TransRScore(args.gamma, projection_emb, relation_dim, entity_dim)
         elif args.score_func == 'DistMult':
             score_func = DistMultScore()
         elif args.score_func == 'ComplEx':
             score_func = ComplExScore()
         elif args.score_func == 'RESCAL':
-            score_func = RESCALScore(relation_dim, entity_dim)
+            score_func = RESCALScore(args.hidden_dim, args.hidden_dim)
         elif args.score_func == 'RotatE':
             score_func = RotatEScore(args.gamma, emb_init)
         elif args.score_func == 'SimplE':
@@ -146,6 +147,37 @@ def create_decoder(args):
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
         decoder = KGEDecoder(args.decoder,
+                             score_func,
+                             loss_gen,
+                             metrics_evaluator)
+        return decoder
+    elif args.decoder == 'TransR':
+        projection_emb = ExternalEmbedding(args,
+                                           args.n_relations,
+                                           args.hidden_dim * args.hidden_dim,
+                                           'cpu')
+
+        score_func = TransRScore(args.gamma, projection_emb, args.hidden_dim, args.hidden_dim)
+
+        # add loss generator for each decoder
+        loss_gen = sLCWAKGELossGenerator(neg_adversarial_sampling=args.neg_adversarial_sampling,
+                                         adversarial_temperature=args.adversarial_temperature,
+                                         pairwise=args.pairwise,
+                                         label_smooth=args.label_smooth)
+        if args.loss_genre == 'Logsigmoid':
+            criterion = LogsigmoidLoss()
+        elif args.loss_genre == 'Hinge':
+            criterion = HingeLoss(margin=args.margin)
+        elif args.loss_genre == 'Logistic':
+            criterion = LogisticLoss()
+        elif args.loss_genre == 'BCE':
+            criterion = BCELoss()
+        else:
+            raise ValueError(f'criterion {args.loss_genre} is not supported.')
+        loss_gen.set_criterion(criterion)
+        # add metrics evaluator for decoder
+        metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
+        decoder = TransRDecoder(args.decoder,
                              score_func,
                              loss_gen,
                              metrics_evaluator)

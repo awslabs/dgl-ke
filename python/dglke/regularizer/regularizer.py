@@ -21,6 +21,8 @@ class Regularizer:
         reg = 0
         if type(params) == dict:
             for k, v in params.items():
+                if k == 'rel_id':
+                    continue
                 reg += self.coef * norm(v, p=self.norm)
         elif type(params) == list:
             reg += self.coef * norm(params, p=self.norm)

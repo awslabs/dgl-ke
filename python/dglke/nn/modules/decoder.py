@@ -92,31 +92,102 @@ class KGEDecoder(BaseDecoder):
             neg = encoded_data['neg']
             if data['neg_type'] == 'head':
                 neg_func = self._score_func.create_neg(True)
-                if isinstance(self._score_func, TransRScore):
-                    neg_score = neg_func(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
-                else:
-                    neg_score = neg_func(neg, rel, tail, chunk_size, neg_sample_size)
+                neg_score = neg_func(neg, rel, tail, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score': neg_score}
             elif data['neg_type'] == 'tail':
                 neg_func = self._score_func.create_neg(False)
-                if isinstance(self._score_func, TransRScore):
-                    neg_score = neg_func(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
-                else:
-                    neg_score = neg_func(head, rel, neg, chunk_size, neg_sample_size)
+                neg_score = neg_func(head, rel, neg, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score': neg_score}
             elif data['neg_type'] == 'head_tail' :
                 neg_func_head = self._score_func.create_neg(True)
-                if isinstance(self._score_func, TransRScore):
-                    neg_score_head = neg_func_head(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
-                else:
-                    neg_score_head = neg_func_head(neg, rel, tail, chunk_size, neg_sample_size)
+                neg_score_head = neg_func_head(neg, rel, tail, chunk_size, neg_sample_size)
                 neg_func_tail = self._score_func.create_neg(False)
-                if isinstance(self._score_func, TransRScore):
-                    neg_score_tail = neg_func_tail(head, rel, neg, rel_id, chunk_size, neg_sample_size)
-                else:
-                    neg_score_tail = neg_func_tail(head, rel, neg, chunk_size, neg_sample_size)
+                neg_score_tail = neg_func_tail(head, rel, neg, chunk_size, neg_sample_size)
+                return {'pos_score': pos_score,
+                        'neg_score_head': neg_score_head,
+                        'neg_score_tail': neg_score_tail}
+            else:
+                raise ValueError(f"{data['neg_type']} is not correct, choose from head, tail, both.")
+
+    def infer(self, head_emb, rel_emb, tail_emb):
+        pass
+
+    def evaluate(self, results, data, graph):
+        return self.metrics_evaluator.evaluate(results, data, graph)
+
+class TransRDecoder(BaseDecoder):
+    """ General KGE Decoder
+
+    The KGE Decoder supports different type of embedding methods including TransE_l1, TransE_l2, TransR, RESCAL,
+    DistMult, ComplEx, RotatE, SimplE. By subsituting score_func, user can define their own embedding method.
+    """
+    def __init__(self,
+                 decoder_name='TransRDecoder',
+                 score_func=None,
+                 loss_gen=LossGenerator(),
+                 metrics_evaluator=MetricsEvaluator(),
+                 ):
+        super(TransRDecoder, self).__init__(decoder_name,
+                                         metrics_evaluator,
+                                         loss_gen)
+        self._score_func = score_func
+
+    def set_training_params(self, args):
+        pass
+
+    def set_test_params(self, args):
+        pass
+
+    def forward(self, encoded_data, data, gpu_id):
+        """ calculate positive scores and/or negative scores for KGE
+
+        Parameters
+        ----------
+        encoded_data: dict
+            dict of embeddings sliced by sample indicies of training data
+        data: dict
+            dict of training data containing head, rel, tail, neg indicies and metadata
+        gpu_id: int
+            which gpu to perform this calculation
+
+        Returns
+        -------
+        dict of tensors
+            positive_score,  (neg_score/neg_score_head, neg_score_tail)
+        """
+        if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
+            raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
+        head, rel, tail = encoded_data['head'], encoded_data['rel'], encoded_data['tail']
+        if isinstance(self._score_func, TransRScore):
+            rel_id = encoded_data['rel_id']
+
+        if isinstance(self._score_func, TransRScore):
+            pos_score = self._score_func.predict(head, rel, tail, rel_id)
+        else:    
+            pos_score = self._score_func.predict(head, rel, tail)
+
+        if 'neg_type' not in data.keys():
+            return {'pos_score': pos_score}
+        else:
+            chunk_size, neg_sample_size = data['chunk_size'], data['neg_sample_size']
+            neg = encoded_data['neg']
+            if data['neg_type'] == 'head':
+                neg_func = self._score_func.create_neg(True)
+                neg_score = neg_func(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
+                return {'pos_score': pos_score,
+                        'neg_score': neg_score}
+            elif data['neg_type'] == 'tail':
+                neg_func = self._score_func.create_neg(False)
+                neg_score = neg_func(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
+                return {'pos_score': pos_score,
+                        'neg_score': neg_score}
+            elif data['neg_type'] == 'head_tail' :
+                neg_func_head = self._score_func.create_neg(True)
+                neg_score_head = neg_func_head(neg, rel, tail, rel_id, chunk_size, neg_sample_size)
+                neg_func_tail = self._score_func.create_neg(False)
+                neg_score_tail = neg_func_tail(head, rel, neg, rel_id, chunk_size, neg_sample_size)
                 return {'pos_score': pos_score,
                         'neg_score_head': neg_score_head,
                         'neg_score_tail': neg_score_tail}
