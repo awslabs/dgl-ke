@@ -77,13 +77,8 @@ class KGEDecoder(BaseDecoder):
         if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
             raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
         head, rel, tail = encoded_data['head'], encoded_data['rel'], encoded_data['tail']
-        if isinstance(self._score_func, TransRScore):
-            rel_id = encoded_data['rel_id']
 
-        if isinstance(self._score_func, TransRScore):
-            pos_score = self._score_func.predict(head, rel, tail, rel_id)
-        else:    
-            pos_score = self._score_func.predict(head, rel, tail)
+        pos_score = self._score_func.predict(head, rel, tail)
 
         if 'neg_type' not in data.keys():
             return {'pos_score': pos_score}
@@ -159,14 +154,9 @@ class TransRDecoder(BaseDecoder):
         """
         if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
             raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
-        head, rel, tail = encoded_data['head'], encoded_data['rel'], encoded_data['tail']
-        if isinstance(self._score_func, TransRScore):
-            rel_id = encoded_data['rel_id']
-
-        if isinstance(self._score_func, TransRScore):
-            pos_score = self._score_func.predict(head, rel, tail, rel_id)
-        else:    
-            pos_score = self._score_func.predict(head, rel, tail)
+        head, rel, tail, rel_id = encoded_data['head'], encoded_data['rel'], encoded_data['tail'], encoded_data['rel_id']
+        
+        pos_score = self._score_func.predict(head, rel, tail, rel_id)
 
         if 'neg_type' not in data.keys():
             return {'pos_score': pos_score}
