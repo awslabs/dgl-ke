@@ -4,4 +4,3 @@ from .score_fun import TransEScore, TransRScore, SimplEScore, RotatEScore, RESCA
 from .encoder import *
 from .decoder import *
 from .kemodel import KEModel
-from .embedding import *

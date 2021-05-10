@@ -192,7 +192,7 @@ class TransRScore(nn.Module):
         self.projection_emb.init(1.0)
 
     def update(self, gpu_id=-1):
-        self.projection_emb.update(gpu_id)
+        pass
 
     def save(self, path, name):
         self.projection_emb.save(path, name + 'projection')

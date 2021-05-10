@@ -9,10 +9,10 @@ from .nn.loss import sLCWAKGELossGenerator
 from .nn.loss import BCELoss, HingeLoss, LogisticLoss, LogsigmoidLoss
 from .regularizer import Regularizer
 from .nn.modules import TransEScore, TransRScore, DistMultScore, ComplExScore, RESCALScore, RotatEScore, SimplEScore
-from .nn.modules import ExternalEmbedding
 from .nn.metrics import RankingMetricsEvaluator
 from functools import partial
 import torch as th
+from torch import nn
 import time
 from .nn.modules import KEModel
 
@@ -152,10 +152,14 @@ def create_decoder(args):
                              metrics_evaluator)
         return decoder
     elif args.decoder == 'TransR':
-        projection_emb = ExternalEmbedding(args,
-                                           args.n_relations,
-                                           args.hidden_dim * args.hidden_dim,
-                                           'cpu')
+        if args.init == 'uniform':
+            emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
+            init_func = partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)
+        else:
+            raise NotImplementedError(f'init {args.init} is not implemented yet.')
+        
+        projection_emb = nn.Embedding(args.n_relations, args.hidden_dim * args.hidden_dim, sparse=True)
+        init_func(projection_emb.weight.data)
 
         score_func = TransRScore(args.gamma, projection_emb, args.hidden_dim, args.hidden_dim)
 
