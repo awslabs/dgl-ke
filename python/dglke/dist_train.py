@@ -156,6 +156,9 @@ MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 DGLBACKEND=pytorch dglke_client --model %s \
         cmd_str += ' --no_save_emb'
     if args.neg_adversarial_sampling == True:
         cmd_str += ' -adv'
+    if args.data_files:
+        data_files = ' '.join(args.data_files)
+        cmd_str += ' --data_files %s' % (data_files)
 
     file_path = os.path.join(args.path, SCRIPT_FILE)
     if os.path.exists(file_path):
