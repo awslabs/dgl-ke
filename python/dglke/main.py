@@ -4,6 +4,7 @@ from .utils.logging import Logger
 from .data import get_dataset, TrainDataset, TestDataset, ValidDataset
 from .data.dataloader import KGETrainDataLoaderGenerator, KGEEvalDataLoaderGenerator
 from .utils import EMB_INIT_EPS
+from .nn.modules import KGEEncoder, TransREncoder
 from .nn.modules import KGEDecoder, AttHDecoder, TransRDecoder
 from .nn.loss import sLCWAKGELossGenerator
 from .nn.loss import BCELoss, HingeLoss, LogisticLoss, LogsigmoidLoss
@@ -71,12 +72,11 @@ def create_dataloader_generator(args):
 # ! dataloader is associated with how the encoder will be created.
 def create_encoder(args):
     if args.encoder == 'KGE':
-        from .nn.modules import KGEEncoder
         if args.init == 'uniform':
             emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
             init_func = [partial(th.nn.init.uniform_, a=-emb_init, b=emb_init), partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)]
         else:
-            raise NotImplementedError(f'init {args.init} is not implemented yet.')
+            raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
         encoder = KGEEncoder(hidden_dim=args.hidden_dim,
                              n_entity=args.n_entities,
                              n_relation=args.n_relations,
@@ -84,12 +84,11 @@ def create_encoder(args):
                              score_func=args.score_func)
         return encoder
     elif args.encoder == 'TransR':
-        from .nn.modules import TransREncoder
         if args.init == 'uniform':
             emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
             init_func = [partial(th.nn.init.uniform_, a=-emb_init, b=emb_init), partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)]
         else:
-            raise NotImplementedError(f'init {args.init} is not implemented yet.')
+            raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
         encoder = TransREncoder(hidden_dim=args.hidden_dim,
                              n_entity=args.n_entities,
                              n_relation=args.n_relations,
@@ -102,7 +101,7 @@ def create_encoder(args):
                               n_relation=args.n_relations)
         return encoder
     else:
-        raise NotImplementedError(f'encoder {args.encoder} is not supported yet.')
+        raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
 
 def create_decoder(args):
     if args.decoder == 'KGE':
@@ -124,7 +123,7 @@ def create_decoder(args):
         elif args.score_func == 'SimplE':
             score_func = SimplEScore()
         else:
-            raise NotImplementedError(f'score func {args.score_func} is not implemented yet.')
+            raise NotImplementedError('score func {} is not implemented yet.'.format(args.score_func))
 
         # add loss generator for each decoder
         loss_gen = sLCWAKGELossGenerator(neg_adversarial_sampling=args.neg_adversarial_sampling,
@@ -142,7 +141,7 @@ def create_decoder(args):
         elif args.loss_genre == 'BCE':
             criterion = BCELoss()
         else:
-            raise ValueError(f'criterion {args.loss_genre} is not supported.')
+            raise ValueError('criterion {} is not supported.'.format(args.loss_genre))
         loss_gen.set_criterion(criterion)
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
@@ -153,10 +152,10 @@ def create_decoder(args):
         return decoder
     elif args.decoder == 'TransR':
         if args.init == 'uniform':
-            emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
+            emb_init = 1.0
             init_func = partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)
         else:
-            raise NotImplementedError(f'init {args.init} is not implemented yet.')
+            raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
         
         projection_emb = nn.Embedding(args.n_relations, args.hidden_dim * args.hidden_dim, sparse=True)
         init_func(projection_emb.weight.data)
@@ -177,7 +176,7 @@ def create_decoder(args):
         elif args.loss_genre == 'BCE':
             criterion = BCELoss()
         else:
-            raise ValueError(f'criterion {args.loss_genre} is not supported.')
+            raise ValueError('criterion {} is not supported.'.format(args.loss_genre))
         loss_gen.set_criterion(criterion)
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
@@ -203,7 +202,7 @@ def create_decoder(args):
         elif args.loss_genre == 'BCE':
             criterion = BCELoss()
         else:
-            raise ValueError(f'criterion {args.loss_genre} is not supported.')
+            raise ValueError('criterion {} is not supported.'.format(args.loss_genre))
         loss_gen.set_criterion(criterion)
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
@@ -212,7 +211,7 @@ def create_decoder(args):
                              loss_gen)
         return decoder
     else:
-        raise NotImplementedError(f'decoder {args.decoder} is not implemented yet.')
+        raise NotImplementedError('decoder {} is not implemented yet.'.format(args.decoder))
 
 def create_optimizer(args, model):
     if args.optimizer == 'Adagrad':
@@ -220,7 +219,7 @@ def create_optimizer(args, model):
     elif args.optimizer == 'Adam':
         optimizer = th.optim.Adam(model.parameters(), lr=args.lr)
     else:
-        raise NotImplementedError(f'optimizer {args.optimizer} is not supported.')
+        raise NotImplementedError('optimizer {} is not supported.'.format(args.optimizer))
     return optimizer
 
 

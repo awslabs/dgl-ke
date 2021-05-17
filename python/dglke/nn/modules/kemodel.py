@@ -205,6 +205,7 @@ class KEModel(nn.Module):
             logs = []
             iter_data = tqdm(iter_data, desc='evaluation') if (rank == 0 and use_tqdm) else iter_data
             for data in iter_data:
+                data['chunk_size'] = data['head'].shape[0]
                 encode_results = self.encoder.forward(data, gpu_id)
                 results = self.decoder.forward(encode_results, data, gpu_id)
                 logs += self.decoder.evaluate(results, data, self.g)

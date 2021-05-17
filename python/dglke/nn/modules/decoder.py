@@ -74,8 +74,11 @@ class KGEDecoder(BaseDecoder):
         dict of tensors
             positive_score,  (neg_score/neg_score_head, neg_score_tail)
         """
-        if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
-            raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
+        assert 'head' in encoded_data.keys() and \
+               'rel' in encoded_data.keys() and \
+               'tail' in encoded_data.keys(), \
+               "encoded data should contain keys 'head', 'rel', 'tail' and 'neg'."
+
         head, rel, tail = encoded_data['head'], encoded_data['rel'], encoded_data['tail']
 
         pos_score = self._score_func.predict(head, rel, tail)
@@ -104,7 +107,7 @@ class KGEDecoder(BaseDecoder):
                         'neg_score_head': neg_score_head,
                         'neg_score_tail': neg_score_tail}
             else:
-                raise ValueError(f"{data['neg_type']} is not correct, choose from head, tail, both.")
+                raise ValueError("{} is not correct, choose from head, tail, both.".format(data['neg_type']))
 
     def infer(self, head_emb, rel_emb, tail_emb):
         pass
@@ -152,8 +155,11 @@ class TransRDecoder(BaseDecoder):
         dict of tensors
             positive_score,  (neg_score/neg_score_head, neg_score_tail)
         """
-        if 'head' not in encoded_data.keys() or 'rel' not in encoded_data.keys() or 'tail' not in encoded_data.keys():
-            raise ValueError(f"encoded data should contain keys 'head', 'rel', 'tail' and 'neg'.")
+        assert 'head' in encoded_data.keys() and \
+               'rel' in encoded_data.keys() and \
+               'tail' in encoded_data.keys(), \
+               "encoded data should contain keys 'head', 'rel', 'tail' and 'neg'."
+
         head, rel, tail, rel_id = encoded_data['head'], encoded_data['rel'], encoded_data['tail'], encoded_data['rel_id']
         
         pos_score = self._score_func.predict(head, rel, tail, rel_id)
@@ -182,7 +188,7 @@ class TransRDecoder(BaseDecoder):
                         'neg_score_head': neg_score_head,
                         'neg_score_tail': neg_score_tail}
             else:
-                raise ValueError(f"{data['neg_type']} is not correct, choose from head, tail, both.")
+                raise ValueError("{} is not correct, choose from head, tail, both.".format(data['neg_type']))
 
     def infer(self, head_emb, rel_emb, tail_emb):
         pass

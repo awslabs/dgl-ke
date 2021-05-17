@@ -102,17 +102,17 @@ class TransEScore(nn.Module):
         if neg_head:
             def fn(heads, relations, tails, chunk_size, neg_sample_size):
                 hidden_dim = heads.shape[1]
-                heads = heads.reshape(1, -1, hidden_dim)
+                heads = heads.reshape(-1, neg_sample_size, hidden_dim)
                 tails = tails - relations
-                tails = tails.reshape(1, -1, hidden_dim)
+                tails = tails.reshape(-1, chunk_size, hidden_dim)
                 return gamma - self.neg_dist_func(tails, heads)
             return fn
         else:
             def fn(heads, relations, tails, chunk_size, neg_sample_size):
                 hidden_dim = heads.shape[1]
                 heads = heads + relations
-                heads = heads.reshape(1, -1, hidden_dim)
-                tails = tails.reshape(1, -1, hidden_dim)
+                heads = heads.reshape(-1, chunk_size, hidden_dim)
+                tails = tails.reshape(-1, neg_sample_size, hidden_dim)
                 return gamma - self.neg_dist_func(heads, tails)
             return fn
 
@@ -217,32 +217,32 @@ class TransRScore(nn.Module):
         if neg_head:
             def fn(heads, relations, tails, rel_ids, chunk_size, neg_sample_size):
                 projection = self.projection_emb(rel_ids)
-                projection = projection.reshape(1, -1, self.entity_dim, self.relation_dim)
-                tails = tails.reshape(1, -1, 1, self.entity_dim)
+                projection = projection.reshape(-1, chunk_size, self.entity_dim, self.relation_dim)
+                tails = tails.reshape(-1, chunk_size, 1, self.entity_dim)
                 tails = th.matmul(tails, projection)
-                tails = tails.reshape(1, -1, self.relation_dim)
-                heads = heads.reshape(1, 1, -1, self.entity_dim)
+                tails = tails.reshape(-1, chunk_size, self.relation_dim)
+                heads = heads.reshape(-1, 1, neg_sample_size, self.entity_dim)
                 heads = th.matmul(heads, projection)
 
-                relations = relations.reshape(1, -1, self.relation_dim)
+                relations = relations.reshape(-1, chunk_size, self.relation_dim)
                 tails = tails - relations
-                tails = tails.reshape(1, -1, 1, self.relation_dim)
+                tails = tails.reshape(-1, chunk_size, 1, self.relation_dim)
                 score = heads - tails
                 return gamma - th.norm(score, p=1, dim=-1)
             return fn
         else:
             def fn(heads, relations, tails, rel_ids, chunk_size, neg_sample_size):
                 projection = self.projection_emb(rel_ids)
-                projection = projection.reshape(1, -1, self.entity_dim, self.relation_dim)
-                heads = heads.reshape(1, -1, 1, self.entity_dim)
+                projection = projection.reshape(-1, chunk_size, self.entity_dim, self.relation_dim)
+                heads = heads.reshape(-1, chunk_size, 1, self.entity_dim)
                 heads = th.matmul(heads, projection)
-                heads = heads.reshape(1, -1, self.relation_dim)
-                tails = tails.reshape(1, 1, -1, self.entity_dim)
+                heads = heads.reshape(-1, chunk_size, self.relation_dim)
+                tails = tails.reshape(-1, 1, neg_sample_size, self.entity_dim)
                 tails = th.matmul(tails, projection)
 
-                relations = relations.reshape(1, -1, self.relation_dim)
+                relations = relations.reshape(-1, chunk_size, self.relation_dim)
                 heads = heads + relations
-                heads = heads.reshape(1, -1, 1, self.relation_dim)
+                heads = heads.reshape(-1, chunk_size, 1, self.relation_dim)
                 score = heads - tails
                 return gamma - th.norm(score, p=1, dim=-1)
             return fn
@@ -301,18 +301,18 @@ class DistMultScore(nn.Module):
         if neg_head:
             def fn(heads, relations, tails, chunk_size, neg_sample_size):
                 hidden_dim = heads.shape[1]
-                heads = heads.reshape(1, -1, hidden_dim)
+                heads = heads.reshape(-1, neg_sample_size, hidden_dim)
                 heads = th.transpose(heads, 1, 2)
-                tmp = (tails * relations).reshape(1, -1, hidden_dim)
+                tmp = (tails * relations).reshape(-1, chunk_size, hidden_dim)
                 return th.bmm(tmp, heads)
 
             return fn
         else:
             def fn(heads, relations, tails, chunk_size, neg_sample_size):
                 hidden_dim = tails.shape[1]
-                tails = tails.reshape(1, -1, hidden_dim)
+                tails = tails.reshape(-1, neg_sample_size, hidden_dim)
                 tails = th.transpose(tails, 1, 2)
-                tmp = (heads * relations).reshape(1, -1, hidden_dim)
+                tmp = (heads * relations).reshape(-1, chunk_size, hidden_dim)
                 return th.bmm(tmp, tails)
 
             return fn
@@ -398,8 +398,8 @@ class ComplExScore(nn.Module):
                 real = emb_real * rel_real + emb_imag * rel_imag
                 imag = -emb_real * rel_imag + emb_imag * rel_real
                 emb_complex = th.cat((real, imag), dim=-1)
-                tmp = emb_complex.reshape(1, -1, hidden_dim)
-                heads = heads.reshape(1, -1, hidden_dim)
+                tmp = emb_complex.reshape(-1, chunk_size, hidden_dim)
+                heads = heads.reshape(-1, neg_sample_size, hidden_dim)
                 heads = th.transpose(heads, 1, 2)
                 return th.bmm(tmp, heads)
 
@@ -414,8 +414,8 @@ class ComplExScore(nn.Module):
                 real = emb_real * rel_real - emb_imag * rel_imag
                 imag = emb_real * rel_imag + emb_imag * rel_real
                 emb_complex = th.cat((real, imag), dim=-1)
-                tmp = emb_complex.reshape(1, -1, hidden_dim)
-                tails = tails.reshape(1, -1, hidden_dim)
+                tmp = emb_complex.reshape(-1, chunk_size, hidden_dim)
+                tails = tails.reshape(-1, neg_sample_size, hidden_dim)
                 tails = th.transpose(tails, 1, 2)
                 return th.bmm(tmp, tails)
             return fn
@@ -479,23 +479,23 @@ class RESCALScore(nn.Module):
         if neg_head:
             def fn(heads, relations, tails, chunk_size, neg_sample_size):
                 hidden_dim = heads.shape[1]
-                heads = heads.reshape(1, -1, hidden_dim)
+                heads = heads.reshape(-1, neg_sample_size, hidden_dim)
                 heads = th.transpose(heads, 1, 2)
                 tails = tails.unsqueeze(-1)
                 relations = relations.view(-1, self.relation_dim, self.entity_dim)
                 tmp = th.matmul(relations, tails).squeeze(-1)
-                tmp = tmp.reshape(1, -1, hidden_dim)
+                tmp = tmp.reshape(-1, chunk_size, hidden_dim)
                 return th.bmm(tmp, heads)
             return fn
         else:
             def fn(heads, relations, tails, chunk_size, neg_sample_size):
                 hidden_dim = heads.shape[1]
-                tails = tails.reshape(1, -1, hidden_dim)
+                tails = tails.reshape(-1, neg_sample_size, hidden_dim)
                 tails = th.transpose(tails, 1, 2)
                 heads = heads.unsqueeze(-1)
                 relations = relations.view(-1, self.relation_dim, self.entity_dim)
                 tmp = th.matmul(relations, heads).squeeze(-1)
-                tmp = tmp.reshape(1, -1, hidden_dim)
+                tmp = tmp.reshape(-1, chunk_size, hidden_dim)
                 return th.bmm(tmp, tails)
             return fn
 
@@ -590,8 +590,8 @@ class RotatEScore(nn.Module):
                 real = emb_real * rel_real + emb_imag * rel_imag
                 imag = -emb_real * rel_imag + emb_imag * rel_real
                 emb_complex = th.cat((real, imag), dim=-1)
-                tmp = emb_complex.reshape(1, -1, 1, hidden_dim)
-                heads = heads.reshape(1, 1, -1, hidden_dim)
+                tmp = emb_complex.reshape(-1, chunk_size, 1, hidden_dim)
+                heads = heads.reshape(-1, 1, neg_sample_size, hidden_dim)
                 score = tmp - heads
                 score = th.stack([score[..., :hidden_dim // 2],
                                   score[..., hidden_dim // 2:]], dim=-1).norm(dim=-1)
@@ -610,8 +610,8 @@ class RotatEScore(nn.Module):
                 imag = emb_real * rel_imag + emb_imag * rel_real
 
                 emb_complex = th.cat((real, imag), dim=-1)
-                tmp = emb_complex.reshape(1, -1, 1, hidden_dim)
-                tails = tails.reshape(1, 1, -1, hidden_dim)
+                tmp = emb_complex.reshape(-1, chunk_size, 1, hidden_dim)
+                tails = tails.reshape(-1, 1, neg_sample_size, hidden_dim)
                 score = tmp - tails
                 score = th.stack([score[..., :hidden_dim // 2],
                                   score[..., hidden_dim // 2:]], dim=-1).norm(dim=-1)
@@ -688,9 +688,9 @@ class SimplEScore(nn.Module):
                 tail_j = tails[..., hidden_dim // 2:]
                 rel = relations[..., : hidden_dim // 2]
                 rel_inv = relations[..., hidden_dim // 2:]
-                forward_tmp = (rel * tail_j).reshape(1, -1, hidden_dim//2)
-                backward_tmp = (rel_inv * tail_i).reshape(1, -1, hidden_dim//2)
-                heads = heads.reshape(1, -1, hidden_dim)
+                forward_tmp = (rel * tail_j).reshape(-1, chunk_size, hidden_dim//2)
+                backward_tmp = (rel_inv * tail_i).reshape(-1, chunk_size, hidden_dim//2)
+                heads = heads.reshape(-1, neg_sample_size, hidden_dim)
                 heads = th.transpose(heads, 1, 2)
                 head_i = heads[..., :hidden_dim // 2, :]
                 head_j = heads[..., hidden_dim // 2:, :]
@@ -705,9 +705,9 @@ class SimplEScore(nn.Module):
                 head_j = heads[..., hidden_dim // 2:]
                 rel = relations[..., :hidden_dim // 2]
                 rel_inv = relations[..., hidden_dim // 2:]
-                forward_tmp = (head_i * rel).reshape(1, -1, hidden_dim//2)
-                backward_tmp = (rel_inv * head_j).reshape(1, -1, hidden_dim//2)
-                tails = tails.reshape(1, -1, hidden_dim)
+                forward_tmp = (head_i * rel).reshape(-1, chunk_size, hidden_dim//2)
+                backward_tmp = (rel_inv * head_j).reshape(-1, chunk_size, hidden_dim//2)
+                tails = tails.reshape(-1, neg_sample_size, hidden_dim)
                 tails = th.transpose(tails, 1, 2)
                 tail_i = tails[..., :hidden_dim // 2, :]
                 tail_j = tails[..., hidden_dim // 2:, :]
