@@ -12,7 +12,7 @@ DGL-KE works with the following operating systems:
 - Ubuntu 16.04 or higher version
 - macOS x
 
-DGL-KE requires Python version 3.5 or later. Python 3.4 or earlier is not tested. Python 2 support is coming.
+DGL-KE requires Python version 3.5 (but *not* later due to changes in how division works). Python 3.4 or earlier is not tested. Python 2 support is coming.
 
 DGL-KE supports multiple tensor libraries as backends, e.g., PyTorch and MXNet. For requirements on backends and how to select one, see Working with different backends. As a demo, we install Pytorch using ``pip``::
 
