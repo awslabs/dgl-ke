@@ -116,17 +116,15 @@ class KGEDecoder(BaseDecoder):
         return self.metrics_evaluator.evaluate(results, data, graph)
 
 class TransRDecoder(BaseDecoder):
-    """ General KGE Decoder
-
-    The KGE Decoder supports different type of embedding methods including TransE_l1, TransE_l2, TransR, RESCAL,
-    DistMult, ComplEx, RotatE, SimplE. By subsituting score_func, user can define their own embedding method.
+    """TransR Decoder
     """
     def __init__(self,
-                 decoder_name='TransRDecoder',
                  score_func=None,
                  loss_gen=LossGenerator(),
                  metrics_evaluator=MetricsEvaluator(),
                  ):
+
+        decoder_name = 'TransRDecoder'
         super(TransRDecoder, self).__init__(decoder_name,
                                          metrics_evaluator,
                                          loss_gen)
@@ -157,8 +155,9 @@ class TransRDecoder(BaseDecoder):
         """
         assert 'head' in encoded_data.keys() and \
                'rel' in encoded_data.keys() and \
-               'tail' in encoded_data.keys(), \
-               "encoded data should contain keys 'head', 'rel', 'tail' and 'neg'."
+               'tail' in encoded_data.keys() and \
+               'rel_id' in encoded_data.keys(), \
+               "encoded data should contain keys 'head', 'rel', 'tail' and 'rel_id'."
 
         head, rel, tail, rel_id = encoded_data['head'], encoded_data['rel'], encoded_data['tail'], encoded_data['rel_id']
         

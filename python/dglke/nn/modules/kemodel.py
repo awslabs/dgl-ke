@@ -205,6 +205,13 @@ class KEModel(nn.Module):
             logs = []
             iter_data = tqdm(iter_data, desc='evaluation') if (rank == 0 and use_tqdm) else iter_data
             for data in iter_data:
+                '''
+                data here should have:
+                head, rel, tail, neg: sampled data (rel_id if using TransR)
+                chunk_size: chunk size of test data, equals to batch_size_eval except the last batch
+                neg_sample_size: neg sample size for test, default is number of nodes in test set 
+                neg_type: head/tail/head_tail specifying neg sample type
+                '''
                 data['chunk_size'] = data['head'].shape[0]
                 encode_results = self.encoder.forward(data, gpu_id)
                 results = self.decoder.forward(encode_results, data, gpu_id)

@@ -101,7 +101,7 @@ def create_encoder(args):
                               n_relation=args.n_relations)
         return encoder
     else:
-        raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
+        raise NotImplementedError('encoder {} is not implemented yet.'.format(args.encoder))
 
 def create_decoder(args):
     if args.decoder == 'KGE':
@@ -180,8 +180,7 @@ def create_decoder(args):
         loss_gen.set_criterion(criterion)
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
-        decoder = TransRDecoder(args.decoder,
-                             score_func,
+        decoder = TransRDecoder(score_func,
                              loss_gen,
                              metrics_evaluator)
         return decoder

@@ -9,8 +9,8 @@ class KGEEncoder(Module):
                  n_entity,
                  n_relation,
                  init_func,
-                 encoder_name='KGEEncoder',
                  score_func='TransE'):
+        encoder_name = 'KGEEncoder'
         super(KGEEncoder, self).__init__(encoder_name)
         self.score_func = score_func 
         double_ent = (score_func == 'RotatE') or (score_func == 'SimplE')
@@ -50,8 +50,8 @@ class TransREncoder(Module):
                  hidden_dim,
                  n_entity,
                  n_relation,
-                 init_func,
-                 encoder_name='TransREncoder'):
+                 init_func):
+        encoder_name = 'TransREncoder'
         super(TransREncoder, self).__init__(encoder_name)
         self.entity_emb = nn.Embedding(n_entity, hidden_dim, sparse=True)
         self.relation_emb = nn.Embedding(n_relation, hidden_dim, sparse=True)
