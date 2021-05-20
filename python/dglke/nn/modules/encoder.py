@@ -9,10 +9,17 @@ class KGEEncoder(Module):
                  n_entity,
                  n_relation,
                  init_func,
-                 encoder_name='KGEEncoder',):
+                 score_func='TransE'):
+        encoder_name = 'KGEEncoder'
         super(KGEEncoder, self).__init__(encoder_name)
-        self.entity_emb = nn.Embedding(n_entity, hidden_dim, sparse=True)
-        self.relation_emb = nn.Embedding(n_relation, hidden_dim, sparse=True)
+        self.score_func = score_func 
+        double_ent = (score_func == 'RotatE') or (score_func == 'SimplE')
+        double_rel = score_func == 'SimplE'
+        self.entity_emb = nn.Embedding(n_entity, 2 * hidden_dim if double_ent else hidden_dim, sparse=True)
+        if score_func == "RESCAL":
+            self.relation_emb = nn.Embedding(n_relation, hidden_dim * hidden_dim, sparse=True)
+        else:
+            self.relation_emb = nn.Embedding(n_relation, 2 * hidden_dim if double_rel else hidden_dim, sparse=True)
         # use init func to initialize parameters
         init_func[0](self.entity_emb.weight.data)
         init_func[1](self.relation_emb.weight.data)
@@ -28,6 +35,43 @@ class KGEEncoder(Module):
                 'rel': rel,
                 'tail': tail,
                 'neg': neg}
+
+    def set_training_params(self, args):
+        pass
+
+    def set_test_params(self, args):
+        pass
+
+    def evaluate(self, results: list, data, graph):
+        pass
+
+class TransREncoder(Module):
+    def __init__(self,
+                 hidden_dim,
+                 n_entity,
+                 n_relation,
+                 init_func):
+        encoder_name = 'TransREncoder'
+        super(TransREncoder, self).__init__(encoder_name)
+        self.entity_emb = nn.Embedding(n_entity, hidden_dim, sparse=True)
+        self.relation_emb = nn.Embedding(n_relation, hidden_dim, sparse=True)
+        # use init func to initialize parameters
+        init_func[0](self.entity_emb.weight.data)
+        init_func[1](self.relation_emb.weight.data)
+
+    def forward(self, data, gpu_id):
+        fwd_data = {k: v.to(f'cuda:{gpu_id}') if type(v) == th.Tensor else v for k, v in data.items()} if gpu_id != -1 else data
+        head = self.entity_emb(fwd_data['head'])
+        tail = self.entity_emb(fwd_data['tail'])
+        rel = self.relation_emb(fwd_data['rel'])
+        neg = self.entity_emb(fwd_data['neg'])
+
+        rel_id = fwd_data['rel']
+        return {'head': head,
+                'rel': rel,
+                'tail': tail,
+                'neg': neg,
+                'rel_id': rel_id}
 
     def set_training_params(self, args):
         pass

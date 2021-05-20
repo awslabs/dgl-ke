@@ -1,17 +1,19 @@
 from .utils.argparser import TrainArgParser
 from .utils.misc import prepare_args
 from .utils.logging import Logger
-from data import get_dataset, TrainDataset, TestDataset, ValidDataset
-from data.dataloader import KGETrainDataLoaderGenerator, KGEEvalDataLoaderGenerator
+from .data import get_dataset, TrainDataset, TestDataset, ValidDataset
+from .data.dataloader import KGETrainDataLoaderGenerator, KGEEvalDataLoaderGenerator
 from .utils import EMB_INIT_EPS
-from .nn.modules import KGEDecoder, AttHDecoder
+from .nn.modules import KGEEncoder, TransREncoder
+from .nn.modules import KGEDecoder, AttHDecoder, TransRDecoder
 from .nn.loss import sLCWAKGELossGenerator
 from .nn.loss import BCELoss, HingeLoss, LogisticLoss, LogsigmoidLoss
 from .regularizer import Regularizer
-from .nn.modules import TransEScore
+from .nn.modules import TransEScore, TransRScore, DistMultScore, ComplExScore, RESCALScore, RotatEScore, SimplEScore
 from .nn.metrics import RankingMetricsEvaluator
 from functools import partial
 import torch as th
+from torch import nn
 import time
 from .nn.modules import KEModel
 
@@ -59,7 +61,7 @@ def create_dataloader_generator(args):
                                           drop_last=True,
                                           metadata=train_metadata)
     eval_metadata = {'num_nodes': args.n_entities,
-                     'chunk_size': 1,
+                     'chunk_size': args.batch_size_eval,
                      'neg_sample_size': args.n_entities,
                      'chunk': True}
     eval_dataloader = KGEEvalDataLoaderGenerator(batch_size=args.batch_size_eval,
@@ -70,13 +72,24 @@ def create_dataloader_generator(args):
 # ! dataloader is associated with how the encoder will be created.
 def create_encoder(args):
     if args.encoder == 'KGE':
-        from .nn.modules import KGEEncoder
         if args.init == 'uniform':
             emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
             init_func = [partial(th.nn.init.uniform_, a=-emb_init, b=emb_init), partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)]
         else:
-            raise NotImplementedError(f'init {args.init} is not implemented yet.')
+            raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
         encoder = KGEEncoder(hidden_dim=args.hidden_dim,
+                             n_entity=args.n_entities,
+                             n_relation=args.n_relations,
+                             init_func=init_func,
+                             score_func=args.score_func)
+        return encoder
+    elif args.encoder == 'TransR':
+        if args.init == 'uniform':
+            emb_init = (args.gamma + EMB_INIT_EPS) / args.hidden_dim
+            init_func = [partial(th.nn.init.uniform_, a=-emb_init, b=emb_init), partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)]
+        else:
+            raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
+        encoder = TransREncoder(hidden_dim=args.hidden_dim,
                              n_entity=args.n_entities,
                              n_relation=args.n_relations,
                              init_func=init_func)
@@ -88,16 +101,29 @@ def create_encoder(args):
                               n_relation=args.n_relations)
         return encoder
     else:
-        raise NotImplementedError(f'encoder {args.encoder} is not supported yet.')
+        raise NotImplementedError('encoder {} is not implemented yet.'.format(args.encoder))
 
 def create_decoder(args):
     if args.decoder == 'KGE':
         # add score function
+
+        emb_init = (args.gamma + 2.0) / args.hidden_dim
+
         if 'TransE' in args.score_func:
             dist = args.score_func.split('_')[-1]
             score_func = TransEScore(args.gamma, dist_func=dist if dist != '' else 'l1')
+        elif args.score_func == 'DistMult':
+            score_func = DistMultScore()
+        elif args.score_func == 'ComplEx':
+            score_func = ComplExScore()
+        elif args.score_func == 'RESCAL':
+            score_func = RESCALScore(args.hidden_dim, args.hidden_dim)
+        elif args.score_func == 'RotatE':
+            score_func = RotatEScore(args.gamma, emb_init)
+        elif args.score_func == 'SimplE':
+            score_func = SimplEScore()
         else:
-            raise NotImplementedError(f'score func {args.score_func} is not implemented yet.')
+            raise NotImplementedError('score func {} is not implemented yet.'.format(args.score_func))
 
         # add loss generator for each decoder
         loss_gen = sLCWAKGELossGenerator(neg_adversarial_sampling=args.neg_adversarial_sampling,
@@ -115,12 +141,46 @@ def create_decoder(args):
         elif args.loss_genre == 'BCE':
             criterion = BCELoss()
         else:
-            raise ValueError(f'criterion {args.loss_genre} is not supported.')
+            raise ValueError('criterion {} is not supported.'.format(args.loss_genre))
         loss_gen.set_criterion(criterion)
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
         decoder = KGEDecoder(args.decoder,
                              score_func,
+                             loss_gen,
+                             metrics_evaluator)
+        return decoder
+    elif args.decoder == 'TransR':
+        if args.init == 'uniform':
+            emb_init = 1.0
+            init_func = partial(th.nn.init.uniform_, a=-emb_init, b=emb_init)
+        else:
+            raise NotImplementedError('init {} is not implemented yet.'.format(args.init))
+        
+        projection_emb = nn.Embedding(args.n_relations, args.hidden_dim * args.hidden_dim, sparse=True)
+        init_func(projection_emb.weight.data)
+
+        score_func = TransRScore(args.gamma, projection_emb, args.hidden_dim, args.hidden_dim)
+
+        # add loss generator for each decoder
+        loss_gen = sLCWAKGELossGenerator(neg_adversarial_sampling=args.neg_adversarial_sampling,
+                                         adversarial_temperature=args.adversarial_temperature,
+                                         pairwise=args.pairwise,
+                                         label_smooth=args.label_smooth)
+        if args.loss_genre == 'Logsigmoid':
+            criterion = LogsigmoidLoss()
+        elif args.loss_genre == 'Hinge':
+            criterion = HingeLoss(margin=args.margin)
+        elif args.loss_genre == 'Logistic':
+            criterion = LogisticLoss()
+        elif args.loss_genre == 'BCE':
+            criterion = BCELoss()
+        else:
+            raise ValueError('criterion {} is not supported.'.format(args.loss_genre))
+        loss_gen.set_criterion(criterion)
+        # add metrics evaluator for decoder
+        metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
+        decoder = TransRDecoder(score_func,
                              loss_gen,
                              metrics_evaluator)
         return decoder
@@ -141,7 +201,7 @@ def create_decoder(args):
         elif args.loss_genre == 'BCE':
             criterion = BCELoss()
         else:
-            raise ValueError(f'criterion {args.loss_genre} is not supported.')
+            raise ValueError('criterion {} is not supported.'.format(args.loss_genre))
         loss_gen.set_criterion(criterion)
         # add metrics evaluator for decoder
         metrics_evaluator = RankingMetricsEvaluator(args.eval_filter)
@@ -150,7 +210,7 @@ def create_decoder(args):
                              loss_gen)
         return decoder
     else:
-        raise NotImplementedError(f'decoder {args.decoder} is not implemented yet.')
+        raise NotImplementedError('decoder {} is not implemented yet.'.format(args.decoder))
 
 def create_optimizer(args, model):
     if args.optimizer == 'Adagrad':
@@ -158,7 +218,7 @@ def create_optimizer(args, model):
     elif args.optimizer == 'Adam':
         optimizer = th.optim.Adam(model.parameters(), lr=args.lr)
     else:
-        raise NotImplementedError(f'optimizer {args.optimizer} is not supported.')
+        raise NotImplementedError('optimizer {} is not supported.'.format(args.optimizer))
     return optimizer
 
 

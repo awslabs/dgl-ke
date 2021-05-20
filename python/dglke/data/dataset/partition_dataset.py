@@ -6,7 +6,7 @@ import dgl.backend as F
 from copy import deepcopy
 import dgl
 from torch.utils.data import Dataset
-from utils.misc import to_tensor
+from dglke.utils.misc import to_tensor
 import copy
 import tqdm
 import torch as th
