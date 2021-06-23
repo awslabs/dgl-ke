@@ -12,7 +12,7 @@ Run the demo:
 
 ```bash
 python3 ~/workspace/dgl-ke/python/dglke/launch.py \
-		--workspace ~/workspace/dgl-ke/python \
+		--workspace ~/workspace/dgl-ke/examples/distributed \
 		--num_trainers 1 \
 		--num_samplers 0 \
 		--num_servers 1 \
@@ -30,7 +30,7 @@ To run the demo:
 
 ```bash
 python3 ~/workspace/dgl-ke/python/dglke/launch.py \
-		--workspace ~/workspace/dgl-ke/python \
+		--workspace ~/workspace/dgl-ke/examples/distributed \
 		--num_trainers 1 \
 		--num_samplers 0 \
 		--num_servers 1 \
