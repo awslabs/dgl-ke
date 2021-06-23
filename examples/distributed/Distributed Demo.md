@@ -17,7 +17,7 @@ python3 ~/workspace/dgl-ke/python/dglke/launch.py \
 		--num_samplers 0 \
 		--num_servers 1 \
 		--part_config data/FB15k.json \
-		--ip_config ip_config.txt "python3 ke_test.py"
+		--ip_config ip_config.txt "python3 dist_test.py"
 ```
 
 To run in standalone mode, first construct a graph with one partition:
@@ -29,11 +29,5 @@ python3 ~/workspace/dgl-ke/python/partion_graph.py --nump_parts 1
 To run the demo:
 
 ```bash
-python3 ~/workspace/dgl-ke/python/dglke/launch.py \
-		--workspace ~/workspace/dgl-ke/examples/distributed \
-		--num_trainers 1 \
-		--num_samplers 0 \
-		--num_servers 1 \
-		--part_config data/FB15k.json \
-		--ip_config ip_config.txt "python3 ke_test.py --standalone"
+python3 ~/workspace/dgl-ke/python/dist_test.py --standalone
 ```
