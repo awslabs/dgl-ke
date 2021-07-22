@@ -21,7 +21,7 @@ import os
 import logging
 import time
 
-from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
+from .dataloader import ConstructGraph, EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset
 
 from .utils import get_compatible_batch_size, save_model, CommonArgParser
@@ -107,7 +107,8 @@ def main():
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
     args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
-    train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
+    g = ConstructGraph(dataset, args)
+    train_data = TrainDataset(g, dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
     # if there is no cross partition relaiton, we fall back to strict_rel_part
     args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
     args.num_workers = 8 # fix num_worker to 8
@@ -171,7 +172,7 @@ def main():
             assert dataset.valid is not None, 'validation set is not provided'
         if args.test:
             assert dataset.test is not None, 'test set is not provided'
-        eval_dataset = EvalDataset(dataset, args)
+        eval_dataset = EvalDataset(g, dataset, args)
 
     if args.valid:
         if args.num_proc > 1:
