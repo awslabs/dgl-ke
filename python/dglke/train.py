@@ -17,8 +17,7 @@
 # limitations under the License.
 #
 
-import os
-import logging
+import os, gc
 import time
 
 from .dataloader import ConstructGraph, EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
@@ -272,15 +271,19 @@ def main():
 	                                                            rank=0, ranks=1)
 
     # load model
-    model = load_model(args, dataset.n_entities, dataset.n_relations)
-    if args.num_proc > 1 or args.async_update:
-        model.share_memory()
-
+    n_entities = dataset.n_entities
+    n_relations = dataset.n_relations
     emap_file = dataset.emap_fname
     rmap_file = dataset.rmap_fname
+
     # We need to free all memory referenced by dataset.
     eval_dataset = None
     dataset = None
+    gc.collect()
+
+    model = load_model(args, n_entities, n_relations)
+    if args.num_proc > 1 or args.async_update:
+        model.share_memory()
 
     print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
 
