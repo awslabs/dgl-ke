@@ -25,7 +25,7 @@ import pickle
 
 from .utils import get_compatible_batch_size
 
-from .dataloader import EvalDataset, TrainDataset
+from .dataloader import ConstructGraph, EvalDataset
 from .dataloader import get_dataset
 
 backend = os.environ.get('DGLBACKEND', 'pytorch')
@@ -136,7 +136,8 @@ def main():
 
     # Here we want to use the regualr negative sampler because we need to ensure that
     # all positive edges are excluded.
-    eval_dataset = EvalDataset(dataset, args)
+    g = ConstructGraph(dataset, args)
+    eval_dataset = EvalDataset(g, dataset, args)
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = args.neg_sample_size = eval_dataset.g.number_of_nodes()

@@ -1142,7 +1142,7 @@ def run_topk_emb2(sfunc, sim_func, emb_model):
         np.testing.assert_allclose(r2_tail, tail_ids)
     print('pass all')
 
-def test_cosine_topk_emb2(emb_model):
+def _test_cosine_topk_emb2(emb_model):
     def cosine_func(x, y):
         score = F.sum(x * y, dim=0)
         x_norm2 = F.sum(x * x, dim=0) ** (1/2)
@@ -1152,27 +1152,27 @@ def test_cosine_topk_emb2(emb_model):
 
     run_topk_emb2('cosine', cosine_func, emb_model=emb_model)
 
-def test_l2_topk_emb2(emb_model):
+def _test_l2_topk_emb2(emb_model):
     def l2_func(x, y):
         score = x - y
 
         return -F.sum(score * score, dim=0) ** (1/2)
     run_topk_emb2('l2', l2_func, emb_model=emb_model)
 
-def test_l1_topk_emb2(emb_model):
+def _test_l1_topk_emb2(emb_model):
     def l1_func(x, y):
         score = x - y
 
         return -norm(score, p=1)
     run_topk_emb2('l1', l1_func, emb_model=emb_model)
 
-def test_dot_topk_emb2(emb_model):
+def _test_dot_topk_emb2(emb_model):
     def dot_func(x, y):
         return F.sum(x * y, dim=0)
 
     run_topk_emb2('dot', dot_func, emb_model=emb_model)
 
-def test_extended_jaccard_topk_emb2(emb_model):
+def _test_extended_jaccard_topk_emb2(emb_model):
     def extended_jaccard_func(x, y):
         score = F.sum(x * y, dim=0)
         x = F.sum(x * x, dim=0)
@@ -1185,37 +1185,37 @@ def test_extended_jaccard_topk_emb2(emb_model):
 def test_transe_model_topk_emb(device='cpu'):
     gamma = 12.0
     transe_model = TransEModel(device, gamma)
-    test_cosine_topk_emb2(transe_model)
+    _test_cosine_topk_emb2(transe_model)
     transe_model = TransE_l2Model(device, gamma)
-    test_cosine_topk_emb2(transe_model)
+    _test_cosine_topk_emb2(transe_model)
     transe_model = TransE_l1Model(device, gamma)
-    test_cosine_topk_emb2(transe_model)
+    _test_cosine_topk_emb2(transe_model)
 
 def test_distmult_model_topk_emb(device='cpu'):
     model = DistMultModel(device)
-    test_l2_topk_emb2(model)
+    _test_l2_topk_emb2(model)
 
 def test_complex_model_topk_emb(device='cpu'):
     model = ComplExModel(device)
-    test_l1_topk_emb2(model)
+    _test_l1_topk_emb2(model)
 
 def test_rescal_model_topk_emb(device='cpu'):
     model = RESCALModel(device)
-    test_dot_topk_emb2(model)
+    _test_dot_topk_emb2(model)
 
 def test_rotate_model_topk_emb(device='cpu'):
     gamma = 12.0
     model = RotatEModel(device, gamma)
-    test_extended_jaccard_topk_emb2(model)
+    _test_extended_jaccard_topk_emb2(model)
 
 def test_gnn_model_topk_emb(device='cpu'):
     gamma = 12.0
     model = GNNModel(device, 'TransE', gamma)
-    test_cosine_topk_emb2(model)
+    _test_cosine_topk_emb2(model)
     model = GNNModel(device, 'TransE_l1', gamma)
-    test_l2_topk_emb2(model)
+    _test_l2_topk_emb2(model)
     model = GNNModel(device, 'DistMult')
-    test_l1_topk_emb2(model)
+    _test_l1_topk_emb2(model)
 
 if __name__ == '__main__':
     test_topk_transe()

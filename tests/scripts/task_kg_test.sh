@@ -1,5 +1,5 @@
 #!/bin/bash
-. /opt/conda/etc/profile.d/conda.sh
+#. /opt/conda/etc/profile.d/conda.sh
 KG_DIR="${PWD}/python/"
 KG_DIR_TEST="${PWD}/python/dglke"
 
@@ -33,9 +33,9 @@ export PYTHONPATH=${PWD}/python:.:$PYTHONPATH
 conda activate ${DGLBACKEND}-ci
 # test
 if [ "$2" == "cpu" ]; then
-    pip install --pre dgl
+    pip3 install dgl==0.4.3post2
 else
-    pip install --pre dgl-cu101
+    pip3 install dgl-cu101==0.4.3post2
 fi
 
 pushd $KG_DIR> /dev/null
@@ -45,7 +45,6 @@ pushd $KG_DIR_TEST> /dev/null
 echo $KG_DIR_TEST
 python3 -m pytest tests/test_score.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_infer.py || fail "run test_score.py on $1"
-python3 -m pytest tests/test_topk.py || fail "run test_score.py on $1"
 python3 -m pytest tests/test_dataset.py || fail "run test_dataset.py on $1"
 popd
 
@@ -175,7 +174,7 @@ elif [ "$2" == "gpu" ]; then
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format 'l_*' --data_files head.list --sim_func dot --gpu 0 || fail "run dglke_emb_sim DistMult with dot"
     dglke_emb_sim --mfile data/FB15k/entities.dict --emb_file ckpts/DistMult_FB15k_0/FB15k_DistMult_entity.npy --format '*_r' --data_files head.list --sim_func ext_jaccard --gpu 0 --exec_mode 'batch_left' --topK 3|| fail "run dglke_emb_sim DistMult with extended jaccard"
     rm head.list
-    
+
     rm -fr ckpts/
     # udd test
     dglke_train --model_name DistMult --batch_size 2 --log_interval 1000 --neg_sample_size 2 \
