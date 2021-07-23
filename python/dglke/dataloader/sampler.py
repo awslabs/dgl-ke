@@ -336,7 +336,7 @@ def ConstructGraph(dataset, args):
 
     coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
     g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
-    g.edata['tid'] = F.tensor(etype_id, F.int32)
+    g.edata['tid'] = F.tensor(etype_id, F.int64)
     if args.has_edge_importance:
         e_impts = F.tensor(dataset.train[3], F.float32)
         e_impts_vt = F.zeros((num_valid + num_test,), dtype=F.float32, ctx=F.cpu())
@@ -680,7 +680,7 @@ class EvalDataset(object):
             print('|test|:', self.num_test)
             return
 
-        assert len(self.num_valid+self.num_test) > 1, "we need to have at least validation set or test set."
+        assert self.num_valid+self.num_test > 1, "we need to have at least validation set or test set."
         self.g = g
 
         if args.eval_percent < 1:
