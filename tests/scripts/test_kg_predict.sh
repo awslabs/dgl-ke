@@ -37,7 +37,7 @@ if [ "$2" == "cpu" ]; then
     pip3 install dgl==0.7 -f https://data.dgl.ai/wheels/repo.html
 else
     pip3 uninstall dgl
-    pip3 install dgl-cu101==0.7 -f https://data.dgl.ai/wheels/repo.html
+    pip3 install dgl-cu102==0.7 -f https://data.dgl.ai/wheels/repo.html
 fi
 
 pushd $KG_DIR> /dev/null

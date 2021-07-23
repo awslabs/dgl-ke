@@ -33,9 +33,11 @@ export PYTHONPATH=${PWD}/python:.:$PYTHONPATH
 conda activate ${DGLBACKEND}-ci
 # test
 if [ "$2" == "cpu" ]; then
+    pip3 uninstall dgl
     pip3 install dgl==0.4.3post2
 else
-    pip3 install dgl-cu101==0.4.3post2
+    pip3 uninstall dgl
+    pip3 install dgl-cu102==0.4.3post2
 fi
 
 pushd $KG_DIR> /dev/null
