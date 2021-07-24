@@ -44,7 +44,7 @@ def save_model(args, model, emap_file=None, rmap_file=None):
     config = args
     dict.update(vars(config))
     dict.update({'emp_file': emap_file,
-                  'rmap_file': rmap_file})
+                 'rmap_file': rmap_file})
     with open(conf_file, 'w') as outfile:
         json.dump(dict, outfile, indent=4)
 
