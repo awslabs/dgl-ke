@@ -221,8 +221,11 @@ class KEModel(object):
 
         device = get_device(args)
 
-        self.loss_gen = LossGenerator(args, args.loss_genre, args.neg_adversarial_sampling,
-                                      args.adversarial_temperature, args.pairwise)
+        self.loss_gen = LossGenerator(args,
+                                      args.loss_genre if hasattr(args, 'loss_genre') else 'Logsigmoid',
+                                      args.neg_adversarial_sampling if hasattr(args, 'neg_adversarial_sampling') else False,
+                                      args.adversarial_temperature if hasattr(args, 'adversarial_temperature') else 1.0,
+                                      args.pairwise if hasattr(args, 'pairwise') else False)
 
         self.entity_emb = ExternalEmbedding(args, n_entities, entity_dim,
                                             F.cpu() if args.mix_cpu_gpu else device)
@@ -298,7 +301,7 @@ class KEModel(object):
         if self.strict_rel_part or self.soft_rel_part:
             self.global_relation_emb.save(path, dataset+'_'+self.model_name+'_relation')
         else:
-            self.relation_emb.save(path, dataset+'_'+self.model_name+'_relation')   
+            self.relation_emb.save(path, dataset+'_'+self.model_name+'_relation')
 
         self.score_func.save(path, dataset+'_'+self.model_name)
 

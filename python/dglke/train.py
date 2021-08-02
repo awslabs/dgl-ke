@@ -17,11 +17,10 @@
 # limitations under the License.
 #
 
-import os
-import logging
+import os, gc
 import time
 
-from .dataloader import EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
+from .dataloader import ConstructGraph, EvalDataset, TrainDataset, NewBidirectionalOneShotIterator
 from .dataloader import get_dataset
 
 from .utils import get_compatible_batch_size, save_model, CommonArgParser
@@ -107,7 +106,8 @@ def main():
         assert not args.eval_filter, "if negative sampling based on degree, we can't filter positive edges."
 
     args.soft_rel_part = args.mix_cpu_gpu and args.rel_part
-    train_data = TrainDataset(dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
+    g = ConstructGraph(dataset, args)
+    train_data = TrainDataset(g, dataset, args, ranks=args.num_proc, has_importance=args.has_edge_importance)
     # if there is no cross partition relaiton, we fall back to strict_rel_part
     args.strict_rel_part = args.mix_cpu_gpu and (train_data.cross_part == False)
     args.num_workers = 8 # fix num_worker to 8
@@ -162,6 +162,11 @@ def main():
                                                         args.has_edge_importance)
 
 
+    rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
+    cross_rels = train_data.cross_rels if args.soft_rel_part else None
+    train_data = None
+    gc.collect()
+
     if args.valid or args.test:
         if len(args.gpu) > 1:
             args.num_test_proc = args.num_proc if args.num_proc < len(args.gpu) else len(args.gpu)
@@ -171,36 +176,37 @@ def main():
             assert dataset.valid is not None, 'validation set is not provided'
         if args.test:
             assert dataset.test is not None, 'test set is not provided'
-        eval_dataset = EvalDataset(dataset, args)
+        eval_dataset = EvalDataset(g, dataset, args)
+
 
     if args.valid:
         if args.num_proc > 1:
             valid_sampler_heads = []
             valid_sampler_tails = []
             if args.dataset == "wikikg90M":
-            	for i in range(args.num_proc):
-	                valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('valid', args.batch_size_eval,
-	                                                                  mode='tail',
-	                                                                  rank=i, ranks=args.num_proc)
-	                valid_sampler_tails.append(valid_sampler_tail)
+                for i in range(args.num_proc):
+                    valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('valid', args.batch_size_eval,
+                                                                               mode='tail',
+                                                                               rank=i, ranks=args.num_proc)
+                    valid_sampler_tails.append(valid_sampler_tail)
             else:
-	            for i in range(args.num_proc):
-	                valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.eval_filter,
-	                                                                  mode='chunk-head',
-	                                                                  num_workers=args.num_workers,
-	                                                                  rank=i, ranks=args.num_proc)
-	                valid_sampler_tail = eval_dataset.create_sampler('valid', args.batch_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.neg_sample_size_eval,
-	                                                                  args.eval_filter,
-	                                                                  mode='chunk-tail',
-	                                                                  num_workers=args.num_workers,
-	                                                                  rank=i, ranks=args.num_proc)
-	                valid_sampler_heads.append(valid_sampler_head)
-	                valid_sampler_tails.append(valid_sampler_tail)
+                for i in range(args.num_proc):
+                    valid_sampler_head = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                      args.neg_sample_size_eval,
+                                                                      args.neg_sample_size_eval,
+                                                                      args.eval_filter,
+                                                                      mode='chunk-head',
+                                                                      num_workers=args.num_workers,
+                                                                      rank=i, ranks=args.num_proc)
+                    valid_sampler_tail = eval_dataset.create_sampler('valid', args.batch_size_eval,
+                                                                      args.neg_sample_size_eval,
+                                                                      args.neg_sample_size_eval,
+                                                                      args.eval_filter,
+                                                                      mode='chunk-tail',
+                                                                      num_workers=args.num_workers,
+                                                                      rank=i, ranks=args.num_proc)
+                    valid_sampler_heads.append(valid_sampler_head)
+                    valid_sampler_tails.append(valid_sampler_tail)
         else: # This is used for debug
             if args.dataset == "wikikg90M":
                 valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('valid', args.batch_size_eval,
@@ -226,67 +232,69 @@ def main():
             test_sampler_tails = []
             test_sampler_heads = []
             if args.dataset == "wikikg90M":
-            	for i in range(args.num_proc):
-	                valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('test', args.batch_size_eval,
-	                                                                  mode='tail',
-	                                                                  rank=i, ranks=args.num_proc)
-	                valid_sampler_tails.append(valid_sampler_tail)
+                for i in range(args.num_proc):
+                    valid_sampler_tail = eval_dataset.create_sampler_wikikg90M('test', args.batch_size_eval,
+                                                                               mode='tail',
+                                                                              rank=i, ranks=args.num_proc)
+                    valid_sampler_tails.append(valid_sampler_tail)
             else:
-	            for i in range(args.num_test_proc):
-	                test_sampler_head = eval_dataset.create_sampler('test', args.batch_size_eval,
-	                                                                 args.neg_sample_size_eval,
-	                                                                 args.neg_sample_size_eval,
-	                                                                 args.eval_filter,
-	                                                                 mode='chunk-head',
-	                                                                 num_workers=args.num_workers,
-	                                                                 rank=i, ranks=args.num_test_proc)
-	                test_sampler_tail = eval_dataset.create_sampler('test', args.batch_size_eval,
-	                                                                 args.neg_sample_size_eval,
-	                                                                 args.neg_sample_size_eval,
-	                                                                 args.eval_filter,
-	                                                                 mode='chunk-tail',
-	                                                                 num_workers=args.num_workers,
-	                                                                 rank=i, ranks=args.num_test_proc)
-	                test_sampler_heads.append(test_sampler_head)
-                	test_sampler_tails.append(test_sampler_tail)
+                for i in range(args.num_test_proc):
+                    test_sampler_head = eval_dataset.create_sampler('test', args.batch_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.eval_filter,
+                                                                     mode='chunk-head',
+                                                                     num_workers=args.num_workers,
+                                                                     rank=i, ranks=args.num_test_proc)
+                    test_sampler_tail = eval_dataset.create_sampler('test', args.batch_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.neg_sample_size_eval,
+                                                                     args.eval_filter,
+                                                                     mode='chunk-tail',
+                                                                     num_workers=args.num_workers,
+                                                                     rank=i, ranks=args.num_test_proc)
+                    test_sampler_heads.append(test_sampler_head)
+                    test_sampler_tails.append(test_sampler_tail)
         else:
-        	if args.dataset == "wikikg90M":
-        		test_sampler_tail = eval_dataset.create_sampler_wikikg90M('test', args.batch_size_eval,
+            if args.dataset == "wikikg90M":
+                test_sampler_tail = eval_dataset.create_sampler_wikikg90M('test', args.batch_size_eval,
                                                             mode='tail',
                                                             rank=0, ranks=1)
-        	else:
-	            test_sampler_head = eval_dataset.create_sampler('test', args.batch_size_eval,
-	                                                            args.neg_sample_size_eval,
-	                                                            args.neg_sample_size_eval,
-	                                                            args.eval_filter,
-	                                                            mode='chunk-head',
-	                                                            num_workers=args.num_workers,
-	                                                            rank=0, ranks=1)
-	            test_sampler_tail = eval_dataset.create_sampler('test', args.batch_size_eval,
-	                                                            args.neg_sample_size_eval,
-	                                                            args.neg_sample_size_eval,
-	                                                            args.eval_filter,
-	                                                            mode='chunk-tail',
-	                                                            num_workers=args.num_workers,
-	                                                            rank=0, ranks=1)
+            else:
+                test_sampler_head = eval_dataset.create_sampler('test', args.batch_size_eval,
+                                                                args.neg_sample_size_eval,
+                                                                args.neg_sample_size_eval,
+                                                                args.eval_filter,
+                                                                mode='chunk-head',
+                                                                num_workers=args.num_workers,
+                                                                rank=0, ranks=1)
+                test_sampler_tail = eval_dataset.create_sampler('test', args.batch_size_eval,
+                                                                args.neg_sample_size_eval,
+                                                                args.neg_sample_size_eval,
+                                                                args.eval_filter,
+                                                                mode='chunk-tail',
+                                                                num_workers=args.num_workers,
+                                                                rank=0, ranks=1)
 
     # load model
-    model = load_model(args, dataset.n_entities, dataset.n_relations)
-    if args.num_proc > 1 or args.async_update:
-        model.share_memory()
-
+    n_entities = dataset.n_entities
+    n_relations = dataset.n_relations
     emap_file = dataset.emap_fname
     rmap_file = dataset.rmap_fname
+
     # We need to free all memory referenced by dataset.
     eval_dataset = None
     dataset = None
+    gc.collect()
+
+    model = load_model(args, n_entities, n_relations)
+    if args.num_proc > 1 or args.async_update:
+        model.share_memory()
 
     print('Total initialize time {:.3f} seconds'.format(time.time() - init_time_start))
 
     # train
     start = time.time()
-    rel_parts = train_data.rel_parts if args.strict_rel_part or args.soft_rel_part else None
-    cross_rels = train_data.cross_rels if args.soft_rel_part else None
     if args.num_proc > 1:
         procs = []
         barrier = mp.Barrier(args.num_proc)

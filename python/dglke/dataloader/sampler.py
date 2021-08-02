@@ -289,27 +289,58 @@ def RandomPartition(edges, n, has_importance=False):
         print('part {} has {} edges'.format(i, len(parts[-1])))
     return parts
 
-def ConstructGraph(edges, n_entities, args):
+def ConstructGraph(dataset, args):
     """Construct Graph for training
 
     Parameters
     ----------
-    edges : (heads, rels, tails) triple
-        Edge list
-    n_entities : int
-        number of entities
+    dataset :
+        the dataset
     args :
         Global configs.
     """
-    if args.has_edge_importance:
-        src, etype_id, dst, e_impts = edges
+    src = [dataset.train[0]]
+    etype_id = [dataset.train[1]]
+    dst = [dataset.train[2]]
+    num_train = len(dataset.train[0])
+    if args.dataset == "wikikg90M":
+        valid_dict = dataset.valid
+        num_valid = len(valid_dict['h,r->t']['hr'])
+    elif dataset.valid is not None:
+        src.append(dataset.valid[0])
+        etype_id.append(dataset.valid[1])
+        dst.append(dataset.valid[2])
+        num_valid = len(dataset.valid[0])
     else:
-        src, etype_id, dst = edges
+        num_valid = 0
+    if args.dataset == "wikikg90M":
+        test_dict = dataset.test
+        num_test = len(test_dict['h,r->t']['hr'])
+    elif dataset.test is not None:
+        src.append(dataset.test[0])
+        etype_id.append(dataset.test[1])
+        dst.append(dataset.test[2])
+        num_test = len(dataset.test[0])
+    else:
+        num_test = 0
+
+    if args.dataset == "wikikg90M":
+        print('|valid|:', num_valid)
+        print('|test|:', num_test)
+        return
+
+    src = np.concatenate(src)
+    etype_id = np.concatenate(etype_id)
+    dst = np.concatenate(dst)
+    n_entities = dataset.n_entities
+
     coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)), shape=[n_entities, n_entities])
     g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
     g.edata['tid'] = F.tensor(etype_id, F.int64)
     if args.has_edge_importance:
-        g.edata['impts'] = F.tensor(e_impts, F.float32)
+        e_impts = F.tensor(dataset.train[3], F.float32)
+        e_impts_vt = F.zeros((num_valid + num_test,), dtype=F.float32, ctx=F.cpu())
+        g.edata['impts'] = F.cat([e_impts, e_impts_vt], dim=0)
     return g
 
 class TrainDataset(object):
@@ -324,7 +355,7 @@ class TrainDataset(object):
     ranks:
         Number of partitions.
     """
-    def __init__(self, dataset, args, ranks=64, has_importance=False):
+    def __init__(self, g, dataset, args, ranks=64, has_importance=False):
         triples = dataset.train
         num_train = len(triples[0])
         print('|Train|:', num_train)
@@ -340,7 +371,7 @@ class TrainDataset(object):
             self.rel_parts = [np.arange(dataset.n_relations)]
             self.cross_part = False
 
-        self.g = ConstructGraph(triples, dataset.n_entities, args)
+        self.g = g
 
     def create_sampler(self, batch_size, neg_sample_size=2, neg_chunk_size=None, mode='head', num_workers=32,
                        shuffle=True, exclude_positive=False, rank=0):
@@ -627,18 +658,12 @@ class EvalDataset(object):
     args :
         Global configs.
     """
-    def __init__(self, dataset, args):
-        src = [dataset.train[0]]
-        etype_id = [dataset.train[1]]
-        dst = [dataset.train[2]]
+    def __init__(self, g, dataset, args):
         self.num_train = len(dataset.train[0])
         if args.dataset == "wikikg90M":
             self.valid_dict = dataset.valid
             self.num_valid = len(self.valid_dict['h,r->t']['hr'])
         elif dataset.valid is not None:
-            src.append(dataset.valid[0])
-            etype_id.append(dataset.valid[1])
-            dst.append(dataset.valid[2])
             self.num_valid = len(dataset.valid[0])
         else:
             self.num_valid = 0
@@ -646,9 +671,6 @@ class EvalDataset(object):
             self.test_dict = dataset.test
             self.num_test = len(self.test_dict['h,r->t']['hr'])
         elif dataset.test is not None:
-            src.append(dataset.test[0])
-            etype_id.append(dataset.test[1])
-            dst.append(dataset.test[2])
             self.num_test = len(dataset.test[0])
         else:
             self.num_test = 0
@@ -658,16 +680,7 @@ class EvalDataset(object):
             print('|test|:', self.num_test)
             return
 
-        assert len(src) > 1, "we need to have at least validation set or test set."
-
-        src = np.concatenate(src)
-        etype_id = np.concatenate(etype_id)
-        dst = np.concatenate(dst)
-
-        coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
-                                    shape=[dataset.n_entities, dataset.n_entities])
-        g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
-        g.edata['tid'] = F.tensor(etype_id, F.int64)
+        assert self.num_valid+self.num_test > 1, "we need to have at least validation set or test set."
         self.g = g
 
         if args.eval_percent < 1:
@@ -790,7 +803,7 @@ class EvalDataset(object):
         assert 'tail' in mode
 
         """
-        This function will split the edges into total number of partitions parts. And then calculate the 
+        This function will split the edges into total number of partitions parts. And then calculate the
         corresponding begin and end index for each part to create evaluate sampler.
         """
         beg = edges['h,r->t']['hr'].shape[0] * rank // ranks
