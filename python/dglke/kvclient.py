@@ -35,7 +35,7 @@ from .train_pytorch import load_model, dist_train_test
 from .utils import get_compatible_batch_size, CommonArgParser
 
 from .train import prepare_save_path
-from .dataloader import TrainDataset, NewBidirectionalOneShotIterator
+from .dataloader import TrainDataset, NewBidirectionalOneShotIterator, ConstructGraph
 from .dataloader import get_partition_dataset
 
 WAIT_TIME = 10
@@ -157,7 +157,8 @@ def start_client(args):
     entity_partition_book.share_memory_()
     local2global.share_memory_()
 
-    train_data = TrainDataset(dataset, args, ranks=args.num_client)
+    g = ConstructGraph(dataset, args)
+    train_data = TrainDataset(g, dataset, args, ranks=args.num_client)
 
     if args.neg_sample_size_eval < 0:
         args.neg_sample_size_eval = dataset.n_entities
