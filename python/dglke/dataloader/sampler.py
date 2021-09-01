@@ -306,7 +306,7 @@ def ConstructGraph(dataset, args):
     if args.dataset == "wikikg90M":
         valid_dict = dataset.valid
         num_valid = len(valid_dict['h,r->t']['hr'])
-    elif dataset.valid is not None:
+    elif hasattr(dataset, 'valid') and dataset.valid is not None:
         src.append(dataset.valid[0])
         etype_id.append(dataset.valid[1])
         dst.append(dataset.valid[2])
@@ -316,7 +316,7 @@ def ConstructGraph(dataset, args):
     if args.dataset == "wikikg90M":
         test_dict = dataset.test
         num_test = len(test_dict['h,r->t']['hr'])
-    elif dataset.test is not None:
+    elif hasattr(dataset, 'test') and dataset.test is not None:
         src.append(dataset.test[0])
         etype_id.append(dataset.test[1])
         dst.append(dataset.test[2])
