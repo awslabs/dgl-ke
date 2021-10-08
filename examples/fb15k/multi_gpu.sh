@@ -263,52 +263,49 @@ dglke_eval --model_name ComplEx --dataset FB15k --hidden_dim 400 --gamma 143.0 -
 # Test takes 43.370 seconds
 ##################################################
 
-# RESCAL 1 GPU training
+# RESCAL 1 GPU training (use g4dn)
 dglke_train --model_name RESCAL --dataset FB15k --batch_size 1000 --log_interval 1000 \
---neg_sample_size 200 --hidden_dim 500 --gamma 24.0 --lr 0.03 --batch_size_eval 16 \
---gpu 0 --test -adv --max_step 24000
+--neg_sample_size 200 --hidden_dim 200 --gamma 8.0 --lr 0.1 --batch_size_eval 16 \
+--gpu 0 --test -adv --max_step 36000
 
 ################## Script Result #################
-# training takes 1252.5546259880066 seconds
-# [0]Test average MRR: 0.6615993307596552
-# [0]Test average MR: 124.54916964331059
-# [0]Test average HITS@1: 0.5896125002116097
-# [0]Test average HITS@3: 0.7042034162279291
-# [0]Test average HITS@10: 0.7874253017555145
-# testing takes 275.740 seconds
+# training takes 992.011204957962 seconds
+# Test average MRR: 0.54479014885614
+# Test average MR: 113.46442416752721
+# Test average HITS@1: 0.4295254862792233
+# Test average HITS@3: 0.6136936906434629
+# Test average HITS@10: 0.7536354556381304
+#testing takes 248.562 seconds
 ##################################################
 
-# RESCAL 8 GPU training
+# RESCAL 4 GPU training
 dglke_train --model_name RESCAL --dataset FB15k --batch_size 1000 --log_interval 1000 \
---neg_sample_size 200 --hidden_dim 500 --gamma 24.0 --lr 0.03 --batch_size_eval 16 \
---test -adv --max_step 3000 --mix_cpu_gpu --num_proc 8 --num_thread 4 \
---gpu 0 1 2 3 4 5 6 7 --async_update --rel_part --force_sync_interval 1000
+--neg_sample_size 200 --hidden_dim 200 --gamma 8.0 --lr 0.1 --batch_size_eval 16 \
+--gpu 0 1 2 3 --test -adv --max_step 10000 --mix_cpu_gpu --num_proc 4 --num_thread 1
 
 ################## Script Result #################
-# training takes 179.60524344444275 seconds
-# -------------- Test result --------------
-# Test average MRR : 0.6435677811671531
-# Test average MR : 133.31993702493608
-# Test average HITS@1 : 0.5700766873762083
-# Test average HITS@3 : 0.6851500736401956
-# Test average HITS@10 : 0.7736875962824398
+# training takes 3071.041684627533 seconds
+# Test average MRR : 0.5499149559871432
+# Test average MR : 117.38548526349648
+# Test average HITS@1 : 0.43712650877757275
+# Test average HITS@3 : 0.615902896514364
+# Test average HITS@10 : 0.7576306478644343
 # -----------------------------------------
-# testing takes 47.309 seconds
+# testing takes 82.656 seconds
 ##################################################
 
-# RESCAL 8 GPU eval
-dglke_eval --model_name RESCAL --dataset FB15k --hidden_dim 500 --gamma 24.0 --batch_size_eval 16 \
---gpu 0 1 2 3 4 5 6 7 --model_path ~/my_task/ckpts/RESCAL_FB15k_1/
+# RESCAL 4 GPU eval
+dglke_eval --model_name RESCAL --dataset FB15k --hidden_dim 200 --gamma 8.0 --batch_size_eval 16 \
+--gpu 0 1 2 3 --model_path ~/my_task/ckpts/RESCAL_FB15k_1/
 
 ################## Script Result #################
 # -------------- Test result --------------
-# Test average MRR: 0.6435677811671509
-# Test average MR: 133.31993702493608
-# Test average HITS@1: 0.5700766873762083
-# Test average HITS@3: 0.6851500736401956
-# Test average HITS@10: 0.7736875962824398
+# Test average MRR : 0.5499149559871432
+# Test average MR : 117.38548526349648
+# Test average HITS@1 : 0.43712650877757275
+# Test average HITS@3 : 0.615902896514364
+# Test average HITS@10 : 0.7576306478644343
 # -----------------------------------------
-# Test takes 53.463 seconds
 ##################################################
 
 # RotatE 1 GPU training
