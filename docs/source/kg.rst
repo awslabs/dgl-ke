@@ -139,29 +139,33 @@ KGs. A Knowledge Graph Embedding model intends to predict missing
 connections that are often one of the types below.
 
 -  *symmetric*
--  **Definition:** A relation :math:`r` is *symmetric* if
-   :math:`\forall {x,y}: (x,r,y)\implies (y,r,x)`
--  **Example:**
-   :math:`\text{x=Mary and y=Tom and r="is a sibling of"}; \\ (x,r,y) = \text{Mary is a sibling of Tom} \implies (y,r,x)=\text{Tom is a sibling of Mary}`
+    -  **Definition:** A relation :math:`r` is *symmetric* if
+       :math:`\forall {x,y}: (x,r,y)\implies (y,r,x)`
+
+    -  **Example:**
+       :math:`\text{x=Mary and y=Tom and r="is a sibling of"}; \\ (x,r,y) = \text{Mary is a sibling of Tom} \implies (y,r,x)=\text{Tom is a sibling of Mary}`
 
 -  *antisymmetric*
--  **Definition:** A relation r is *antisymmetric* if
-   :math:`\forall {x,y}: (x,r,y)\implies \lnot (y,r,x)`
--  **Example:**
-   :math:`\text{x=Quebec and y=Canada and r="is located in"}; \\ (x,r,y) = \text{Quebec is located in Canada} \implies (y,\lnot r,x)=\text{Canada is not located in Quebec}`
+    -  **Definition:** A relation r is *antisymmetric* if
+       :math:`\forall {x,y}: (x,r,y)\implies \lnot (y,r,x)`
+
+    -  **Example:**
+       :math:`\text{x=Quebec and y=Canada and r="is located in"}; \\ (x,r,y) = \text{Quebec is located in Canada} \implies (y,\lnot r,x)=\text{Canada is not located in Quebec}`
 
 -  *inversion*
--  **Definition:** A relation :math:`r_1` is *inverse* to relation
-   :math:`r_2` if :math:`\forall x,y: r_2(x,y)\implies r_1(y,x)`.
--  **Example:**
-   :math:`x=Mary,\ y=Tom,\ r_1=\text{"is a sister of}"\ and r_2=\text{"is a brother of"} \\ (x,r_1,y)=\text{Mary is a sister of Tom} \implies (y,r_2,x) = \text{Tom is a brother of Mary}`
+    -  **Definition:** A relation :math:`r_1` is *inverse* to relation
+       :math:`r_2` if :math:`\forall x,y: r_2(x,y)\implies r_1(y,x)`.
+
+    -  **Example:**
+       :math:`x=Mary,\ y=Tom,\ r_1=\text{"is a sister of}"\ and r_2=\text{"is a brother of"} \\ (x,r_1,y)=\text{Mary is a sister of Tom} \implies (y,r_2,x) = \text{Tom is a brother of Mary}`
 
 -  *composition*
--  **Definition**: relation :math:`r_1` is composed of relation
-   :math:`r_2` and relation :math:`r_3` if
-   :math:`\forall x,y,z: (x,r_2,y) \land (y,r_3,z) \implies (x,r_1, z)`
--  **Example:**
-   :math:`\text{x=Tom, y=Quebec, z=Canada},\ r_2=\text{"is born in"}, r_3=\text{"is located in"}, r_1=\text{"is from"}\\(x,r_2,y)=\text{Tom is born in Quebec} \land (y,r_3,z) = \text{Quebec is located in Canada} \\ \implies (x,r_1,z)=\text{Tom is from Canada}`
+    -  **Definition**: relation :math:`r_1` is composed of relation
+       :math:`r_2` and relation :math:`r_3` if
+       :math:`\forall x,y,z: (x,r_2,y) \land (y,r_3,z) \implies (x,r_1, z)`
+
+    -  **Example:**
+       :math:`\text{x=Tom, y=Quebec, z=Canada},\ r_2=\text{"is born in"}, r_3=\text{"is located in"}, r_1=\text{"is from"}\\(x,r_2,y)=\text{Tom is born in Quebec} \land (y,r_3,z) = \text{Quebec is located in Canada} \\ \implies (x,r_1,z)=\text{Tom is from Canada}`
 
 *ref: RotateE[2]*
 
