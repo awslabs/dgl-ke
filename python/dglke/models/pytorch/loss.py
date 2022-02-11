@@ -68,8 +68,11 @@ class LossGenerator(BaseLossGenerator):
 
     def get_total_loss(self, pos_score, neg_score, edge_weight=None):
         log = {}
+        
         if edge_weight is None:
             edge_weight = 1
+        else:
+            edge_weight = edge_weight.view(-1, 1)
         if self.pairwise:
             pos_score = pos_score.unsqueeze(-1)
             loss = th.mean(self.loss_criterion((pos_score - neg_score), 1) * edge_weight)
@@ -78,6 +81,7 @@ class LossGenerator(BaseLossGenerator):
 
         pos_loss = self._get_pos_loss(pos_score) * edge_weight
         neg_loss = self._get_neg_loss(neg_score) * edge_weight
+
         # MARK - would average twice make loss function lose precision?
         # do mean over neg_sample
         if self.neg_adversarial_sampling:
