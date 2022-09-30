@@ -1,4 +1,4 @@
-Train User-Defined Knowledage Graphs
+Train User-Defined Knowledge Graphs
 --------------------------------------
 
 Users can use DGL-KE to train embeddings on their own knowledge graphs. In this case, users need to use ``--data_path`` to specify the path to the knowledge graph dataset, ``--data_files`` to specify the triplets of a knowledge graph as well as node/relation ID mapping, ``--format`` to specify the input format of the knowledge graph.
