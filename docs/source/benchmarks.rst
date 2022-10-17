@@ -1,4 +1,4 @@
-Benchmarks on Built-in Knowledage Graphs
+Benchmarks on Built-in Knowledge Graphs
 ------------------------------------------
 
 DGL-KE provides five built-in knowledge graphs:
