@@ -84,7 +84,7 @@ class BasicGEModel(object):
         """
         self._etid_field = etid_field
         self._ntid_filed = ntid_filed
-        assert isinstance(g, dgl.DGLGraph)
+        assert isinstance(g, dgl._deprecate.graph.DGLGraph)
         self._g = g
 
     def load(self, model_path):

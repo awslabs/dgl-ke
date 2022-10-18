@@ -562,7 +562,7 @@ def check_topk_score2(score_model, exclude_mode):
                     th.full((num_entity*2,), 2, dtype=th.long),
                     th.full((num_entity*2,), 3, dtype=th.long)],
                     dim=0)
-    g = dgl.graph((src, dst))
+    g = dgl._deprecate.graph.DGLGraph((src, dst))
     g.edata['tid'] = etype
 
     _check_topk_score2(score_model, g, num_entity, num_rels, exclude_mode)

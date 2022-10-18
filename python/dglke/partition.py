@@ -111,7 +111,7 @@ def main():
     src, etype_id, dst = dataset.train
     coo = sp.sparse.coo_matrix((np.ones(len(src)), (src, dst)),
             shape=[dataset.n_entities, dataset.n_entities])
-    g = dgl.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
+    g = dgl._deprecate.graph.DGLGraph(coo, readonly=True, multigraph=True, sort_csr=True)
     g.edata['tid'] = F.tensor(etype_id, F.int64)
 
     print('partition graph...')
