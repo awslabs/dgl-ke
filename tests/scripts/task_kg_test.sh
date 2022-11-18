@@ -34,10 +34,10 @@ conda activate ${DGLBACKEND}-ci
 # test
 if [ "$2" == "cpu" ]; then
     pip3 uninstall dgl
-    pip3 install dgl==0.4.3post2
+    pip3 install dgl>=0.5.0,<=0.9.1
 else
     pip3 uninstall dgl
-    pip3 install dgl-cu102==0.4.3post2
+    pip3 install dgl-cu102>=0.5.0,<=0.9.1
 fi
 
 pushd $KG_DIR> /dev/null

@@ -50,7 +50,7 @@ class dotdict(dict):
 
 def generate_rand_graph(n, func_name):
     arr = (sp.sparse.random(n, n, density=0.1, format='coo') != 0).astype(np.int64)
-    g = dgl.DGLGraph(arr, readonly=True)
+    g = dgl._deprecate.graph.DGLGraph(arr, readonly=True)
     num_rels = 10
     entity_emb = F.uniform((g.number_of_nodes(), 10), F.float32, F.cpu(), 0, 1)
     if func_name == 'RotatE':
