@@ -23,7 +23,7 @@ import os
 import dgl
 from dgl import backend as F
 from dgl.data.utils import load_graphs, save_graphs
-
+from packaging.version import Version
 from .dataloader import get_dataset
 
 def write_txt_graph(path, file_name, part_dict, total_nodes, total_relations):
@@ -115,8 +115,10 @@ def main():
     g.edata['tid'] = F.tensor(etype_id, F.int64)
 
     print('partition graph...')
-
-    part_dict = dgl.transform.metis_partition(g, num_parts, 1)
+    if Version(dgl.__version__) >= Version('0.8'):
+        part_dict = dgl.transforms.metis_partition(g, num_parts, 1)
+    else:
+        part_dict = dgl.transform.metis_partition(g, num_parts, 1)
 
     tot_num_inner_edges = 0
     for part_id in part_dict:
