@@ -927,7 +927,7 @@ is give by:
 .. math::
 
 
-   minimize \sum_{(h,r,t)\in \mathbb{D}^+}\sum_{(h,r,t)\in \mathbb{D}^-}max(0, \gamma - f(h,r,t)+f(h',r', t')).
+   minimize \sum_{(h',r',t')\in \mathbb{D}^+}\sum_{(h,r,t)\in \mathbb{D}^-}max(0, \gamma - f(h,r,t)+f(h',r', t')).
 
 +-------------+--------------------------------+-----------------------------------------------------------+--------------------------------+------------------+----------------------+----------------------+----------------------+----------------------+
 | Method      | Ent. Embedding                 | Rel. Emebedding                                           | Score Function                 | Complexity       | symm                 | Anti                 | Inv                  | Comp                 |
