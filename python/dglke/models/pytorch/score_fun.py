@@ -161,9 +161,8 @@ class TransRScore(nn.Module):
                 head = head.reshape(num_chunks, -1, self.relation_dim)
 
                 # neg node, each project to all relations
-                tail = tail.reshape(num_chunks, 1, -1, self.entity_dim)
-                # (num_chunks, num_rel, num_neg_nodes, rel_dim)
-                tail = th.matmul(tail, projection)
+                tail = tail.reshape(num_chunks, -1, self.entity_dim)
+                tail = th.einsum('acd,abde->abce',tail, projection)
                 return head, tail
             return fn
 
@@ -213,7 +212,7 @@ class TransRScore(nn.Module):
         else:
             def fn(heads, relations, tails, num_chunks, chunk_size, neg_sample_size):
                 relations = relations.reshape(num_chunks, -1, self.relation_dim)
-                heads = heads - relations
+                heads = heads + relations
                 heads = heads.reshape(num_chunks, -1, 1, self.relation_dim)
                 score = heads - tails
                 return gamma - th.norm(score, p=1, dim=-1)
@@ -441,9 +440,8 @@ class RESCALScore(nn.Module):
                 hidden_dim = heads.shape[1]
                 tails = tails.reshape(num_chunks, neg_sample_size, hidden_dim)
                 tails = th.transpose(tails, 1, 2)
-                heads = heads.unsqueeze(-1)
                 relations = relations.view(-1, self.relation_dim, self.entity_dim)
-                tmp = th.matmul(relations, heads).squeeze(-1)
+                tmp = th.einsum('ab,abc->ac', heads, relations)
                 tmp = tmp.reshape(num_chunks, chunk_size, hidden_dim)
                 return th.bmm(tmp, tails)
             return fn

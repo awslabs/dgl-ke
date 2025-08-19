@@ -181,6 +181,32 @@ def check_score_func(func_name):
         np.testing.assert_allclose(F.asnumpy(score1), F.asnumpy(score2),
                                    rtol=1e-5, atol=1e-5)
 
+    sampler = EdgeSampler(g, batch_size=batch_size,
+                          neg_sample_size=neg_sample_size,
+                          negative_mode='chunk-tail',
+                          num_workers=1,
+                          shuffle=False,
+                          exclude_positive=False,
+                          return_false_neg=False)
+
+    for pos_g, neg_g in sampler:
+        neg_g = create_neg_subgraph(pos_g,
+                                    neg_g,
+                                    neg_sample_size,
+                                    neg_sample_size,
+                                    True,
+                                    False,
+                                    g.number_of_nodes())
+        pos_g.copy_from_parent()
+        neg_g.copy_from_parent()
+        score1 = F.reshape(model.predict_score(neg_g), (batch_size, -1))
+        score2 = model.predict_neg_score(pos_g, neg_g)
+        score2 = F.reshape(score2, (batch_size, -1))
+        np.testing.assert_allclose(F.asnumpy(score1), F.asnumpy(score2),
+                                   rtol=1e-5, atol=1e-5)
+
+
+
 def test_score_func_transe():
     check_score_func('TransE')
     check_score_func('TransE_l1')
