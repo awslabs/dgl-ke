@@ -95,6 +95,10 @@ class ArgParser(argparse.ArgumentParser):
                           help='IP configuration file of kvstore')
         self.add_argument('--total_client', type=int, default=1,
                           help='Total number of client worker nodes')
+        self.add_argument('--has_edge_importance', action='store_true',
+                          help='Allow providing edge importance score for each'\
+                          ' edge during training. The positive score will be '\
+                          'adjusted as pos_score = pos_score * edge_importance')
 
 def get_server_data(args, machine_id):
    """Get data from data_path/dataset/part_machine_id

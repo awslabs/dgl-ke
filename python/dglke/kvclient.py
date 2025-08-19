@@ -48,6 +48,10 @@ class ArgParser(CommonArgParser):
                           help='IP configuration file of kvstore')
         self.add_argument('--num_client', type=int, default=1,
                           help='Number of client on each machine.')
+        self.add_argument('--has_edge_importance', action='store_true',
+                          help='Allow providing edge importance score for each'\
+                          ' edge during training. The positive score will be '\
+                          'adjusted as pos_score = pos_score * edge_importance')
 
 def get_long_tail_partition(n_relations, n_machine):
     """Relation types has a long tail distribution for many dataset.
