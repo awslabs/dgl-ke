@@ -20,7 +20,7 @@ Currently DGL-KE support three tasks:
   entities/relations linkage predicting inference tasks using `dglke_predict` or do the embedding similarity  inference tasks using `dglke_emb_sim`.
 
 ### Note
-If you just want to train a KGE model using TransE, DistMult, RotatE, please goto https://github.com/awslabs/graphstorm.
+If you just want to train a KGE model using TransE, DistMult, RotatE and any other production usage, please goto https://github.com/awslabs/graphstorm. 
 
 ### A Quick Start
 
