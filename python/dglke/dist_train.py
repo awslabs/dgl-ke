@@ -87,7 +87,7 @@ def run_cmd(cmd_str):
     """run command
     """
     os.environ['PATH'] = '/usr/local/bin:/bin:/usr/bin:/sbin/'
-    process = subprocess.Popen(cmd_str, shell=True, env=os.environ)
+    # process = subprocess.Popen(cmd_str, shell=True, env=os.environ)
     return process
 
 def wait_job(process, cmd_str):
